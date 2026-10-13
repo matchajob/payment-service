@@ -1,0 +1,27 @@
+# Dependencies and build output
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Secrets. .env.example is tracked.
+.env
+.env.local
+.env.*.local
+.env.test
+deploy/.secrets
+
+# Local tooling state
+.claude/settings.local.json
+.claude/worktrees/
+.remember/
+.scratch/
+*.log
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
+
+# Source docs that have been converted; PRD.md is the tracked form
+*.docx

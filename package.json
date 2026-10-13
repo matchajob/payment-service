@@ -1,0 +1,23 @@
+{
+  "name": "payment-service",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.0.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@matcha/infra": "github:leomerl/job-platform#8e4e985168c06d6d60aec1a007ee579e4aa0ec97&path:src/infra",
+    "drizzle-orm": "^0.45.2",
+    "pino": "^10.3.1",
+    "postgres": "^3.4.5",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.18",
+    "typescript": "^5.8.3"
+  }
+}
