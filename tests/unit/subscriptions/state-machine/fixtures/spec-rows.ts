@@ -2,7 +2,13 @@ import type { Effect } from '@/lib/subscriptions/state-machine/effects';
 import type { LifecycleEvent } from '@/lib/subscriptions/state-machine/lifecycle-events';
 import type { OutboundEventType } from '@/lib/subscriptions/state-machine/outbound-event-types';
 import type { SubscriptionState } from '@/lib/subscriptions/state-machine/subscription-state';
-import { active, canceled, flagged, incomplete, pastDue } from '@tests/unit/subscriptions/state-machine/fixtures/states';
+import {
+  active,
+  canceled,
+  flagged,
+  incomplete,
+  pastDue,
+} from '@tests/unit/subscriptions/state-machine/fixtures/states';
 
 export type SpecRow = {
   label: string;

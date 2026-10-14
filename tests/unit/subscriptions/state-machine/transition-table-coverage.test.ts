@@ -1,5 +1,6 @@
 import { describe, expectTypeOf, it } from 'vitest';
 import type { LifecycleEvent } from '@/lib/subscriptions/state-machine/lifecycle-events';
+import type { STATE_KEY } from '@/lib/subscriptions/state-machine/state-key';
 import type { TABLE } from '@/lib/subscriptions/state-machine/transition-table';
 
 type Table = typeof TABLE;
@@ -11,6 +12,6 @@ describe('transition table coverage', () => {
   });
 
   it('keeps canceled terminal (D6)', () => {
-    expectTypeOf<keyof Table['canceled']>().toEqualTypeOf<never>();
+    expectTypeOf<keyof Table[typeof STATE_KEY.CANCELED]>().toEqualTypeOf<never>();
   });
 });
