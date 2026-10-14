@@ -1,8 +1,11 @@
-export type BillingInterval = 'month' | 'year';
+import { BILLING_INTERVAL, type BillingInterval } from '@/lib/subscriptions/billing-interval';
 
 const MONTHS_PER_YEAR = 12;
 const LAST_DAY_OF_PREVIOUS_MONTH = 0;
-const MONTHS_IN_INTERVAL: Record<BillingInterval, number> = { month: 1, year: MONTHS_PER_YEAR };
+const MONTHS_IN_INTERVAL: Record<BillingInterval, number> = { 
+  [BILLING_INTERVAL.MONTH]: 1,
+  [BILLING_INTERVAL.YEAR]: MONTHS_PER_YEAR,
+};
 
 const daysInMonth = (year: number, monthIndex: number): number =>
   new Date(Date.UTC(year, monthIndex + 1, LAST_DAY_OF_PREVIOUS_MONTH)).getUTCDate();

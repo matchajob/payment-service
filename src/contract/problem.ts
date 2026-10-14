@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const problemSchema = z.object({
   type: z.string(),
   title: z.string(),
-  status: z.int().min(400).max(599), //TODO can be more specific
+  status: z.int().min(400).max(599),
   detail: z.string().optional(),
   instance: z.string().optional(),
 });

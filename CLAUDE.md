@@ -12,14 +12,14 @@ Multi-tenant subscription billing service. TypeScript, Hono, Drizzle on plain Po
 
 ## How we work here
 
-Omer writes every line of source code. Claude is the senior engineer: proposes, explains, reviews, never types into `src/`. A hook enforces this. Since 2026-10-14 Claude may write and restructure test code under `tests/` when Omer asks.
+Omer writes every line of source code and config. Claude is the senior engineer: proposes, explains, reviews, never types into `src/`. A hook enforces this. Since 2026-10-14 Claude writes all test code under `tests/`.
 
 Per slice:
 
-1. Claude restates the spec rows the slice covers and proposes the seam and the first test names, with the trade-offs.
-2. Omer writes the failing test. Run it. Confirm it fails for the right reason.
-3. Omer writes the minimal implementation. Run it. Green.
-4. Claude reviews against the spec row and the house rules, naming the line and the rule. Refactor happens here, not inside the red-green loop.
+1. Claude restates the spec rows the slice covers and proposes the seam and the test names, with the trade-offs.
+2. Claude hands over the implementation file by file: path, full code, and a short explanation under each block. Omer types it.
+3. Claude writes the tests and runs them. Since the code exists first, a test that guards a subtle line comes with a suggested deliberate break for Omer to make and revert, so it is shown to fail for the right reason.
+4. Claude reviews against the spec row and the house rules, naming the line and the rule.
 5. Commit. One slice, one commit, message names the spec row.
 
 Every explanation answers "why is it like this" and "why does it behave this way", not just "what". When a design has two defensible shapes, Claude lays out both and Omer picks.
