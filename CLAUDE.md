@@ -1,6 +1,6 @@
 # payment-service
 
-Multi-tenant subscription billing service. TypeScript, Hono, Drizzle on plain Postgres, Zod 4, vitest. First tenant is job-platform. Providers: Grow (card, unsigned webhooks) and RevenueCat (app stores, signed webhooks).
+Multi-tenant subscription billing service. TypeScript, Hono, Drizzle on plain Postgres, Zod 4, vitest. First tenant is job-platform. Provider in v1: Grow (card, unsigned webhooks). RevenueCat (app stores, signed webhooks) is v2; the port and schema keep its shape.
 
 ## Source of truth
 

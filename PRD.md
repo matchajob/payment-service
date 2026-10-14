@@ -11,7 +11,7 @@
 
 The payment service manages recurring subscriptions on behalf of multiple tenants. It owns the subscription state machine, schedules and executes renewal charges, deduplicates requests via idempotency keys, ingests webhooks from payment providers, and emits signed webhooks to tenants describing every state change.
 
-The first tenant is the job-platform app. The first providers are Grow (card gateway, unsigned webhooks) and RevenueCat (store adapter for Apple and Google, signed webhooks).
+The first tenant is the job-platform app. The first provider is Grow (card gateway, unsigned webhooks). RevenueCat (store adapter for Apple and Google, signed webhooks) is designed for in the port and schema but deferred to v2.
 
 ### 1.1 Goals
 
@@ -29,6 +29,7 @@ The first tenant is the job-platform app. The first providers are Grow (card gat
 - Resurrecting a canceled subscription. Resubscription is a new row.
 - Alerting or automation around dead-letter events (D13).
 - Post-cancel downgrade behaviour in the tenant application (see 1.3).
+- The RevenueCat adapter and external mode (section 2.3). Decided 2026-10-14. `scheduleOwner` and the provider capability flags stay in the schema and port so v2 adds an adapter, not a migration of the core.
 
 ### 1.3 Product Constraints and Consequences
 

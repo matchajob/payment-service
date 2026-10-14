@@ -55,7 +55,7 @@ What you learn: what each strict flag rejects and why `verbatimModuleSyntax` is 
 Blocked by: 0.1, 0.0 test database.
 
 - [ ] `docker-compose.yml` with Postgres.
-- [ ] `drizzle.config.ts`, `src/lib/db.ts` using `createDB` from `@matcha/infra/domain-drizzle`.
+- [ ] `drizzle.config.ts`, `src/lib/db.ts` with `createDb(url)` built on `resolveDbProvider` from `@matcha/infra/postgres/resolve` (infra has no `createDB`; the app owns the drizzle instance).
 - [ ] Migration scripts `db:generate`, `db:migrate`.
 - [ ] One throwaway table to prove the loop, deleted in slice 1.
 
@@ -142,7 +142,7 @@ Spec: Spec 1 transition table, both schedule owners.
 
 - [ ] `src/lib/subscriptions/state-machine.ts`: a table of `(state, flag, event, scheduleOwner) → outcome` where outcome is a new state plus effects, or a rejection with a reason.
 - [ ] Exhaustive unit tests: every row in the spec table, every absent pair rejected, `canceled` rejects everything. A type-level test that the table covers every state and event.
-- [ ] Decide and record the `past_due` + flag behaviour (PRD open question 4) as an ADR before writing those rows.
+- [x] Decided 2026-10-14, `docs/adr/0005-past-due-with-cancel-flag.md`: the pair is unreachable. No rows for it, a check constraint in slice 4, and the exhaustiveness test treats it as an absent pair.
 
 Delivers: the heart of the service as a pure module with no IO, understood line by line.
 
@@ -205,8 +205,8 @@ Blocked by: 0.1 only. Can run early.
 
 Spec: `spec/charging-and-dunning.md` period anchoring and advancement.
 
-- [ ] Pure `nextPeriodEnd(previousEnd, anchorDay, interval)` with month-end clamp and a persistent anchor.
-- [ ] Tests: Jan 31 → Feb 28 → Mar 31; Feb 29 leap year; monthly and yearly intervals; UTC only.
+- [x] Pure `advancePeriod(previousEnd, anchorDay, interval)` with month-end clamp and a persistent anchor, plus `startPeriod(activatedAt, interval)` returning the anchor so activation cannot forget to store it.
+- [x] Tests: Jan 31 → Feb 28 → Mar 31; Feb 29 leap year; monthly and yearly intervals; UTC only; time of day preserved.
 
 Delivers: the one function the predecessor got wrong, correct and proven before any cron exists.
 
@@ -288,7 +288,9 @@ Blocked by: 5. Can start once the port is exercised.
 
 Delivers: a real card checkout in Grow's sandbox activates a subscription.
 
-### 14. RevenueCat adapter and external mode
+### 14. RevenueCat adapter and external mode. Deferred to v2 (decided 2026-10-14)
+
+Not part of v1. Kept here so the port and schema stay shaped for it: `scheduleOwner` and the `signedWebhooks` / `providerManagedSchedule` capability flags are in the spec and cost nothing, so slices 4 and 5 keep them. Every v1 row is `scheduleOwner: self`, and no v1 code path handles `external`.
 
 Blocked by: 10, 13 for the layering pattern.
 
@@ -333,4 +335,4 @@ Slices with no unfinished blockers right now: **0.0**. After 0.0, slices **0.1**
 
 ## Deliberately not in the plan
 
-Plan changes, trials, proration, multi-currency, hard-decline short-circuiting, refunds, alerting on dead letters. All listed as out of scope in `PRD.md`. The `refunds` capability flag exists in the port but no slice implements a refund.
+Plan changes, trials, proration, multi-currency, hard-decline short-circuiting, refunds, alerting on dead letters, and the RevenueCat adapter with external mode (slice 14, v2). All listed as out of scope in `PRD.md`. The `refunds` capability flag exists in the port but no slice implements a refund.

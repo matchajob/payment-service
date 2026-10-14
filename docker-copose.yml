@@ -1,0 +1,11 @@
+services:
+  postgres:
+    image: postgrest:17
+    ports:
+      - '54329:54329'
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: payment_service
+    volumes:
+      - ./docker/init-test-db.sql:docker-entrypoiny-initdb.d/init-test-db.sql:ro
