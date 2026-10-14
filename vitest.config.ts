@@ -9,7 +9,8 @@ export default defineConfig({
     resolve: {
         alias: {
             '@': fileURLToPath(new URL('./src', import.meta.url)),
-            '@matcha/infra': fileURLToPath(new URL('./node_modules/@matcha/infra', import.meta.url))
+            '@matcha/infra': fileURLToPath(new URL('./node_modules/@matcha/infra', import.meta.url)),
+            '@tests': fileURLToPath(new URL('./tests', import.meta.url)),
         },
     },
     test: {
