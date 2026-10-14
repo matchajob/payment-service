@@ -1,0 +1,115 @@
+import { describe, expect, it } from 'vitest';
+import { createCustomer, CREATE_CUSTOMER_OUTCOME } from '@/lib/customers/create-customer';
+import type { Database } from '@/lib/db';
+import { SUBSCRIPTION_STATUS } from '@/lib/subscriptions/state-machine/subscription-status';
+import { testDb, withRollback } from '@tests/utils/db';
+import { insertSubscription, PERIOD_END, seedSubscriptionParents } from '@tests/utils/subscription-rows';
+import { violatedConstraint } from '@tests/utils/violated-constraint';
+
+const CANCEL_FLAG_ONLY_ON_ACTIVE = 'subscriptions_cancel_flag_only_on_active';
+const INCOMPLETE_HAS_NO_PERIOD = 'subscriptions_incomplete_has_no_period';
+const LIVE_HAS_PERIOD = 'subscriptions_live_has_period';
+const ONE_LIVE_PER_CUSTOMER = 'subscriptions_one_live_per_customer';
+const OTHER_EXTERNAL_REF = 'user-43';
+
+const { INCOMPLETE, ACTIVE, PAST_DUE, CANCELED } = SUBSCRIPTION_STATUS;
+
+describe('subscriptions table constraints', () => {
+  describe('cancelAtPeriodEnd is only allowed on active (ADR 0005)', () => {
+    it('accepts the flag on an active subscription', async () => {
+      await withRollback(testDb(), async (tx) => {
+        const parents = await seedSubscriptionParents(tx);
+        const write = (db: Database) =>
+          insertSubscription(db, parents, { status: ACTIVE, currentPeriodEnd: PERIOD_END, cancelAtPeriodEnd: true });
+        expect(await violatedConstraint(tx, write)).toBeUndefined();
+      });
+    });
+
+    it.each([
+      { status: INCOMPLETE, currentPeriodEnd: null },
+      { status: PAST_DUE, currentPeriodEnd: PERIOD_END },
+      { status: CANCELED, currentPeriodEnd: PERIOD_END },
+    ])('rejects the flag on $status', async (row) => {
+      await withRollback(testDb(), async (tx) => {
+        const parents = await seedSubscriptionParents(tx);
+        const write = (db: Database) => insertSubscription(db, parents, { ...row, cancelAtPeriodEnd: true });
+        expect(await violatedConstraint(tx, write)).toBe(CANCEL_FLAG_ONLY_ON_ACTIVE);
+      });
+    });
+  });
+
+  describe('currentPeriodEnd follows the status', () => {
+    it.each([
+      { status: INCOMPLETE, currentPeriodEnd: null },
+      { status: ACTIVE, currentPeriodEnd: PERIOD_END },
+      { status: PAST_DUE, currentPeriodEnd: PERIOD_END },
+      { status: CANCELED, currentPeriodEnd: null },
+      { status: CANCELED, currentPeriodEnd: PERIOD_END },
+    ])('accepts $status with period end $currentPeriodEnd', async (row) => {
+      await withRollback(testDb(), async (tx) => {
+        const parents = await seedSubscriptionParents(tx);
+        expect(await violatedConstraint(tx, (db) => insertSubscription(db, parents, row))).toBeUndefined();
+      });
+    });
+
+    it('rejects an incomplete subscription that has a period end', async () => {
+      await withRollback(testDb(), async (tx) => {
+        const parents = await seedSubscriptionParents(tx);
+        const write = (db: Database) =>
+          insertSubscription(db, parents, { status: INCOMPLETE, currentPeriodEnd: PERIOD_END });
+        expect(await violatedConstraint(tx, write)).toBe(INCOMPLETE_HAS_NO_PERIOD);
+      });
+    });
+
+    it.each([ACTIVE, PAST_DUE])('rejects a %s subscription without a period end', async (status) => {
+      await withRollback(testDb(), async (tx) => {
+        const parents = await seedSubscriptionParents(tx);
+        const write = (db: Database) => insertSubscription(db, parents, { status, currentPeriodEnd: null });
+        expect(await violatedConstraint(tx, write)).toBe(LIVE_HAS_PERIOD);
+      });
+    });
+  });
+
+  describe('one live subscription per customer', () => {
+    it.each([
+      [ACTIVE, ACTIVE],
+      [ACTIVE, PAST_DUE],
+      [PAST_DUE, PAST_DUE],
+    ])('rejects a second live row: %s then %s', async (first, second) => {
+      await withRollback(testDb(), async (tx) => {
+        const parents = await seedSubscriptionParents(tx);
+        await insertSubscription(tx, parents, { status: first, currentPeriodEnd: PERIOD_END });
+        const write = (db: Database) =>
+          insertSubscription(db, parents, { status: second, currentPeriodEnd: PERIOD_END });
+        expect(await violatedConstraint(tx, write)).toBe(ONE_LIVE_PER_CUSTOMER);
+      });
+    });
+
+    it('allows any number of incomplete and canceled rows beside the live one', async () => {
+      await withRollback(testDb(), async (tx) => {
+        const parents = await seedSubscriptionParents(tx);
+        await insertSubscription(tx, parents, { status: ACTIVE, currentPeriodEnd: PERIOD_END });
+        await insertSubscription(tx, parents, { status: INCOMPLETE });
+        await insertSubscription(tx, parents, { status: INCOMPLETE });
+        await insertSubscription(tx, parents, { status: CANCELED });
+        await insertSubscription(tx, parents, { status: CANCELED, currentPeriodEnd: PERIOD_END });
+      });
+    });
+
+    it('lets two different customers each have a live subscription', async () => {
+      await withRollback(testDb(), async (tx) => {
+        const parents = await seedSubscriptionParents(tx);
+        const other = await createCustomer(tx, parents.tenantId, OTHER_EXTERNAL_REF);
+        if (other.outcome !== CREATE_CUSTOMER_OUTCOME.CREATED) throw new Error('second customer already existed');
+        await insertSubscription(tx, parents, { status: ACTIVE, currentPeriodEnd: PERIOD_END });
+        const write = (db: Database) =>
+          insertSubscription(
+            db,
+            { ...parents, customerId: other.customer.customerId },
+            { status: ACTIVE, currentPeriodEnd: PERIOD_END },
+          );
+        expect(await violatedConstraint(tx, write)).toBeUndefined();
+      });
+    });
+  });
+});

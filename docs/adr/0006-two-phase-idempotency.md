@@ -25,7 +25,7 @@ Spec 3 also says error responses are stored and replayed, and it does not say wh
 
 ## Consequences
 
-- Slice 4's provider call fits between the phases, as the slice 4 note requires: the reservation is visible, the provider is called with no transaction open, and phase 2 records the result.
+- Slice 4's provider call runs inside phase 2, before the handler's first write (amended 2026-10-15). The reservation transaction of the Spec 3 note is phase 1, which has already committed. Phase 2 holds no row locks during the call, a provider failure rolls back nothing and releases the key, and the only cost is one pooled connection idling for the call's duration. An insert that fails after a successful call leaves an orphan checkout whose URL was never returned to anyone.
 - Handlers get their database handle from the request context (`c.get('db')`), never from a closure, so their writes go through phase 2's transaction.
 - A transient outage costs the tenant one `500` and a retry, not a key that replays the `500` for 24 hours.
 - Shape (b) stays available if a future handler needs strict single-transaction semantics and has no external call.

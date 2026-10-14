@@ -6,6 +6,7 @@ import { CREATE_CUSTOMER_OUTCOME, createCustomer } from '@/lib/customers/create-
 import { findCustomer } from '@/lib/customers/find-customer';
 import { zCustomerCreate, zCustomerRead, type Customer } from '@/lib/customers/schema';
 import type { CustomerResponse } from '@/contract/customer-response';
+import { readJsonBody } from '@/api/read-json-body';
 
 const createBody = zCustomerCreate.pick({ externalRef: true });
 const customerIdParam = zCustomerRead.shape.customerId;
@@ -17,7 +18,7 @@ const toResponse = ({ customerId, externalRef }: Customer): CustomerResponse => 
 export const customersRoutes = () =>
   new Hono<AppEnv>()
     .post('/', async (c) => {
-      const body = createBody.safeParse(await c.req.json().catch(() => undefined));
+      const body = createBody.safeParse(await readJsonBody(c));
       if (!body.success) return problemResponse(c, HTTP_STATUS.BAD_REQUEST, body.error.message);
       const result = await createCustomer(c.get('db'), c.get('tenant').tenantId, body.data.externalRef);
       if (result.outcome === CREATE_CUSTOMER_OUTCOME.DUPLICATE) {

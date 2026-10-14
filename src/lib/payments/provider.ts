@@ -1,3 +1,6 @@
+import type { Currency } from '@/lib/money/currency';
+import type { CheckoutMode } from '@/lib/payments/checkout-mode';
+
 export type ProviderCapabilities = {
   selfManagedSchedule: boolean;
   providerManagedSchedule: boolean;
@@ -5,10 +8,13 @@ export type ProviderCapabilities = {
   refunds: boolean;
 };
 
-export type CheckoutMode = 'charge' | 'capture';
-
-//TODO maybe add zod for giving harder restriction than strings
-export type CheckoutRequest = { mode: CheckoutMode; customerRef: string; amountMinor: number; returnUrl: string };
+export type CheckoutRequest = {
+  mode: CheckoutMode;
+  reference: string;
+  amountMinor: number;
+  currency: Currency;
+  returnUrl: string;
+};
 export type CheckoutSession = { checkoutUrl: string; providerSessionRef: string };
 
 export type ChargeRequest = { paymentMethodToken: string; amountMinor: number; dedupKey: string };

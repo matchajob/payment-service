@@ -164,10 +164,18 @@ Blocked by: 2, 3.
 
 Spec: S1 r1.
 
-- [ ] `subscriptions` entity: customer ref, plan ref, status, `scheduleOwner`, `currentPeriodEnd`, `anchorDay`, `cancelAtPeriodEnd`, `canceledAt`, dunning attempt counter, sequence counter.
-- [ ] `PaymentProvider` port in `src/lib/payments/provider.ts`, written fresh from the capabilities interface in the PRD.
-- [ ] `POST /v1/subscriptions`: creates `incomplete`, calls `startCheckout` on the fake provider, returns `checkoutUrl`.
-- [ ] The provider call runs outside the idempotency reservation transaction (Spec 3 note). Test that a provider failure leaves no subscription row and no reserved key in a bad state.
+- [x] `subscriptions` entity: customer ref, plan ref, status, `scheduleOwner`, `currentPeriodEnd`, `anchorDay`, `cancelAtPeriodEnd`, `canceledAt`, dunning attempt counter, sequence counter. Three check constraints (cancel flag only on `active`, ADR 0005; `incomplete` has no period; `active` and `past_due` have one), with enum values inlined through `sqlLiteral` because DDL takes no parameters.
+- [x] `PaymentProvider` port in `src/lib/payments/provider.ts`, written fresh from the capabilities interface in the PRD.
+- [x] `POST /v1/subscriptions`: creates `incomplete`, calls `startCheckout` on the fake provider, returns `checkoutUrl`. Amount and currency come from the plan row; `returnUrl` must be http(s).
+- [x] The provider call runs outside the reservation transaction (Spec 3 note): phase 1 has committed, and the call runs in phase 2 before any write. Tested: a provider failure leaves no subscription row and no reserved key, and a replay does not call the provider twice.
+
+Decided 2026-10-15:
+
+- `startCheckout` runs inside phase 2, before any write (ADR 0006 amendment). The subscription id is generated first and sent as the checkout `reference`, so slice 5's webhook maps straight back to the row.
+- At most one `active` or `past_due` subscription per customer, enforced by a partial unique index. Several `incomplete` rows are allowed so an abandoned checkout never blocks a retry.
+- The provider port gains `currency` and renames `customerRef` to `reference`.
+- Until slice 13, `server.ts` wires an unconfigured provider that throws, so `POST /v1/subscriptions` is `500` outside tests.
+- A customer or plan from another tenant is `404`.
 
 Delivers: a tenant starts a checkout and gets a URL.
 
@@ -184,6 +192,7 @@ Spec: S1 r2, Spec 4 rules 1 to 7, Spec 5 rules 1 and 3.
 - [ ] Period 1 computed: `currentPeriodEnd`, `anchorDay` stored.
 - [ ] `outbox_events` entity. `subscription.activated` written in the same transaction with the full snapshot and sequence 1. Not delivered yet.
 - [ ] Tests: replayed webhook processes once; payload claiming a different amount is ignored; bad signature is rejected and logged; garbage returns `200`; internal failure returns `5xx`; a webhook for a `canceled` subscription is a logged no-op.
+- [ ] Decide before coding: a customer may hold several `incomplete` checkouts (slice 4), so two can be paid. The second activation hits `subscriptions_one_live_per_customer` after money moved. The handler must catch that case explicitly (cancel the second row, flag the charge for refund, emit an event), never let it surface as a `5xx` that the provider retries forever.
 
 Delivers: a fake checkout completion activates the subscription and leaves one outbox row.
 

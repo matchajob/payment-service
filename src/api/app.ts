@@ -13,13 +13,15 @@ import type { Clock } from '@/lib/clock';
 import { idempotency } from '@/api/idempotency';
 import { cronAuth } from '@/api/cron-auth';
 import { cronRoutes } from '@/api/routes/cron';
+import type { PaymentProvider } from '@/lib/payments/provider';
+import { subscriptionsRoutes } from '@/api/routes/subscriptions';
 
-export type AppDeps = { logger: Logger; db: Database; clock: Clock; cronSecret: string };
+export type AppDeps = { logger: Logger; db: Database; clock: Clock; cronSecret: string; provider: PaymentProvider };
 
 const V1 = '/v1/*';
 const CRON_PREFIX = '/internal/cron';
 
-export const createApp = ({ logger, db, clock, cronSecret }: AppDeps) => {
+export const createApp = ({ logger, db, clock, cronSecret, provider }: AppDeps) => {
   const app = new Hono<AppEnv>();
 
   app.use(requestLogger(logger));
@@ -31,6 +33,7 @@ export const createApp = ({ logger, db, clock, cronSecret }: AppDeps) => {
   app.route('/v1/plans', plansRoutes());
   app.route('/v1/customers', customersRoutes());
   app.route(CRON_PREFIX, cronRoutes(clock));
+  app.route('/v1/subscriptions', subscriptionsRoutes(provider));
 
   app.get('/health', (c) => c.json({ ok: true }));
   app.notFound((c) => problemResponse(c, HTTP_STATUS.NOT_FOUND, c.req.path));
