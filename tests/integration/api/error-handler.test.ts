@@ -3,9 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { createApp } from '@/api/app';
 import { problemSchema } from '@/contract/problem';
 import { capturingLogger } from '@tests/utils/capturing-logger';
+import { testDb } from '@tests/utils/db';
 
+const db = testDb();
 const boomApp = (logger: Logger) => {
-  const app = createApp({ logger });
+  const app = createApp({ logger, db });
   app.get('/boom', () => {
     throw new Error('boom');
   });

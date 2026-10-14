@@ -54,10 +54,10 @@ What you learn: what each strict flag rejects and why `verbatimModuleSyntax` is 
 
 Blocked by: 0.1, 0.0 test database.
 
-- [ ] `docker-compose.yml` with Postgres.
-- [ ] `drizzle.config.ts`, `src/lib/db.ts` with `createDb(url)` built on `resolveDbProvider` from `@matcha/infra/postgres/resolve` (infra has no `createDB`; the app owns the drizzle instance).
-- [ ] Migration scripts `db:generate`, `db:migrate`.
-- [ ] One throwaway table to prove the loop, deleted in slice 1.
+- [x] `docker-compose.yml` with Postgres.
+- [x] `drizzle.config.ts`, `src/lib/db.ts` with `createDb(url)` built on `resolveDbProvider` from `@matcha/infra/postgres/resolve` (infra has no `createDB`; the app owns the drizzle instance).
+- [x] Migration scripts `db:generate`, `db:migrate`. Decided 2026-10-14: `drizzle/` is gitignored during local development, so CI must run `db:generate` before tests. Revisit before slice 16: production needs reviewed, incremental migrations.
+- [x] One throwaway table to prove the loop, deleted in slice 1. `loop_probe` in `src/lib/loop-probe/schema.ts`.
 
 Delivers: a migration generated, applied, and queried from a test.
 
@@ -65,9 +65,9 @@ Delivers: a migration generated, applied, and queried from a test.
 
 Blocked by: 0.1.
 
-- [ ] Hono app in `src/api`, `GET /health`.
-- [ ] Problem+json error shape in `src/contract/problem.ts` and a Hono error handler that produces it.
-- [ ] Request logging with `pino` directly, logger injected into `createApp`. `@matcha/infra/pino` is only an SLO sink, not a request logger.
+- [x] Hono app in `src/api`, `GET /health`.
+- [x] Problem+json error shape in `src/contract/problem.ts` and a Hono error handler that produces it.
+- [x] Request logging with `pino` directly, logger injected into `createApp`. `@matcha/infra/pino` is only an SLO sink, not a request logger.
 
 Delivers: a test that calls `app.request('/health')` and asserts the body, and a test that an unknown route returns problem+json.
 
@@ -77,10 +77,9 @@ What you learn: why errors are a contract, not an afterthought, and how one erro
 
 Blocked by: 0.2, 0.3.
 
-- [ ] Integration test setup: connect, migrate, transaction-per-test helper.
-- [ ] Injected clock type and a fake clock.
-- [ ] `FakePaymentProvider` implementing the `PaymentProvider` port with scripted responses and a call log.
-- [x] Moved 2026-10-14: `FakeTenantEndpoint` is built in slice 6, its first user. Its interface follows the outbound signing and delivery rules decided there.
+- [x] Integration test setup: connect, migrate (vitest globalSetup, once per run), transaction-per-test helper.
+- [x] Injected clock type and a fake clock.
+- [x] `FakePaymentProvider` implementing the `PaymentProvider` port with scripted responses and a call log.
 
 Delivers: one integration test that writes a row inside the helper and proves it is gone afterwards.
 
@@ -110,6 +109,14 @@ Spec: tenant billing policy table in Spec 1, D8 plan immutability.
 - [ ] `POST /v1/customers`, `GET /v1/customers/:id`, `GET /v1/plans`.
 - [ ] `src/contract` zod schemas for each, with `Expect<Equals<>>` drift tests against the DZD read schemas.
 - [ ] Seed script that creates a tenant and a plan.
+
+Decided 2026-10-14:
+
+- Four commits: 1.1 tenants and auth middleware, 1.2 plans and `GET /v1/plans`, 1.3 customers, routes and isolation, 1.4 contract drift tests, seed, and deleting `loop_probe`.
+- The API key travels as `Authorization: Bearer <key>`, stored as a SHA-256 hash and looked up by it. Keys are 32 random bytes, so a slow hash adds nothing, and a salted one cannot be found with a `WHERE`.
+- A duplicate `externalRef` for the same tenant is `409` problem+json, backed by a unique `(tenant_id, external_ref)`. Retries are slice 2's job.
+- A cross-tenant read is `404`, never `403`, so ids do not leak existence.
+- "One plan per tenant" (PRD 1.3) means one sellable plan, not a unique constraint. A price change is a new row (D8), and old rows stay for their subscribers.
 
 Delivers: a tenant can authenticate and create a customer. Two tenants cannot see each other's rows.
 
