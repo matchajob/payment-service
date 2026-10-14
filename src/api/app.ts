@@ -1,34 +1,19 @@
 import { Hono } from 'hono';
-import type { Problem } from '@/contract/problem';
+import type { Logger } from 'pino';
+import { HTTP_STATUS } from '@/api/http-status';
+import { problemResponse } from '@/api/problem-response';
+import { requestLogger } from '@/api/request-logger';
 
-const PROBLEM_CONTENT_TYPE = 'application/problem+json';
-//TODO should be a dict
-const NOT_FOUND = 404;
-const INTERNAL_ERROR = 500;
+export type AppDeps = { logger: Logger };
 
-const problem = (status: number, title: string, detail?: string): Problem => ({
-    type: 'about:blank',
-    title,
-    status,
-    detail,
-});
-
-export const createApp = () => {
-    const app = new Hono();
-
-    app.get('/health', (c) => c.json({ ok: true }));
-
-    app.notFound((c) =>
-        c.body(JSON.stringify(problem(NOT_FOUND, 'Not Found', c.req.path)), NOT_FOUND, {
-        'content-type': PROBLEM_CONTENT_TYPE,
-        }),
-    );
-
-    app.onError((_err, c) =>
-        c.body(JSON.stringify(problem(INTERNAL_ERROR, 'Internal Server Error')), INTERNAL_ERROR, {
-        'content-type': PROBLEM_CONTENT_TYPE,
-        }),
-    );
-
-    return app;
+export const createApp = ({ logger }: AppDeps) => {
+  const app = new Hono();
+  app.use(requestLogger(logger));
+  app.get('/health', (c) => c.json({ ok: true }));
+  app.notFound((c) => problemResponse(c, HTTP_STATUS.NOT_FOUND, 'Not Found', c.req.path));
+  app.onError((error, c) => {
+    logger.error({ err: error, path: c.req.path }, 'unhandled');
+    return problemResponse(c, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal Server Error');
+  });
+  return app;
 };

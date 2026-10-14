@@ -67,7 +67,7 @@ Blocked by: 0.1.
 
 - [ ] Hono app in `src/api`, `GET /health`.
 - [ ] Problem+json error shape in `src/contract/problem.ts` and a Hono error handler that produces it.
-- [ ] Request logging with pino via `@matcha/infra/pino`.
+- [ ] Request logging with `pino` directly, logger injected into `createApp`. `@matcha/infra/pino` is only an SLO sink, not a request logger.
 
 Delivers: a test that calls `app.request('/health')` and asserts the body, and a test that an unknown route returns problem+json.
 
@@ -80,7 +80,7 @@ Blocked by: 0.2, 0.3.
 - [ ] Integration test setup: connect, migrate, transaction-per-test helper.
 - [ ] Injected clock type and a fake clock.
 - [ ] `FakePaymentProvider` implementing the `PaymentProvider` port with scripted responses and a call log.
-- [ ] `FakeTenantEndpoint` sink.
+- [x] Moved 2026-10-14: `FakeTenantEndpoint` is built in slice 6, its first user. Its interface follows the outbound signing and delivery rules decided there.
 
 Delivers: one integration test that writes a row inside the helper and proves it is gone afterwards.
 
@@ -188,6 +188,7 @@ Spec: `spec/outbox-delivery.md` rules 2, 5, 6, 7, D12, D13.
 
 - [ ] `drainOutbox(now)`: claim with `FOR UPDATE SKIP LOCKED`, POST to the tenant's `webhookUrl`, mark delivered on 2xx, exponential backoff otherwise.
 - [ ] HMAC-SHA256 over `timestamp.body` as a pure function with a known-answer test. Headers `Payments-Signature` and `Payments-Timestamp`.
+- [ ] `FakeTenantEndpoint` in `tests/utils/`: records each delivery (headers and body), answers with scripted statuses. Moved here from 0.4.
 - [ ] Dead letter at 8 attempts with the last error retained.
 - [ ] Manual redrive script.
 - [ ] Tests using the fake tenant endpoint and the truncate-mode database: two concurrent drainers never deliver the same event twice; a 500 then a 200 delivers once with backoff; the ninth attempt never happens.

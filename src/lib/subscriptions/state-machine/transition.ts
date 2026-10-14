@@ -18,7 +18,7 @@ export const transition = (
     return { kind: OUTCOME_KIND.REJECTED, reason: REJECTION_REASON.NOT_ACCEPTED_IN_STATE };
   }
   if (row.selfOnly && scheduleOwner === SCHEDULE_OWNER.EXTERNAL) {
-return { kind: OUTCOME_KIND.REJECTED, reason: REJECTION_REASON.STORE_MANAGED };
+    return { kind: OUTCOME_KIND.REJECTED, reason: REJECTION_REASON.STORE_MANAGED };
   }
   if (row.requiresResumeAllowed && !policy.resumeAllowed) {
     return { kind: OUTCOME_KIND.REJECTED, reason: REJECTION_REASON.RESUME_NOT_ALLOWED };

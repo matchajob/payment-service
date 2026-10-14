@@ -9,6 +9,9 @@ export type SubscriptionState =
   | { status: Status['CANCELED'] };
 
 export const ACTIVE = { status: SUBSCRIPTION_STATUS.ACTIVE, cancelAtPeriodEnd: false } satisfies SubscriptionState;
-export const ACTIVE_FLAGGED = { status: SUBSCRIPTION_STATUS.ACTIVE, cancelAtPeriodEnd: true } satisfies SubscriptionState;
+export const ACTIVE_FLAGGED = {
+  status: SUBSCRIPTION_STATUS.ACTIVE,
+  cancelAtPeriodEnd: true,
+} satisfies SubscriptionState;
 export const PAST_DUE = { status: SUBSCRIPTION_STATUS.PAST_DUE } satisfies SubscriptionState;
 export const CANCELED = { status: SUBSCRIPTION_STATUS.CANCELED } satisfies SubscriptionState;

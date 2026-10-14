@@ -3,9 +3,9 @@ import type { OutboundEventType } from '@/lib/subscriptions/state-machine/outbou
 import type { SubscriptionState } from '@/lib/subscriptions/state-machine/subscription-state';
 
 export type Row = {
-    to: SubscriptionState;
-    effects: readonly Effect[];
-    emits: readonly OutboundEventType[];
-    requiresResumeAllowed?: true;
-    selfOnly?: true;
+  to: SubscriptionState;
+  effects: readonly Effect[];
+  emits: readonly OutboundEventType[];
+  requiresResumeAllowed?: true;
+  selfOnly?: true;
 };
