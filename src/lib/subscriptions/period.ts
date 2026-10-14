@@ -35,4 +35,4 @@ export const startPeriod = (
 ): { periodEnd: Date; anchorDay: number } => {
     const anchorDay = activatedAt.getUTCDate();
     return { periodEnd: advancePeriod(activatedAt, anchorDay, interval), anchorDay };
-}
+};

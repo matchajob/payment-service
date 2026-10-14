@@ -1,32 +1,158 @@
+import type { Effect } from '@/lib/subscriptions/state-machine/effects';
 import type { LifecycleEvent } from '@/lib/subscriptions/state-machine/lifecycle-events';
+import type { OutboundEventType } from '@/lib/subscriptions/state-machine/outbound-event-types';
 import type { SubscriptionState } from '@/lib/subscriptions/state-machine/subscription-state';
-import {
-  active,
-  canceled,
-  flagged,
-  incomplete,
-  pastDue,
-} from '@tests/unit/subscriptions/state-machine/fixtures/states';
+import { active, canceled, flagged, incomplete, pastDue } from '@tests/unit/subscriptions/state-machine/fixtures/states';
 
-export type SpecRow = readonly [label: string, from: SubscriptionState, event: LifecycleEvent, to: SubscriptionState];
+export type SpecRow = {
+  label: string;
+  from: SubscriptionState;
+  event: LifecycleEvent;
+  to: SubscriptionState;
+  effects: readonly Effect[];
+  emits: readonly OutboundEventType[];
+  selfOnly: boolean;
+};
 
 export const ROWS: readonly SpecRow[] = [
-  ['r2', incomplete, 'checkout_completed', active],
-  ['r3', incomplete, 'checkout_expired', canceled],
-  ['r4', incomplete, 'cancel', canceled],
-  ['r5 trigger', active, 'renewal_due', active],
-  ['r5', active, 'renewal_succeeded', active],
-  ['r6', active, 'renewal_failed', pastDue],
-  ['r7', flagged, 'renewal_due', canceled],
-  ['r8', active, 'cancel', flagged],
-  ['r8 idempotent', flagged, 'cancel', flagged],
-  ['r9', flagged, 'resume', active],
-  ['r10', pastDue, 'retry_succeeded', active],
-  ['retry fails, not final', pastDue, 'retry_failed', pastDue],
-  ['r11', pastDue, 'final_retry_failed', canceled],
-  ['r12', pastDue, 'cancel', canceled],
-  ['r13', active, 'payment_method_updated', active],
-  ['r13 flagged', flagged, 'payment_method_updated', flagged],
-  ['r14', pastDue, 'payment_method_updated', pastDue],
-  ['r14 retry fails', pastDue, 'immediate_retry_failed', pastDue],
+  {
+    label: 'r2',
+    from: incomplete,
+    event: 'checkout_completed',
+    to: active,
+    effects: ['record_charge', 'store_payment_method', 'start_period'],
+    emits: ['subscription.activated'],
+    selfOnly: false,
+  },
+  { label: 'r3', from: incomplete, event: 'checkout_expired', to: canceled, effects: [], emits: [], selfOnly: false },
+  { label: 'r4', from: incomplete, event: 'cancel', to: canceled, effects: [], emits: [], selfOnly: false },
+  {
+    label: 'r5 trigger',
+    from: active,
+    event: 'renewal_due',
+    to: active,
+    effects: ['charge_renewal'],
+    emits: [],
+    selfOnly: true,
+  },
+  {
+    label: 'r5',
+    from: active,
+    event: 'renewal_succeeded',
+    to: active,
+    effects: ['record_charge', 'advance_period'],
+    emits: ['charge.succeeded'],
+    selfOnly: false,
+  },
+  {
+    label: 'r6',
+    from: active,
+    event: 'renewal_failed',
+    to: pastDue,
+    effects: ['record_charge', 'start_dunning'],
+    emits: ['charge.failed', 'subscription.past_due'],
+    selfOnly: false,
+  },
+  {
+    label: 'r7',
+    from: flagged,
+    event: 'renewal_due',
+    to: canceled,
+    effects: [],
+    emits: ['subscription.canceled'],
+    selfOnly: true,
+  },
+  { label: 'r8', from: active, event: 'cancel', to: flagged, effects: [], emits: [], selfOnly: true },
+  { label: 'r8 idempotent', from: flagged, event: 'cancel', to: flagged, effects: [], emits: [], selfOnly: true },
+  { label: 'r9', from: flagged, event: 'resume', to: active, effects: [], emits: [], selfOnly: true },
+  {
+    label: 'r10 trigger',
+    from: pastDue,
+    event: 'retry_due',
+    to: pastDue,
+    effects: ['charge_retry'],
+    emits: [],
+    selfOnly: true,
+  },
+  {
+    label: 'r10',
+    from: pastDue,
+    event: 'retry_succeeded',
+    to: active,
+    effects: ['record_charge', 'advance_period', 'reset_dunning'],
+    emits: ['charge.succeeded'],
+    selfOnly: false,
+  },
+  {
+    label: 'r10 retry fails, not final',
+    from: pastDue,
+    event: 'retry_failed',
+    to: pastDue,
+    effects: ['record_charge', 'schedule_next_retry'],
+    emits: [],
+    selfOnly: false,
+  },
+  {
+    label: 'r11',
+    from: pastDue,
+    event: 'final_retry_failed',
+    to: canceled,
+    effects: ['record_charge'],
+    emits: ['subscription.canceled'],
+    selfOnly: false,
+  },
+  {
+    label: 'r12',
+    from: pastDue,
+    event: 'cancel',
+    to: canceled,
+    effects: ['stop_dunning'],
+    emits: ['subscription.canceled'],
+    selfOnly: true,
+  },
+  {
+    label: 'r13',
+    from: active,
+    event: 'payment_method_updated',
+    to: active,
+    effects: ['replace_payment_method'],
+    emits: [],
+    selfOnly: true,
+  },
+  {
+    label: 'r13 flagged',
+    from: flagged,
+    event: 'payment_method_updated',
+    to: flagged,
+    effects: ['replace_payment_method'],
+    emits: [],
+    selfOnly: true,
+  },
+  {
+    label: 'r14',
+    from: pastDue,
+    event: 'payment_method_updated',
+    to: pastDue,
+    effects: ['replace_payment_method', 'retry_now'],
+    emits: [],
+    selfOnly: true,
+  },
+  {
+    label: 'r14 retry succeeds',
+    from: pastDue,
+    event: 'retry_succeeded',
+    to: active,
+    effects: ['record_charge', 'advance_period', 'reset_dunning'],
+    emits: ['charge.succeeded'],
+    selfOnly: false,
+  },
+  {
+    label: 'r14 retry fails',
+    from: pastDue,
+    event: 'immediate_retry_failed',
+    to: pastDue,
+    effects: ['record_charge', 'restart_dunning'],
+    emits: [],
+    selfOnly: true,
+  },
 ];
