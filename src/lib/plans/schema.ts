@@ -36,3 +36,5 @@ export const plansTable = plansEntity.table;
 
 export type Plan = typeof plansTable.$inferSelect;
 export type NewPlan = typeof plansTable.$inferInsert;
+
+export const zPlanCreate = plansEntity.create;

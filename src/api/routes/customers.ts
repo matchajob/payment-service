@@ -6,11 +6,14 @@ import { CREATE_CUSTOMER_OUTCOME, createCustomer } from '@/lib/customers/create-
 import { findCustomer } from '@/lib/customers/find-customer';
 import { zCustomerCreate, zCustomerRead, type Customer } from '@/lib/customers/schema';
 import type { Database } from '@/lib/db';
+import type { CustomerResponse } from '@/contract/customer-response';
 
 const createBody = zCustomerCreate.pick({ externalRef: true });
 const customerIdParam = zCustomerRead.shape.customerId;
 
-const toResponse = ({ customerId, externalRef }: Customer) => ({ customerId, externalRef });
+const toResponse = ({ customerId, externalRef }: Customer): CustomerResponse => ({
+  data: { customerId, externalRef },
+});
 
 export const customersRoutes = (db: Database) =>
   new Hono<AppEnv>()
@@ -21,12 +24,12 @@ export const customersRoutes = (db: Database) =>
       if (result.outcome === CREATE_CUSTOMER_OUTCOME.DUPLICATE) {
         return problemResponse(c, HTTP_STATUS.CONFLICT, `customer ${body.data.externalRef} already exists`);
       }
-      return c.json({ data: toResponse(result.customer) }, HTTP_STATUS.CREATED);
+      return c.json(toResponse(result.customer), HTTP_STATUS.CREATED);
     })
     .get('/:customerId', async (c) => {
       const customerId = customerIdParam.safeParse(c.req.param('customerId'));
       if (!customerId.success) return problemResponse(c, HTTP_STATUS.NOT_FOUND);
       const customer = await findCustomer(db, c.get('tenant').tenantId, customerId.data);
       if (customer === undefined) return problemResponse(c, HTTP_STATUS.NOT_FOUND);
-      return c.json({ data: toResponse(customer) });
+      return c.json(toResponse(customer));
     });

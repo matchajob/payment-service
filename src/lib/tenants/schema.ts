@@ -36,3 +36,5 @@ export const tenantsEntity = defineEntity(
 export const tenantsTable = tenantsEntity.table;
 
 export type Tenant = typeof tenantsTable.$inferSelect;
+
+export const zTenantCreate = tenantsEntity.create;

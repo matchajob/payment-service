@@ -102,13 +102,13 @@ Blocked by: 0.4.
 
 Spec: tenant billing policy table in Spec 1, D8 plan immutability.
 
-- [ ] `tenants` entity with DZD: slug, API key hash, `webhookUrl`, `webhookSecret`, the four policy knobs with their defaults.
-- [ ] `plans` entity: tenant ref, name, `amountMinor`, `currency`, `interval`. No update route exists, ever.
-- [ ] `customers` entity: tenant ref, `externalRef`.
-- [ ] Tenant authentication middleware: API key header to tenant context. Unknown key is `401` problem+json.
-- [ ] `POST /v1/customers`, `GET /v1/customers/:id`, `GET /v1/plans`.
-- [ ] `src/contract` zod schemas for each, with `Expect<Equals<>>` drift tests against the DZD read schemas.
-- [ ] Seed script that creates a tenant and a plan.
+- [x] `tenants` entity with DZD: slug, API key hash, `webhookUrl`, `webhookSecret`, the four policy knobs. Defaults live in `TENANT_POLICY_DEFAULTS`, applied by `createTenant`, not as column defaults.
+- [x] `plans` entity: tenant ref, name, `amountMinor`, `currency`, `interval`. No update route exists, ever. The currency enum carries `USD` too; see the ADR 0004 amendment.
+- [x] `customers` entity: tenant ref, `externalRef`, unique per tenant.
+- [x] Tenant authentication middleware: API key header to tenant context. Unknown key is `401` problem+json.
+- [x] `POST /v1/customers`, `GET /v1/customers/:id`, `GET /v1/plans`.
+- [x] `src/contract` zod schemas for each, with drift tests against the DZD schemas. The drift tests are behavioural (boundary inputs and enum parity), not `Expect<Equals<>>`: DZD types carry brands, so the types never compare equal even when they agree. Every route response is also checked against its contract with no extra fields.
+- [x] Seed script `pnpm db:seed` that creates a tenant and a plan from CLI flags. The code never names a real tenant.
 
 Decided 2026-10-14:
 
