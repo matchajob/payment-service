@@ -12,7 +12,7 @@ Multi-tenant subscription billing service. TypeScript, Hono, Drizzle on plain Po
 
 ## How we work here
 
-Omer writes every line of source and test code. Claude is the senior engineer: proposes, explains, reviews, never types into `src/` or `tests/`. A hook enforces this.
+Omer writes every line of source code. Claude is the senior engineer: proposes, explains, reviews, never types into `src/`. A hook enforces this. Since 2026-10-14 Claude may write and restructure test code under `tests/` when Omer asks.
 
 Per slice:
 

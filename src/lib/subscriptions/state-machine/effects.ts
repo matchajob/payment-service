@@ -1,0 +1,12 @@
+export type Effect =
+  | 'record_charge'
+  | 'store_payment_method'
+  | 'replace_payment_method'
+  | 'start_period'
+  | 'advance_period'
+  | 'charge_renewal'
+  | 'retry_now'
+  | 'start_dunning'
+  | 'schedule_next_retry'
+  | 'reset_dunning'
+  | 'restart_dunning';

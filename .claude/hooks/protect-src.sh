@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PreToolUse guard: Omer writes every line under src/ and tests/. Claude may not.
+# PreToolUse guard: Omer writes every line under src/. Claude may not. tests/ is open to Claude (2026-10-14).
 # Reads the hook JSON on stdin. Denies Write/Edit/NotebookEdit targeting those
 # directories, and Bash commands whose write target is inside them. Reads stay
 # allowed, and so does prose or config that merely mentions the directories.
@@ -7,7 +7,7 @@ set -euo pipefail
 input=$(cat)
 tool=$(jq -r '.tool_name // empty' <<<"$input")
 root="${CLAUDE_PROJECT_DIR:-$PWD}"
-protected='^(src|tests)(/|$)'
+protected='^src(/|$)'
 
 deny() {
   jq -cn --arg r "$1" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",permissionDecisionReason:$r}}'
@@ -27,7 +27,7 @@ case "$tool" in
     [ -z "$path" ] && exit 0
     rel=$(normalize "$path")
     if [[ "$rel" =~ $protected ]]; then
-      deny "Blocked: $rel is under src/ or tests/. Omer writes all source and test code. Propose the change and let Omer type it."
+      deny "Blocked: $rel is under src/. Omer writes all source code. Propose the change and let Omer type it."
     fi
     ;;
   Bash)
@@ -41,7 +41,7 @@ case "$tool" in
       case "$t" in '>'|'>>'|-*|tee|rm|rmdir|touch|mkdir|cp|mv|sed|perl|'<<'*) continue;; esac
       t=$(normalize "$t")
       if [[ "$t" =~ $protected ]]; then
-        deny "Blocked: this command writes to $t, under src/ or tests/. Omer writes all source and test code. Read-only commands on those paths are fine."
+        deny "Blocked: this command writes to $t, under src/. Omer writes all source code. Read-only commands on those paths are fine."
       fi
     done <<<"$operands"
     ;;
