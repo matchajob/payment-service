@@ -1,4 +1,4 @@
 export const REFERENTIAL_ACTION = {
-    RESTRICT: 'restrict',
-    CASCADE: 'cascade'
+  RESTRICT: 'restrict',
+  CASCADE: 'cascade',
 } as const;

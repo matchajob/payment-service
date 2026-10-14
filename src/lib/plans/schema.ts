@@ -18,12 +18,12 @@ export const billingIntervalPgEnum = billingIntervalEnum.dz;
 export const plansEntity = defineEntity('plans', {
   planId: (f) => entityFromDzd(dzdThemeUuid.primaryKey(f, 'PlanId')),
   tenantId: (f) =>
-        entityFromDzd(
-        dzdThemeUuid.requiredRef(
-            f,
-            { ref: () => tenantsTable.tenantId, actions: { onDelete: REFERENTIAL_ACTION.RESTRICT } },
-            'TenantId',
-        ),
+    entityFromDzd(
+      dzdThemeUuid.requiredRef(
+        f,
+        { ref: () => tenantsTable.tenantId, actions: { onDelete: REFERENTIAL_ACTION.RESTRICT } },
+        'TenantId',
+      ),
     ),
   name: (f) => entityFromDzd(dzdThemeStr.nonEmpty.title(f)),
   amountMinor: (f) => entityFromDzd(dzdThemeInt.positive(f)),

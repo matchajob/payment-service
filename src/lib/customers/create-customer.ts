@@ -13,7 +13,7 @@ export const createCustomer = async (
   tenantId: Tenant['tenantId'],
   externalRef: string,
 ): Promise<CreateCustomerResult> => {
-    //TODO should be a transaction
+  //TODO should be a transaction
   const [customer] = await db
     .insert(customersTable)
     .values({ tenantId, externalRef })

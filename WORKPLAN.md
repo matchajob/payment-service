@@ -128,10 +128,12 @@ Blocked by: 1.
 
 Spec: `spec/idempotency.md` rules 1 to 6, D9, D10.
 
-- [ ] `idempotency_keys` entity: tenant ref, key, body hash, state, stored response, timestamps.
-- [ ] Middleware applied to every `/v1` mutation, tested first on `POST /v1/customers` because it is the simplest mutation.
-- [ ] Tests, one per rule: new key executes once; replay returns stored response byte for byte; body mismatch is `422`; in-flight is `409` with `Retry-After: 1`; a reservation older than 90s is taken over; stored errors replay as the same error; failed auth reserves nothing.
-- [ ] `runIdempotencyPurge(now)` cron deleting completed keys older than 24h.
+- [x] `idempotency_keys` entity: tenant ref, key, body hash, stored response, timestamps. There is no `state` column: `completedAt` set means completed. A check constraint makes the four completion columns all set or all null, and a reservation writes `responseBody: null` explicitly because the DZD emptyable string defaults to `''`.
+- [x] Middleware applied to every `/v1` mutation (`src/api/idempotency.ts`), after `tenantAuth`. Phase 1 is `reserveKey`, phase 2 is the handler plus `completeKey` in one transaction, and `releaseKey` runs when the handler throws. Routes read `db` from the request context, and the clock is an `AppDeps` parameter.
+- [x] Tests, one per rule: new key executes once; replay returns stored response byte for byte; body mismatch is `422`; in-flight is `409` with `Retry-After: 1`; a reservation older than 90s is taken over; stored errors replay as the same error; failed auth reserves nothing. Plus: missing or non-UUID key is `400`, reads need no key, and a handler that writes then throws leaves nothing and frees its key.
+- [x] `runIdempotencyPurge(db, now)` deleting completed keys older than 24h, served at `POST /internal/cron/purge-idempotency` behind `CRON_SECRET` (constant-time compare). Reservations are never purged, because `completedAt < cutoff` is false for null.
+
+Decided 2026-10-14, `docs/adr/0006-two-phase-idempotency.md`: two phases (a committed reservation, then the handler and the completion in one transaction), a thrown handler releases its key, responses below 500 are stored, and the key is required (`400` when missing or not a UUID). Handlers read `db` from the request context.
 
 Delivers: a retried `POST /v1/customers` creates one customer.
 

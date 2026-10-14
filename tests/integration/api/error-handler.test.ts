@@ -1,13 +1,13 @@
 import type { Logger } from 'pino';
 import { describe, expect, it } from 'vitest';
-import { createApp } from '@/api/app';
+import { testApp } from '@tests/utils/test-app';
 import { problemSchema } from '@/contract/problem';
 import { capturingLogger } from '@tests/utils/capturing-logger';
 import { testDb } from '@tests/utils/db';
 
 const db = testDb();
 const boomApp = (logger: Logger) => {
-  const app = createApp({ logger, db });
+  const app = testApp(db, { logger });
   app.get('/boom', () => {
     throw new Error('boom');
   });

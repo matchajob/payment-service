@@ -2,7 +2,7 @@ import { BILLING_INTERVAL, type BillingInterval } from '@/lib/subscriptions/bill
 
 const MONTHS_PER_YEAR = 12;
 const LAST_DAY_OF_PREVIOUS_MONTH = 0;
-const MONTHS_IN_INTERVAL: Record<BillingInterval, number> = { 
+const MONTHS_IN_INTERVAL: Record<BillingInterval, number> = {
   [BILLING_INTERVAL.MONTH]: 1,
   [BILLING_INTERVAL.YEAR]: MONTHS_PER_YEAR,
 };

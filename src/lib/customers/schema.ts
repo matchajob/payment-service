@@ -12,13 +12,13 @@ export const customersEntity = defineEntity(
   {
     customerId: (f) => entityFromDzd(dzdThemeUuid.primaryKey(f, 'CustomerId')),
     tenantId: (f) =>
-        entityFromDzd(
+      entityFromDzd(
         dzdThemeUuid.requiredRef(
-            f,
-            { ref: () => tenantsTable.tenantId, actions: { onDelete: REFERENTIAL_ACTION.RESTRICT } },
-            'TenantId',
+          f,
+          { ref: () => tenantsTable.tenantId, actions: { onDelete: REFERENTIAL_ACTION.RESTRICT } },
+          'TenantId',
         ),
-    ),
+      ),
     externalRef: (f) => entityFromDzd(dzdThemeStr.nonEmpty.title(f)),
     createdAt: (f) => entityFromDzd(dzdThemeTimestamp.defaultNow(f)),
   },

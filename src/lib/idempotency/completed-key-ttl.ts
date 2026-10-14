@@ -1,0 +1,4 @@
+const HOURS = 24;
+const MS_PER_HOUR = 3_600_000;
+
+export const COMPLETED_KEY_TTL_MS = HOURS * MS_PER_HOUR;

@@ -1,6 +1,3 @@
-import { createHash } from 'node:crypto';
+import { sha256Hex } from '@/lib/crypto/sha256-hex';
 
-const ALGORITHM = 'sha256';
-const ENCODING = 'hex';
-
-export const hashApiKey = (apiKey: string): string => createHash(ALGORITHM).update(apiKey).digest(ENCODING);
+export const hashApiKey = (apiKey: string): string => sha256Hex(apiKey);

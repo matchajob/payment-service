@@ -4,6 +4,8 @@ import { plansTable, type Plan } from '@/lib/plans/schema';
 import type { Tenant } from '@/lib/tenants/schema';
 
 export const listPlans = async (db: Database, tenantId: Tenant['tenantId']): Promise<Plan[]> =>
-  db.select().from(plansTable)
+  db
+    .select()
+    .from(plansTable)
     .where(eq(plansTable.tenantId, tenantId))
     .orderBy(asc(plansTable.createdAt), asc(plansTable.planId));
