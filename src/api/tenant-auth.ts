@@ -7,7 +7,7 @@ import { findTenantByApiKey } from '@/lib/tenants/find-tenant-by-api-key';
 
 const BEARER_PREFIX = 'Bearer ';
 
-const unauthorized = (c: Context) => problemResponse(c, HTTP_STATUS.UNAUTHORIZED, 'Unauthorized');
+const unauthorized = (c: Context) => problemResponse(c, HTTP_STATUS.UNAUTHORIZED);
 
 export const tenantAuth =
   (db: Database): MiddlewareHandler<AppEnv> =>

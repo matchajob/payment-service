@@ -30,3 +30,7 @@ Option 1. Currency is a closed enum containing only `ILS`.
 - The API never returns a formatted string such as `'₪19.90'`. Formatting is the tenant's job, and tenants have locales.
 - Provider adapters translate at the edge. Grow and RevenueCat each have their own amount representation, and the adapter in `src/lib/payments` converts from minor units on the way out and ignores amounts on the way in, per webhook-trust rule 2.
 - A `number` in TypeScript can hold `19.9`. The zod schema is what rejects it at the API boundary, and the Postgres column type rejects it at the storage boundary. Both are needed; the type system alone cannot express "integer".
+
+## Amendment, 2026-10-14
+
+The `currency` enum in `src/lib/money/currency.ts` carries `USD` as well as `ILS`, by Omer's decision during slice 1.2. Nothing charges in USD yet: Grow is configured for ILS, and the multi-currency non-goal in the PRD still stands. Before any plan is created with `USD`, the Grow adapter (slice 13) must either support it or reject it explicitly, so a USD plan cannot reach a renewal charge that Grow will refuse.

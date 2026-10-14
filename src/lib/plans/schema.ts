@@ -9,6 +9,7 @@ import { createDbEnumPair } from '@matcha/infra/dzd/enumUtils-server';
 import { currencyEnum } from '@/lib/money/schema';
 import { BILLING_INTERVAL } from '@/lib/subscriptions/billing-interval';
 import { tenantsTable } from '@/lib/tenants/schema';
+import { REFERENTIAL_ACTION } from '@/lib/referential-action';
 
 export const billingIntervalEnum = createDbEnumPair('billingInterval', BILLING_INTERVAL);
 
@@ -17,8 +18,12 @@ export const billingIntervalPgEnum = billingIntervalEnum.dz;
 export const plansEntity = defineEntity('plans', {
   planId: (f) => entityFromDzd(dzdThemeUuid.primaryKey(f, 'PlanId')),
   tenantId: (f) =>
-    entityFromDzd(
-      dzdThemeUuid.requiredRef(f, { ref: () => tenantsTable.tenantId, actions: { onDelete: 'restrict' } }, 'TenantId'),
+        entityFromDzd(
+        dzdThemeUuid.requiredRef(
+            f,
+            { ref: () => tenantsTable.tenantId, actions: { onDelete: REFERENTIAL_ACTION.RESTRICT } },
+            'TenantId',
+        ),
     ),
   name: (f) => entityFromDzd(dzdThemeStr.nonEmpty.title(f)),
   amountMinor: (f) => entityFromDzd(dzdThemeInt.positive(f)),
