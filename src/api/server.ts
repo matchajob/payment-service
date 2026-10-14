@@ -5,9 +5,10 @@ import { createDb } from '@/lib/db';
 
 const DEFAULT_PORT = 8080;
 const DEFAULT_LOG_LEVEL = 'info';
+const DATABASE_URL_ENV = 'DATABASE_URL';
 
-const databaseUrl = process.env['DATABASE_URL'];
-if (databaseUrl === undefined) throw new Error('DATABASE_URL is not set');
+const databaseUrl = process.env[DATABASE_URL_ENV];
+if (databaseUrl === undefined) throw new Error(`${DATABASE_URL_ENV} is not set`);
 
 const logger = pino({ level: process.env['LOG_LEVEL'] ?? DEFAULT_LOG_LEVEL });
 const port = Number(process.env['PORT'] ?? DEFAULT_PORT);

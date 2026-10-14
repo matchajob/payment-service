@@ -5,9 +5,9 @@ import { tenantsTable, type Tenant } from '@/lib/tenants/schema';
 import { TENANT_POLICY_DEFAULTS } from '@/lib/tenants/tenant-policy-defaults';
 
 export type CreateTenantInput = { slug: string; webhookUrl: string };
-export type CreateTenant = { tenant: Tenant; apiKey: string };
+export type CreatedTenant = { tenant: Tenant; apiKey: string };
 
-export const createTenant = async (db: Database, input: CreateTenantInput): Promise<CreateTenant> => {
+export const createTenant = async (db: Database, input: CreateTenantInput): Promise<CreatedTenant> => {
   const apiKey = generateSecret();
   const [tenant] = await db
     .insert(tenantsTable)
