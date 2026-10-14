@@ -140,8 +140,9 @@ Blocked by: 0.1 only. Can run in parallel with 1 and 2.
 
 Spec: Spec 1 transition table, both schedule owners.
 
-- [ ] `src/lib/subscriptions/state-machine.ts`: a table of `(state, flag, event, scheduleOwner) → outcome` where outcome is a new state plus effects, or a rejection with a reason.
-- [ ] Exhaustive unit tests: every row in the spec table, every absent pair rejected, `canceled` rejects everything. A type-level test that the table covers every state and event.
+- [x] `src/lib/subscriptions/state-machine/`, one concept per file: a table of `(state, flag, event) → row`, gated per row by `selfOnly` (scheduleOwner) and `requiresResumeAllowed` (tenant policy); outcome is a new state plus effects and emits, or a rejection with a reason code. Guard order: absent pair, then store-managed, then tenant policy.
+- [x] Exhaustive unit tests: every row in the spec table, every absent pair rejected, `canceled` rejects everything. A type-level test that the table covers every state and event.
+- [x] Decided 2026-10-14: the dunning cron goes through the machine via `retry_due`, symmetric with `renewal_due`. Row 12 carries an explicit `stop_dunning` effect. `selfOnly` covers spec rows 8, 9, 12, 13 plus the rows where we initiate a charge (`renewal_due`, `retry_due`) and row 14, since the service never initiates charges for store-billed subscriptions.
 - [x] Decided 2026-10-14, `docs/adr/0005-past-due-with-cancel-flag.md`: the pair is unreachable. No rows for it, a check constraint in slice 4, and the exhaustiveness test treats it as an absent pair.
 
 Delivers: the heart of the service as a pure module with no IO, understood line by line.

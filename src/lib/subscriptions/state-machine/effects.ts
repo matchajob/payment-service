@@ -9,4 +9,6 @@ export type Effect =
   | 'start_dunning'
   | 'schedule_next_retry'
   | 'reset_dunning'
-  | 'restart_dunning';
+  | 'restart_dunning'
+  | 'charge_retry'
+  | 'stop_dunning';

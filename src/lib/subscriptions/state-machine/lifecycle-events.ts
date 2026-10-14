@@ -6,6 +6,7 @@ export const LIFECYCLE_EVENTS = [
   'renewal_due',
   'renewal_succeeded',
   'renewal_failed',
+  'retry_due',
   'retry_succeeded',
   'retry_failed',
   'final_retry_failed',
