@@ -39,12 +39,12 @@ What you learn: how to write an ADR that someone can disagree with later, and wh
 
 Blocked by: 0.0 infra access.
 
-- [x] `package.json` with pnpm, `type: module`, pinned `@matcha/infra` and its server peers. Scripts `lint`, `test`, `test:run`, `dev` still to add.
+- [x] `package.json` with pnpm, `type: module`, pinned `@matcha/infra` and its server peers, scripts `lint`, `test`, `test:run`, `dev`.
 - [x] `tsconfig.json` with the same strict flags as job-platform: `strict`, `noUncheckedIndexedAccess`, `noImplicitOverride`, `noFallthroughCasesInSwitch`, `verbatimModuleSyntax`, `isolatedModules`, `noUncheckedSideEffectImports`.
-- [ ] `eslint.config.mjs` with the four layer rules from the subrepo: no `@supabase/*`, no relative parent imports, contract purity, lib never imports api or hono.
-- [ ] `vitest.config.ts` with unit and integration projects.
-- [ ] `.gitignore`, `.env.example`.
-- [ ] First commit.
+- [x] `eslint.config.mjs` with the four layer rules from the subrepo: no `@supabase/*`, no relative parent imports, contract purity, lib never imports api or hono. Plus a fifth: `src/infra` never imports `@/*`.
+- [x] `vitest.config.ts` with unit and integration projects.
+- [x] `.gitignore`, `.env.example`.
+- [x] First commit.
 
 Delivers: `pnpm typecheck && pnpm lint && pnpm test:run` all pass on an empty project.
 
