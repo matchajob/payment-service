@@ -6,6 +6,7 @@ import { subscriptionsTable, type Subscription } from '@/lib/subscriptions/schem
 import type { Outcome, OUTCOME_KIND } from '@/lib/subscriptions/state-machine/outcome';
 import type { Tenant } from '@/lib/tenants/schema';
 import { toSnapshot } from '@/lib/subscriptions/to-snapshot';
+import { newDelivery } from '@/lib/outbox/new-delivery';
 
 type Accepted = Extract<Outcome, { kind: typeof OUTCOME_KIND.ACCEPTED }>;
 type Changes = Partial<Pick<Subscription, 'currentPeriodEnd' | 'anchorDay' | 'canceledAt'>>;
@@ -45,6 +46,7 @@ export const applyTransition = async (
         sequence: subscription.sequence + index + 1,
         snapshot,
         occurredAt,
+        ...newDelivery(occurredAt),
       })),
     );
   }

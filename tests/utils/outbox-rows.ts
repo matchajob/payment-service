@@ -1,11 +1,27 @@
 import type { SubscriptionSnapshot } from '@/contract/subscription-snapshot';
 import type { Database } from '@/lib/db';
+import { DELIVERY_STATUS } from '@/lib/outbox/delivery-status';
 import { outboxEventsTable } from '@/lib/outbox/schema';
 import { SUBSCRIPTION_STATUS } from '@/lib/subscriptions/state-machine/subscription-status';
 import { OUTBOUND_EVENT_TYPE } from '@/lib/subscriptions/state-machine/outbound-event-types';
 import type { SubscriptionOwner } from '@tests/utils/payment-method-rows';
 
 export const OCCURRED_AT = new Date('2026-01-15T10:00:00.000Z');
+
+type Delivery = Partial<
+  Pick<
+    typeof outboxEventsTable.$inferInsert,
+    'deliveryStatus' | 'attempts' | 'nextAttemptAt' | 'deliveredAt' | 'lastError'
+  >
+>;
+
+export const NEW_DELIVERY = {
+  deliveryStatus: DELIVERY_STATUS.PENDING,
+  attempts: 0,
+  nextAttemptAt: OCCURRED_AT,
+  deliveredAt: null,
+  lastError: null,
+} as const;
 
 export const snapshotFor = ({ subscriptionId }: SubscriptionOwner): SubscriptionSnapshot => ({
   subscriptionId,
@@ -18,11 +34,13 @@ export const snapshotFor = ({ subscriptionId }: SubscriptionOwner): Subscription
   cancelAtPeriodEnd: false,
 });
 
-export const insertOutboxEvent = (db: Database, owner: SubscriptionOwner, sequence: number) =>
+export const insertOutboxEvent = (db: Database, owner: SubscriptionOwner, sequence: number, delivery: Delivery = {}) =>
   db.insert(outboxEventsTable).values({
     ...owner,
     eventType: OUTBOUND_EVENT_TYPE.SUBSCRIPTION_ACTIVATED,
     sequence,
     snapshot: snapshotFor(owner),
     occurredAt: OCCURRED_AT,
+    ...NEW_DELIVERY,
+    ...delivery,
   });

@@ -5,6 +5,7 @@ import { chargesTable } from '@/lib/charges/schema';
 import { createCustomer, CREATE_CUSTOMER_OUTCOME } from '@/lib/customers/create-customer';
 import type { Database } from '@/lib/db';
 import { CURRENCY } from '@/lib/money/currency';
+import { DELIVERY_STATUS } from '@/lib/outbox/delivery-status';
 import { outboxEventsTable } from '@/lib/outbox/schema';
 import { paymentMethodsTable } from '@/lib/payments-method/schema';
 import { subscriptionsTable, type Subscription } from '@/lib/subscriptions/schema';
@@ -126,6 +127,23 @@ describe('checkout completed webhook (S1 r2, ADR 0007, ADR 0008)', () => {
               currentPeriodEnd: PERIOD_1_END.toISOString(),
               cancelAtPeriodEnd: false,
             },
+          }),
+        ]);
+      });
+    });
+
+    it('queues the event for the drainer: pending, never attempted, due at once (ADR 0009)', async () => {
+      await withRollback(testDb(), async (tx) => {
+        const { provider, complete } = await setup(tx);
+        provider.scriptCharge(SUCCEEDED);
+        await complete();
+        expect(await tx.select().from(outboxEventsTable)).toEqual([
+          expect.objectContaining({
+            deliveryStatus: DELIVERY_STATUS.PENDING,
+            attempts: 0,
+            nextAttemptAt: TEST_NOW,
+            deliveredAt: null,
+            lastError: null,
           }),
         ]);
       });
