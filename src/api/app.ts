@@ -15,6 +15,7 @@ import { cronAuth } from '@/api/cron-auth';
 import { cronRoutes } from '@/api/routes/cron';
 import type { PaymentProvider } from '@/lib/payments/provider';
 import { subscriptionsRoutes } from '@/api/routes/subscriptions';
+import { assertProviderSupported } from '@/lib/payments/assert-provider-supported';
 
 export type AppDeps = { logger: Logger; db: Database; clock: Clock; cronSecret: string; provider: PaymentProvider };
 
@@ -22,6 +23,7 @@ const V1 = '/v1/*';
 const CRON_PREFIX = '/internal/cron';
 
 export const createApp = ({ logger, db, clock, cronSecret, provider }: AppDeps) => {
+  assertProviderSupported(provider);
   const app = new Hono<AppEnv>();
 
   app.use(requestLogger(logger));

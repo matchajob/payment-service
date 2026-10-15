@@ -17,12 +17,14 @@ const createBody = z.object({
   returnUrl: createSubscriptionRequestSchema.shape.returnUrl,
 });
 
-
 export const subscriptionsRoutes = (provider: PaymentProvider) =>
   new Hono<AppEnv>().post('/', async (c) => {
     const body = createBody.safeParse(await readJsonBody(c));
     if (!body.success) return problemResponse(c, HTTP_STATUS.BAD_REQUEST, body.error.message);
-    const result = await createSubscription(c.get('db'), provider, { tenantId: c.get('tenant').tenantId, ...body.data });
+    const result = await createSubscription(c.get('db'), provider, {
+      tenantId: c.get('tenant').tenantId,
+      ...body.data,
+    });
     if (result.outcome === CREATE_SUBSCRIPTION_OUTCOME.CUSTOMER_NOT_FOUND) {
       return problemResponse(c, HTTP_STATUS.NOT_FOUND, `customer ${body.data.customerId} not found`);
     }

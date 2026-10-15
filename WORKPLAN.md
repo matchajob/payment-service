@@ -168,9 +168,12 @@ Spec: S1 r1.
 - [x] `PaymentProvider` port in `src/lib/payments/provider.ts`, written fresh from the capabilities interface in the PRD.
 - [x] `POST /v1/subscriptions`: creates `incomplete`, calls `startCheckout` on the fake provider, returns `checkoutUrl`. Amount and currency come from the plan row; `returnUrl` must be http(s).
 - [x] The provider call runs outside the reservation transaction (Spec 3 note): phase 1 has committed, and the call runs in phase 2 before any write. Tested: a provider failure leaves no subscription row and no reserved key, and a replay does not call the provider twice.
+- [ ] ADR 0007: `saveCardWithoutCharge` capability, checkout in `CAPTURE` mode, and the boot guard in `createApp`.
 
 Decided 2026-10-15:
 
+- The checkout saves the card and charges nothing (`CHECKOUT_MODE.CAPTURE`). Charge #1 runs after activation, in slice 5 (ADR 0007).
+- `ProviderCapabilities` gains `saveCardWithoutCharge`. `createApp` refuses to start with a self-managed provider that lacks it. v1 supports only providers that have it; the fallback for the rest is deferred (ADR 0007, PRD open question 6).
 - `startCheckout` runs inside phase 2, before any write (ADR 0006 amendment). The subscription id is generated first and sent as the checkout `reference`, so slice 5's webhook maps straight back to the row.
 - At most one `active` or `past_due` subscription per customer, enforced by a partial unique index. Several `incomplete` rows are allowed so an abandoned checkout never blocks a retry.
 - The provider port gains `currency` and renames `customerRef` to `reference`.
@@ -192,7 +195,9 @@ Spec: S1 r2, Spec 4 rules 1 to 7, Spec 5 rules 1 and 3.
 - [ ] Period 1 computed: `currentPeriodEnd`, `anchorDay` stored.
 - [ ] `outbox_events` entity. `subscription.activated` written in the same transaction with the full snapshot and sequence 1. Not delivered yet.
 - [ ] Tests: replayed webhook processes once; payload claiming a different amount is ignored; bad signature is rejected and logged; garbage returns `200`; internal failure returns `5xx`; a webhook for a `canceled` subscription is a logged no-op.
-- [ ] Decide before coding: a customer may hold several `incomplete` checkouts (slice 4), so two can be paid. The second activation hits `subscriptions_one_live_per_customer` after money moved. The handler must catch that case explicitly (cancel the second row, flag the charge for refund, emit an event), never let it surface as a `5xx` that the provider retries forever.
+- [ ] Activation before charge (ADR 0007). In one transaction holding the row lock: store the payment method, move to `active` with period 1 (the one-live index decides here), then `provider.charge` with dedup key `subscriptionId:periodEnd:0`. A second activation for the same customer fails on the index before any charge: its row becomes `canceled` and the tenant is told. Never a `5xx` that the provider retries forever.
+- [ ] Decide before coding (PRD open question 7): a first charge declined after the card was saved. Either stay `incomplete` with `subscription.checkout_failed` until the 12h TTL, or cancel immediately.
+- [ ] Transition table additions for both cases above.
 
 Delivers: a fake checkout completion activates the subscription and leaves one outbox row.
 
@@ -305,6 +310,7 @@ Blocked by: 5. Can start once the port is exercised.
 - [ ] `src/infra/grow/` wrapper taking injected config, no domain imports.
 - [ ] `src/lib/payments/grow.ts` re-wrap implementing `PaymentProvider` with `signedWebhooks: false`.
 - [ ] Contract tests against recorded Grow responses. A sandbox run gated behind an env flag.
+- [ ] Confirm in the sandbox that Grow's token-only checkout saves a card with no charge, and that a token charge right after it succeeds without a 3DS step (ADR 0007). If either fails, the deferred fallback becomes v1 work.
 
 Delivers: a real card checkout in Grow's sandbox activates a subscription.
 
@@ -356,3 +362,5 @@ Slices with no unfinished blockers right now: **0.0**. After 0.0, slices **0.1**
 ## Deliberately not in the plan
 
 Plan changes, trials, proration, multi-currency, hard-decline short-circuiting, refunds, alerting on dead letters, and the RevenueCat adapter with external mode (slice 14, v2). All listed as out of scope in `PRD.md`. The `refunds` capability flag exists in the port but no slice implements a refund.
+
+Also deferred: the fallback for providers without `saveCardWithoutCharge` (charge at checkout, plus refund-on-conflict). It depends on the refund flow above. Until it exists, such providers fail the boot guard. See ADR 0007 and PRD open question 6.

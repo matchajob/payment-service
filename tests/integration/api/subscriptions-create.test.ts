@@ -62,7 +62,7 @@ describe('POST /v1/subscriptions', () => {
     });
   });
 
-  it("asks the provider to charge the plan's price, referenced by our subscription id", async () => {
+  it("asks the provider to save the card for the plan's price, referenced by our subscription id (ADR 0007)", async () => {
     await withRollback(testDb(), async (tx) => {
       const ctx = await seedBillingContext(tx);
       const provider = fakePaymentProvider();
@@ -71,7 +71,7 @@ describe('POST /v1/subscriptions', () => {
       ).json();
       expect(provider.calls.startCheckout).toEqual([
         {
-          mode: CHECKOUT_MODE.CHARGE,
+          mode: CHECKOUT_MODE.CAPTURE,
           reference: data.subscriptionId,
           amountMinor: ctx.plan.amountMinor,
           currency: ctx.plan.currency,

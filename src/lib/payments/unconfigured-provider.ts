@@ -7,7 +7,13 @@ const notConfigured = async (): Promise<never> => {
 };
 
 export const unconfiguredProvider: PaymentProvider = {
-  capabilities: { selfManagedSchedule: false, providerManagedSchedule: false, signedWebhooks: false, refunds: false },
+  capabilities: {
+    selfManagedSchedule: false,
+    providerManagedSchedule: false,
+    signedWebhooks: false,
+    refunds: false,
+    saveCardWithoutCharge: false,
+  },
   startCheckout: notConfigured,
   charge: notConfigured,
   verifyCharge: notConfigured,

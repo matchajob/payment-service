@@ -6,6 +6,7 @@ export type ProviderCapabilities = {
   providerManagedSchedule: boolean;
   signedWebhooks: boolean;
   refunds: boolean;
+  saveCardWithoutCharge: boolean;
 };
 
 export type CheckoutRequest = {

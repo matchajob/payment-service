@@ -31,7 +31,13 @@ export const fakePaymentProvider = (): FakePaymentProvider => {
     return result;
   };
   return {
-    capabilities: { selfManagedSchedule: true, providerManagedSchedule: false, signedWebhooks: false, refunds: false },
+    capabilities: {
+      selfManagedSchedule: true,
+      providerManagedSchedule: false,
+      signedWebhooks: false,
+      refunds: false,
+      saveCardWithoutCharge: true,
+    },
     calls,
     scriptCharge: (result) => {
       scripted.charge.push(result);

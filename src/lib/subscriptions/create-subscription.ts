@@ -25,25 +25,25 @@ export type CreateSubscriptionResult =
   | { outcome: typeof CREATE_SUBSCRIPTION_OUTCOME.PLAN_NOT_FOUND };
 
 export const createSubscription = async (
-    db: Database,
-    provider: PaymentProvider,
-    { tenantId, customerId, planId, returnUrl }: CreateSubscriptionInput,
+  db: Database,
+  provider: PaymentProvider,
+  { tenantId, customerId, planId, returnUrl }: CreateSubscriptionInput,
 ): Promise<CreateSubscriptionResult> => {
-    const customer = await findCustomer(db, tenantId, customerId);
-    if (customer === undefined) return { outcome: CREATE_SUBSCRIPTION_OUTCOME.CUSTOMER_NOT_FOUND };
-    const plan = await findPlan(db, tenantId, planId);
-    if (plan === undefined) return { outcome: CREATE_SUBSCRIPTION_OUTCOME.PLAN_NOT_FOUND };
+  const customer = await findCustomer(db, tenantId, customerId);
+  if (customer === undefined) return { outcome: CREATE_SUBSCRIPTION_OUTCOME.CUSTOMER_NOT_FOUND };
+  const plan = await findPlan(db, tenantId, planId);
+  if (plan === undefined) return { outcome: CREATE_SUBSCRIPTION_OUTCOME.PLAN_NOT_FOUND };
 
-    const subscriptionId = zSubscriptionRead.shape.subscriptionId.parse(randomUUID());
-    const session = await provider.startCheckout({
-        mode: CHECKOUT_MODE.CHARGE,
-        reference: subscriptionId,
-        amountMinor: plan.amountMinor,
-        currency: plan.currency,
-        returnUrl,
-    });
+  const subscriptionId = zSubscriptionRead.shape.subscriptionId.parse(randomUUID());
+  const session = await provider.startCheckout({
+    mode: CHECKOUT_MODE.CHARGE,
+    reference: subscriptionId,
+    amountMinor: plan.amountMinor,
+    currency: plan.currency,
+    returnUrl,
+  });
 
-    const [subscription] = await db
+  const [subscription] = await db
     .insert(subscriptionsTable)
     .values({
       subscriptionId,
@@ -55,6 +55,6 @@ export const createSubscription = async (
       checkoutSessionRef: session.providerSessionRef,
     })
     .returning();
-    if (subscription === undefined)throw new Error('subscription insert returned no row');
-    return { outcome: CREATE_SUBSCRIPTION_OUTCOME.CREATED, subscription, checkoutUrl: session.checkoutUrl };
+  if (subscription === undefined) throw new Error('subscription insert returned no row');
+  return { outcome: CREATE_SUBSCRIPTION_OUTCOME.CREATED, subscription, checkoutUrl: session.checkoutUrl };
 };

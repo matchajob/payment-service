@@ -189,8 +189,11 @@ export interface ProviderCapabilities {
   providerManagedSchedule: boolean;  // the provider (app store) owns the schedule
   signedWebhooks: boolean;           // webhooks are cryptographically signed
   refunds: boolean;                  // provider supports refunds
+  saveCardWithoutCharge: boolean;    // checkout can store a card token with no charge (ADR 0007)
 }
 ```
+
+The first checkout saves the card and charges nothing. Charge #1 runs after the subscription is activated, so a customer can never pay twice for one live subscription (ADR 0007). In v1 the service refuses to start with a self-managed provider that lacks `saveCardWithoutCharge`.
 
 ### 5.2 Rules
 
@@ -253,6 +256,8 @@ The nested subrepo at `job-platform/payments-service` holds the behaviour specs,
 3. **Refunds.** `refunds` is a declared provider capability but no refund flow or state effect is described.
 4. **`past_due` + `cancelAtPeriodEnd`.** Neither source has a row for a flagged `past_due` subscription. The likely behaviour is that a successful retry lands in `active` + flag and cancels at the next renewal cron. That may not be intended: the customer asked to cancel, their paid period has ended, and the retry charges them for a period they will then cancel out of. Decide between (a) retry and land in `active` + flag, or (b) skip dunning and cancel immediately. Section 2.2 assumes (a).
 5. **Post-cancel downgrade (PRODUCT:HIGH).** See 1.3. The tenant app owns what happens to a customer after cancellation. Needs a product decision and a tracking item in this repo.
+6. **Providers without `saveCardWithoutCharge`.** v1 refuses them at boot (ADR 0007). Supporting them needs a fallback: charge at checkout, answer `409` at create for an already-live customer, and on an activation conflict cancel and refund (or flag a manual refund when the provider has no `refunds`). Blocked on the refund flow, which is out of scope for v1.
+7. **First charge declined after the card was saved.** The payer has already left the provider's page. Either keep the row `incomplete` with a `subscription.checkout_failed` event, retryable until the checkout TTL (D1), or cancel immediately. Decide before slice 5.
 
 Resolved since the first draft by the decision log: checkout TTL default is 12h per tenant (D1), dead-letter threshold is 8 attempts, completed idempotency keys purge after 24h (D10), dunning default is +1d/+3d/+7d (D3).
 

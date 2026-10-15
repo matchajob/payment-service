@@ -13,7 +13,7 @@ describe('unconfiguredProvider', () => {
   it('refuses every call with an error that says why', async () => {
     await expect(
       unconfiguredProvider.startCheckout({
-        mode: CHECKOUT_MODE.CHARGE,
+        mode: CHECKOUT_MODE.CAPTURE,
         reference: 'sub-1',
         amountMinor: 4900,
         currency: CURRENCY.ILS,
