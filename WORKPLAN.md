@@ -85,12 +85,25 @@ Delivers: one integration test that writes a row inside the helper and proves it
 
 ### 0.5 Deploy skeleton
 
-Blocked by: 0.3.
+Blocked by: 0.3, 0.6.
 
-- [ ] Dockerfile, GCP Cloud Run service, secret wiring, `/health` reachable.
+- [ ] Dockerfile, `/health` reachable on the Cloud Run service that 0.6 declares.
 - [ ] CI: typecheck, lint, test on push.
 
 Delivers: a URL that returns `/health`. Deploying early means every later slice can be deployed in minutes, and the deployment itself is never the risky step.
+
+### 0.6 Infrastructure as code (Pulumi)
+
+Blocked by: 0.1.
+
+- [ ] ADR: Pulumi in TypeScript, the state backend (Pulumi Cloud or a GCS bucket), one stack per environment (`staging`, `production`), and where the program lives. Not under `src/infra`, which is the portable code layer and means something else here.
+- [ ] Declared resources: Artifact Registry, the Cloud Run service and its service account, the Postgres instance, Secret Manager entries (values set out of band, never in the stack config), and the Cloud Scheduler jobs for the crons and the drainer as they appear.
+- [ ] CI runs `pulumi preview` on every push and `pulumi up` on `staging` from `main`. `production` is applied by hand.
+- [ ] Unit tests of the program with Pulumi's mocks: every secret is a Secret Manager reference, the cron endpoints are not public, the scheduler jobs carry `CRON_SECRET`.
+
+Delivers: `pulumi up` on an empty GCP project produces everything 0.5 deploys into. Nothing is clicked in the console, so staging and production cannot drift apart.
+
+What you learn: why infrastructure is reviewed like code, and why secret values stay out of state even when the state backend is encrypted.
 
 ---
 
@@ -188,16 +201,20 @@ Blocked by: 4.
 
 Spec: S1 r2, Spec 4 rules 1 to 7, Spec 5 rules 1 and 3.
 
-- [ ] `webhook_events` entity: provider, tenant, dedup key, raw payload, trust flag, processed at.
-- [ ] `POST /v1/webhooks/:provider/:tenantSlug`: persist first, dedup, then interpret.
-- [ ] Unsigned path: `parseWebhook` yields untrusted, the handler calls `verifyCharge`, only then transitions.
-- [ ] `payment_methods` and `charges` entities. Charge #1 recorded with dedup key `subscriptionId:periodEnd:0`, amount from the plan row, never from the payload.
-- [ ] Period 1 computed: `currentPeriodEnd`, `anchorDay` stored.
-- [ ] `outbox_events` entity. `subscription.activated` written in the same transaction with the full snapshot and sequence 1. Not delivered yet.
-- [ ] Tests: replayed webhook processes once; payload claiming a different amount is ignored; bad signature is rejected and logged; garbage returns `200`; internal failure returns `5xx`; a webhook for a `canceled` subscription is a logged no-op.
-- [ ] Activation before charge (ADR 0007). In one transaction holding the row lock: store the payment method, move to `active` with period 1 (the one-live index decides here), then `provider.charge` with dedup key `subscriptionId:periodEnd:0`. A second activation for the same customer fails on the index before any charge: its row becomes `canceled` and the tenant is told. Never a `5xx` that the provider retries forever.
-- [ ] Decide before coding (PRD open question 7): a first charge declined after the card was saved. Either stay `incomplete` with `subscription.checkout_failed` until the 12h TTL, or cancel immediately.
-- [ ] Transition table additions for both cases above.
+- [x] `webhook_events` entity: provider, tenant, dedup key (SHA-256 of the raw body), raw payload as text, trust flag, received and processed at.
+- [x] `POST /v1/webhooks/:provider/:tenantSlug`: persist first, dedup, then interpret. Mounted before the `/v1` auth and idempotency middleware. A replay of a processed event is a no-op; a replay of an event whose interpretation crashed runs again.
+- [x] `payment_methods`, `charges` and `outbox_events` entities. Charges: the one-per-attempt unique constraint, the one-live-per-period partial index (`pending` or `succeeded`, ADR 0008), and outcome checks. Outbox: the contract snapshot as the jsonb validator, sequence starting at 1.
+- [x] Unsigned path: `parseWebhook` yields untrusted, the handler calls `verifyCheckout` for the saved card, only then transitions.
+- [x] Charge #1 via the intent row (ADR 0008): tx1 stores the payment method, activates with period 1 (the one-live index decides here) and inserts a `pending` charge; then `provider.charge` with dedup key `subscriptionId:periodEnd:0`, amount from the plan row; tx2 settles the charge, transitions and writes the outbox event. A timeout stays `pending`.
+- [x] Succeeded: `subscription.activated` with the full snapshot and sequence 1. Declined: `canceled`, `charge.failed` (decided 2026-10-16). Lost to the one-live index: `canceled` with no charge, `subscription.canceled`.
+- [x] Transition table: `checkout_completed` no longer emits on its own; add `first_charge_succeeded`, `first_charge_failed`, `already_subscribed`.
+- [x] Tests: replayed webhook processes once; payload claiming a different amount is ignored; a webhook for a `canceled` subscription is a logged no-op; the three charge #1 outcomes; two paid checkouts for one customer charge once.
+- [x] Fix `advancePeriod` reading the year in local time (`getFullYear`), found during slice 5.
+
+Deferred from slice 5:
+- A tenant cancel landing between tx1 and tx2 leaves `active_flagged`, so `first_charge_succeeded` is rejected: the charge is recorded but no event goes out. Resolve with cancel in slice 9.
+- The `ChargeResult` port type uses `'succeeded'`/`'failed'` literals that only match `CHARGE_STATUS` by coincidence. Type them from the const in slice 13, together with the Grow adapter.
+- A crash in tx2 leaves charge #1 `pending` with no event. Reconcile (slice 12) settles it, which needs a lookup by our dedup key: a port change and probably a provider capability with a fallback (ADR 0008).
 
 Delivers: a fake checkout completion activates the subscription and leaves one outbox row.
 
@@ -243,7 +260,7 @@ Spec: S1 r5, r6, r7, Spec 2 due detection, Spec 1 double-charge guards.
 
 - [ ] `runRenewal(now)` through the cron endpoint: select due rows, lock each, re-verify status and unpaid period, charge via the port with dedup key `subscriptionId:periodEnd:0`.
 - [ ] Success: advance from `oldPeriodEnd`, write `charge.succeeded`. Failure: `past_due`, write `charge.failed` and `subscription.past_due`, start the dunning clock. Flagged: `canceled` with no charge, write `subscription.canceled`.
-- [ ] Partial unique index: one succeeded charge per (subscription, `periodEnd`).
+- [x] Partial unique index: one succeeded charge per (subscription, `periodEnd`). Done early in slice 5 as `charges_one_live_per_period`, which counts `pending` too (ADR 0008).
 - [ ] Tests: nothing charges before `currentPeriodEnd`; a row stays `active` during cron lag; two concurrent crons charge once; the unique index fires if the lock is bypassed in a test.
 
 Delivers: a subscription renews on its anniversary and the tenant hears about it.
@@ -347,11 +364,44 @@ Delivers: the first real tenant reacts to a real event.
 
 ### 16. Production deploy
 
-Blocked by: 12, 13, 15.
+Blocked by: 0.6, 12, 13, 15, 17.
 
-- [ ] Cloud Scheduler jobs for the four crons and the drainer.
+- [ ] Cloud Scheduler jobs for the four crons and the drainer, declared in the Pulumi program (0.6).
 - [ ] Secrets, tenant onboarding runbook, redrive runbook.
-- [ ] Smoke test in production with a real Grow sandbox tenant.
+- [ ] Smoke test through the test tenant (17), in production if 17 decides it lives there.
+
+### 17. Test tenant
+
+Blocked by: 6, 13.
+
+A tenant used only for tests. It has no real customers and moves no real money, and its card payments go through the provider's sandbox. It lets the full loop (checkout, webhook, charge, outbox delivery) run against a deployed service. The integration suite does not use it: `tests/utils/tenant-fixtures.ts` already creates tenants per test. It is runtime data like any other tenant, and the code never names it.
+
+- [ ] Decision: where its events go. A small sink service deployed by the Pulumi program, or a sink route inside this service behind `/internal`. The first keeps test traffic out of the product; the second is one deploy less.
+- [ ] Decision: whether it also lives in production. Provider credentials are app-level today, so a sandbox tenant in production needs per-tenant provider config (which selling to several tenants needs anyway). Without that, it lives in staging only and slice 16's smoke test runs there.
+- [ ] Provisioned by `pnpm db:seed` flags or the onboarding runbook, idempotently, with its own plan.
+- [ ] A smoke script that runs the loop end to end against a base URL and asserts the sink received a signed `subscription.activated`.
+
+Delivers: one command proves a deploy works for money, not just for `/health`.
+
+---
+
+## Phase 6: Hardening
+
+### 18. Chaos testing
+
+Blocked by: 6, 8, 10, 12.
+
+The money-safety claims (one charge per period, every state change has exactly one outbox row, a lost webhook is repaired) are proven per slice under happy concurrency. This slice breaks things on purpose and checks the claims still hold.
+
+- [ ] Fault-injecting wrappers over the fake provider and the fake tenant endpoint: timeouts after the provider already charged, 5xx, slow responses, duplicated and reordered webhooks.
+- [ ] Crash points from ADR 0008: between tx1 and `provider.charge`, between the charge and tx2. The pending row must settle through reconcile, never charge twice.
+- [ ] Database faults: connection killed mid-transaction, two cron and drainer instances racing, clock skew between instances.
+- [ ] Invariant checks run after every scenario: at most one `succeeded` charge per (subscription, period), outbox sequence gapless per subscription, no subscription in a state the machine cannot reach.
+- [ ] Optional: the same scenarios against staging with the test tenant (17) and a network fault proxy.
+
+Delivers: a list of failure modes, each with a test showing the system recovers without losing or doubling money.
+
+What you learn: why idempotency keys, unique indexes and reconcile are three layers of the same defence, and which one catches each fault.
 
 ---
 

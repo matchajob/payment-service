@@ -12,7 +12,7 @@ const daysInMonth = (year: number, monthIndex: number): number =>
 
 export const advancePeriod = (previousEnd: Date, anchorDay: number, interval: BillingInterval): Date => {
   const totalMonths = previousEnd.getUTCMonth() + MONTHS_IN_INTERVAL[interval];
-  const year = previousEnd.getFullYear() + Math.floor(totalMonths / MONTHS_PER_YEAR);
+  const year = previousEnd.getUTCFullYear() + Math.floor(totalMonths / MONTHS_PER_YEAR);
   const monthIndex = totalMonths % MONTHS_PER_YEAR;
   const day = Math.min(anchorDay, daysInMonth(year, monthIndex));
   return new Date(

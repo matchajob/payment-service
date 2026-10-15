@@ -17,8 +17,8 @@ Omer writes every line of source code and config. Claude is the senior engineer:
 Per slice:
 
 1. Claude restates the spec rows the slice covers and proposes the seam and the test names, with the trade-offs.
-2. Claude hands over the implementation file by file: path, full code, and a short explanation under each block. Omer types it.
-3. Claude writes the tests and runs them. Since the code exists first, a test that guards a subtle line comes with a suggested deliberate break for Omer to make and revert, so it is shown to fail for the right reason.
+2. Claude writes the tests first (since 2026-10-16), then hands over the implementation file by file: path, full code, and a short explanation under each block. Omer types it.
+3. Claude runs the tests once Omer says the code is in. The tests existed before the code, so they started red for the right reason.
 4. Claude reviews against the spec row and the house rules, naming the line and the rule.
 5. Commit. One slice, one commit, message names the spec row.
 

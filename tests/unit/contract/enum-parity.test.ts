@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createSubscriptionResponseSchema } from '@/contract/create-subscription-response';
 import { publicPlanSchema } from '@/contract/public-plan';
+import { subscriptionSnapshotSchema } from '@/contract/subscription-snapshot';
 import { CURRENCY } from '@/lib/money/currency';
 import { BILLING_INTERVAL } from '@/lib/subscriptions/billing-interval';
 import { SUBSCRIPTION_STATUS } from '@/lib/subscriptions/state-machine/subscription-status';
@@ -20,5 +21,9 @@ describe('contract enums match the server enums', () => {
     expect(sorted(createSubscriptionResponseSchema.shape.data.shape.status.options)).toEqual(
       sorted(Object.values(SUBSCRIPTION_STATUS)),
     );
+  });
+
+  it('snapshot statuses match the server statuses', () => {
+    expect(sorted(subscriptionSnapshotSchema.shape.status.options)).toEqual(sorted(Object.values(SUBSCRIPTION_STATUS)));
   });
 });

@@ -28,6 +28,7 @@ export const scheduleOwnerEnum = createDbEnumPair('scheduleOwner', SCHEDULE_OWNE
 export const scheduleOwnerPgEnum = scheduleOwnerEnum.dz;
 
 const restrict = { onDelete: REFERENTIAL_ACTION.RESTRICT };
+export const ONE_LIVE_PER_CUSTOMER = 'subscriptions_one_live_per_customer';
 
 export const subscriptionsEntity = defineEntity(
   'subscriptions',
@@ -66,7 +67,7 @@ export const subscriptionsEntity = defineEntity(
         'subscriptions_live_has_period',
         sql`${t.status} not in (${sqlLiteral(SUBSCRIPTION_STATUS.ACTIVE)}, ${sqlLiteral(SUBSCRIPTION_STATUS.PAST_DUE)}) or ${t.currentPeriodEnd} is not null`,
       ),
-      uniqueIndex('subscriptions_one_live_per_customer')
+      uniqueIndex(ONE_LIVE_PER_CUSTOMER)
         .on(t.customerId)
         .where(
           sql`${t.status} in (${sqlLiteral(SUBSCRIPTION_STATUS.ACTIVE)}, ${sqlLiteral(SUBSCRIPTION_STATUS.PAST_DUE)})`,

@@ -21,8 +21,18 @@ describe('unconfiguredProvider', () => {
       }),
     ).rejects.toThrow(NOT_CONFIGURED);
     await expect(
-      unconfiguredProvider.charge({ paymentMethodToken: 'token', amountMinor: 4900, dedupKey: 'dedup' }),
+      unconfiguredProvider.charge({
+        paymentMethodToken: 'token',
+        amountMinor: 4900,
+        currency: CURRENCY.ILS,
+        dedupKey: 'dedup',
+      }),
     ).rejects.toThrow(NOT_CONFIGURED);
+    await expect(unconfiguredProvider.verifyCheckout('session-1')).rejects.toThrow(NOT_CONFIGURED);
     await expect(unconfiguredProvider.verifyCharge('charge-ref')).rejects.toThrow(NOT_CONFIGURED);
+  });
+
+  it('refuses to interpret a webhook', () => {
+    expect(() => unconfiguredProvider.parseWebhook('{}')).toThrow(NOT_CONFIGURED);
   });
 });

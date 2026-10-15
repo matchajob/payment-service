@@ -1,9 +1,10 @@
 import { z } from 'zod';
+import { subscriptionStatusSchema } from '@/contract/subscription-status';
 
 export const createSubscriptionResponseSchema = z.object({
   data: z.object({
     subscriptionId: z.uuid(),
-    status: z.enum(['incomplete', 'active', 'past_due', 'canceled']),
+    status: subscriptionStatusSchema,
     checkoutUrl: z.url(),
   }),
 });

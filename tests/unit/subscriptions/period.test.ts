@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { advancePeriod, startPeriod } from '@/lib/subscriptions/period';
 
 describe('advancePeriod', () => {
@@ -43,6 +43,18 @@ describe('advancePeriod', () => {
   it('preserves the time of day across the advance', () => {
     const jan31at10 = new Date(Date.UTC(2025, 0, 31, 10, 30, 15, 500));
     expect(advancePeriod(jan31at10, 31, 'month')).toEqual(new Date(Date.UTC(2025, 1, 28, 10, 30, 15, 500)));
+  });
+});
+
+describe('advancePeriod off a UTC machine', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('reads the year in UTC, so a late-December end east of UTC does not skip a year', () => {
+    vi.stubEnv('TZ', 'Asia/Jerusalem');
+    const dec31Late = new Date(Date.UTC(2025, 11, 31, 23, 30));
+    expect(advancePeriod(dec31Late, 31, 'month')).toEqual(new Date(Date.UTC(2026, 0, 31, 23, 30)));
   });
 });
 

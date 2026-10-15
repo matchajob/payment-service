@@ -36,7 +36,7 @@ export const createSubscription = async (
 
   const subscriptionId = zSubscriptionRead.shape.subscriptionId.parse(randomUUID());
   const session = await provider.startCheckout({
-    mode: CHECKOUT_MODE.CHARGE,
+    mode: CHECKOUT_MODE.CAPTURE,
     reference: subscriptionId,
     amountMinor: plan.amountMinor,
     currency: plan.currency,

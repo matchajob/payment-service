@@ -17,4 +17,8 @@ export const unconfiguredProvider: PaymentProvider = {
   startCheckout: notConfigured,
   charge: notConfigured,
   verifyCharge: notConfigured,
+  parseWebhook: () => {
+    throw new Error(NOT_CONFIGURED);
+  },
+  verifyCheckout: notConfigured,
 };

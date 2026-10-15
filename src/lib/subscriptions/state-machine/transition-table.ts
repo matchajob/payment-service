@@ -1,54 +1,96 @@
-import type { LifecycleEvent } from '@/lib/subscriptions/state-machine/lifecycle-events';
+import { LIFECYCLE_EVENT, type LifecycleEvent } from '@/lib/subscriptions/state-machine/lifecycle-events';
+import { OUTBOUND_EVENT_TYPE } from '@/lib/subscriptions/state-machine/outbound-event-types';
 import { STATE_KEY, type StateKey } from '@/lib/subscriptions/state-machine/state-key';
 import { ACTIVE, ACTIVE_FLAGGED, CANCELED, PAST_DUE } from '@/lib/subscriptions/state-machine/subscription-state';
 import type { Row } from '@/lib/subscriptions/state-machine/transition-row';
 
 export type Table = Record<StateKey, Partial<Record<LifecycleEvent, Row>>>;
 
+const { SUBSCRIPTION_ACTIVATED, SUBSCRIPTION_PAST_DUE, SUBSCRIPTION_CANCELED, CHARGE_SUCCEEDED, CHARGE_FAILED } =
+  OUTBOUND_EVENT_TYPE;
+
 export const TABLE = {
   [STATE_KEY.INCOMPLETE]: {
-    checkout_completed: {
+    [LIFECYCLE_EVENT.CHECKOUT_COMPLETED]: {
       to: ACTIVE,
-      effects: ['record_charge', 'store_payment_method', 'start_period'],
-      emits: ['subscription.activated'],
+      effects: ['store_payment_method', 'start_period', 'charge_first'],
+      emits: [],
+      selfOnly: true,
     },
-    checkout_expired: { to: CANCELED, effects: [], emits: [] },
-    cancel: { to: CANCELED, effects: [], emits: [] },
+    [LIFECYCLE_EVENT.ALREADY_SUBSCRIBED]: { to: CANCELED, effects: [], emits: [SUBSCRIPTION_CANCELED], selfOnly: true },
+    [LIFECYCLE_EVENT.CHECKOUT_EXPIRED]: { to: CANCELED, effects: [], emits: [] },
+    [LIFECYCLE_EVENT.CANCEL]: { to: CANCELED, effects: [], emits: [] },
   },
   [STATE_KEY.ACTIVE]: {
-    renewal_due: { to: ACTIVE, effects: ['charge_renewal'], emits: [], selfOnly: true },
-    renewal_succeeded: { to: ACTIVE, effects: ['record_charge', 'advance_period'], emits: ['charge.succeeded'] },
-    renewal_failed: {
+    [LIFECYCLE_EVENT.FIRST_CHARGE_SUCCEEDED]: {
+      to: ACTIVE,
+      effects: ['record_charge'],
+      emits: [SUBSCRIPTION_ACTIVATED],
+      selfOnly: true,
+    },
+    [LIFECYCLE_EVENT.FIRST_CHARGE_FAILED]: {
+      to: CANCELED,
+      effects: ['record_charge'],
+      emits: [CHARGE_FAILED],
+      selfOnly: true,
+    },
+    [LIFECYCLE_EVENT.RENEWAL_DUE]: { to: ACTIVE, effects: ['charge_renewal'], emits: [], selfOnly: true },
+    [LIFECYCLE_EVENT.RENEWAL_SUCCEEDED]: {
+      to: ACTIVE,
+      effects: ['record_charge', 'advance_period'],
+      emits: [CHARGE_SUCCEEDED],
+    },
+    [LIFECYCLE_EVENT.RENEWAL_FAILED]: {
       to: PAST_DUE,
       effects: ['record_charge', 'start_dunning'],
-      emits: ['charge.failed', 'subscription.past_due'],
+      emits: [CHARGE_FAILED, SUBSCRIPTION_PAST_DUE],
     },
-    cancel: { to: ACTIVE_FLAGGED, effects: [], emits: [], selfOnly: true },
-    payment_method_updated: { to: ACTIVE, effects: ['replace_payment_method'], emits: [], selfOnly: true },
+    [LIFECYCLE_EVENT.CANCEL]: { to: ACTIVE_FLAGGED, effects: [], emits: [], selfOnly: true },
+    [LIFECYCLE_EVENT.PAYMENT_METHOD_UPDATED]: {
+      to: ACTIVE,
+      effects: ['replace_payment_method'],
+      emits: [],
+      selfOnly: true,
+    },
   },
   [STATE_KEY.ACTIVE_FLAGGED]: {
-    renewal_due: { to: CANCELED, effects: [], emits: ['subscription.canceled'], selfOnly: true },
-    cancel: { to: ACTIVE_FLAGGED, effects: [], emits: [], selfOnly: true },
-    resume: { to: ACTIVE, effects: [], emits: [], requiresResumeAllowed: true, selfOnly: true },
-    payment_method_updated: { to: ACTIVE_FLAGGED, effects: ['replace_payment_method'], emits: [], selfOnly: true },
+    [LIFECYCLE_EVENT.RENEWAL_DUE]: { to: CANCELED, effects: [], emits: [SUBSCRIPTION_CANCELED], selfOnly: true },
+    [LIFECYCLE_EVENT.CANCEL]: { to: ACTIVE_FLAGGED, effects: [], emits: [], selfOnly: true },
+    [LIFECYCLE_EVENT.RESUME]: { to: ACTIVE, effects: [], emits: [], requiresResumeAllowed: true, selfOnly: true },
+    [LIFECYCLE_EVENT.PAYMENT_METHOD_UPDATED]: {
+      to: ACTIVE_FLAGGED,
+      effects: ['replace_payment_method'],
+      emits: [],
+      selfOnly: true,
+    },
   },
   [STATE_KEY.PAST_DUE]: {
-    retry_due: { to: PAST_DUE, effects: ['charge_retry'], emits: [], selfOnly: true },
-    retry_succeeded: {
+    [LIFECYCLE_EVENT.RETRY_DUE]: { to: PAST_DUE, effects: ['charge_retry'], emits: [], selfOnly: true },
+    [LIFECYCLE_EVENT.RETRY_SUCCEEDED]: {
       to: ACTIVE,
       effects: ['record_charge', 'advance_period', 'reset_dunning'],
-      emits: ['charge.succeeded'],
+      emits: [CHARGE_SUCCEEDED],
     },
-    retry_failed: { to: PAST_DUE, effects: ['record_charge', 'schedule_next_retry'], emits: [] },
-    final_retry_failed: { to: CANCELED, effects: ['record_charge'], emits: ['subscription.canceled'] },
-    cancel: { to: CANCELED, effects: ['stop_dunning'], emits: ['subscription.canceled'], selfOnly: true },
-    payment_method_updated: {
+    [LIFECYCLE_EVENT.RETRY_FAILED]: { to: PAST_DUE, effects: ['record_charge', 'schedule_next_retry'], emits: [] },
+    [LIFECYCLE_EVENT.FINAL_RETRY_FAILED]: { to: CANCELED, effects: ['record_charge'], emits: [SUBSCRIPTION_CANCELED] },
+    [LIFECYCLE_EVENT.CANCEL]: {
+      to: CANCELED,
+      effects: ['stop_dunning'],
+      emits: [SUBSCRIPTION_CANCELED],
+      selfOnly: true,
+    },
+    [LIFECYCLE_EVENT.PAYMENT_METHOD_UPDATED]: {
       to: PAST_DUE,
       effects: ['replace_payment_method', 'retry_now'],
       emits: [],
       selfOnly: true,
     },
-    immediate_retry_failed: { to: PAST_DUE, effects: ['record_charge', 'restart_dunning'], emits: [], selfOnly: true },
+    [LIFECYCLE_EVENT.IMMEDIATE_RETRY_FAILED]: {
+      to: PAST_DUE,
+      effects: ['record_charge', 'restart_dunning'],
+      emits: [],
+      selfOnly: true,
+    },
   },
   [STATE_KEY.CANCELED]: {},
 } satisfies Table;

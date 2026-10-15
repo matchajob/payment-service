@@ -16,11 +16,13 @@ import { cronRoutes } from '@/api/routes/cron';
 import type { PaymentProvider } from '@/lib/payments/provider';
 import { subscriptionsRoutes } from '@/api/routes/subscriptions';
 import { assertProviderSupported } from '@/lib/payments/assert-provider-supported';
+import { webhooksRoutes } from '@/api/routes/webhooks';
 
 export type AppDeps = { logger: Logger; db: Database; clock: Clock; cronSecret: string; provider: PaymentProvider };
 
 const V1 = '/v1/*';
 const CRON_PREFIX = '/internal/cron';
+const WEBHOOKS_PREFIX = '/v1/webhooks';
 
 export const createApp = ({ logger, db, clock, cronSecret, provider }: AppDeps) => {
   assertProviderSupported(provider);
@@ -28,6 +30,9 @@ export const createApp = ({ logger, db, clock, cronSecret, provider }: AppDeps) 
 
   app.use(requestLogger(logger));
   app.use(dbContext(db));
+  app.route(WEBHOOKS_PREFIX, webhooksRoutes(provider, clock));
+
+  // Registered before the V1 middleware: Hono runs middleware in registration order, and providers carry no tenant API key.
   app.use(V1, tenantAuth());
   app.use(V1, idempotency(clock));
   app.use(`${CRON_PREFIX}/*`, cronAuth(cronSecret));

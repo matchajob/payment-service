@@ -11,4 +11,5 @@ export type Effect =
   | 'reset_dunning'
   | 'restart_dunning'
   | 'charge_retry'
+  | 'charge_first'
   | 'stop_dunning';
