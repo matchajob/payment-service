@@ -152,6 +152,22 @@ Delivers: a retried `POST /v1/customers` creates one customer.
 
 What you learn: why reservation and handler mutations must share a transaction, and why hold-and-wait was rejected in D9.
 
+### 19. Organizations and provider connections
+
+Blocked by: 5, and ADR 0010 accepted. Lands before 8, so renewal is written against the provider factory once.
+
+Spec: `docs/adr/0010-organizations-and-provider-connections.md` (proposed 2026-10-15). Context in `docs/product/hosted-service-strategy.md`.
+
+- [ ] `organizations` and `provider_connections` entities. Credentials are an encrypted column (envelope, KMS key per environment) and never appear in a read schema, a log or a problem response.
+- [ ] `tenants` gains `organizationId` and `providerConnectionId`, with a composite foreign key so an application can only use a connection of its own organization.
+- [ ] `subscriptions`, `payment_methods` and `charges` carry the `providerConnectionId` pinned when the subscription is created.
+- [ ] `createApp` takes `providerFor(connection)` instead of one `provider`. `assertProviderSupported` runs when a connection is created, not at boot.
+- [ ] Inbound webhook route becomes `/v1/webhooks/:provider/:providerConnectionId`. The tenant is found from the checkout reference, and dedup is scoped per connection.
+- [ ] Seed CLI creates an organization, a connection and an application.
+- [ ] Tests: a connection from another organization is rejected by the database; a token is never charged through a connection other than the one that captured it; a subscription keeps its connection after the tenant switches; a webhook to an unknown connection is `404`.
+
+Delivers: two applications of one organization charge through one merchant account, and two organizations never share one.
+
 ---
 
 ## Phase 2: The lifecycle core
@@ -254,7 +270,7 @@ Delivers: the one function the predecessor got wrong, correct and proven before 
 
 ### 8. Renewal cron
 
-Blocked by: 6, 7.
+Blocked by: 6, 7, 19.
 
 Spec: S1 r5, r6, r7, Spec 2 due detection, Spec 1 double-charge guards.
 
@@ -412,5 +428,7 @@ Slices with no unfinished blockers right now: **0.0**. After 0.0, slices **0.1**
 ## Deliberately not in the plan
 
 Plan changes, trials, proration, multi-currency, hard-decline short-circuiting, refunds, alerting on dead letters, and the RevenueCat adapter with external mode (slice 14, v2). All listed as out of scope in `PRD.md`. The `refunds` capability flag exists in the port but no slice implements a refund.
+
+Hosted-service gaps (invoicing, onboarding, dashboard, SDK, a second provider, legal and operations) are listed in `docs/product/hosted-service-strategy.md` section 6 and are not slices yet.
 
 Also deferred: the fallback for providers without `saveCardWithoutCharge` (charge at checkout, plus refund-on-conflict). It depends on the refund flow above. Until it exists, such providers fail the boot guard. See ADR 0007 and PRD open question 6.
