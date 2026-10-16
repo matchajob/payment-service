@@ -40,8 +40,7 @@ export const completeCheckout = async (
   const tenant = await findTenant(db, subscription.tenantId);
   const customer = await findCustomer(db, subscription.tenantId, subscription.customerId);
   const plan = await findPlan(db, subscription.tenantId, subscription.planId);
-  if (tenant === undefined || customer === undefined || plan === undefined)
-    throw new Error(MISSING_PARENTS);
+  if (tenant === undefined || customer === undefined || plan === undefined) throw new Error(MISSING_PARENTS);
 
   const activation = await activateCheckout(db, {
     subscriptionId: subscription.subscriptionId,

@@ -2,6 +2,7 @@ export type CronJob = { name: string; path: string; schedule: string; retryCount
 
 const EVERY_MINUTE = '* * * * *';
 const DAILY_AT_0300 = '0 3 * * *';
+const HOURLY = '0 * * * *';
 const NO_RETRY = 0;
 const DAILY_RETRIES = 3;
 
@@ -14,4 +15,5 @@ export const CRON_JOBS: readonly CronJob[] = [
     schedule: DAILY_AT_0300,
     retryCount: DAILY_RETRIES,
   },
+  { name: 'renew', path: '/internal/cron/renew', schedule: HOURLY, retryCount: NO_RETRY },
 ];

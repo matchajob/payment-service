@@ -1,7 +1,6 @@
-import { eq } from 'drizzle-orm';
 import { CHARGE_STATUS } from '@/lib/charges/charge-status';
-import { declineReason } from '@/lib/charges/decline-reason';
-import { chargesTable, type Charge } from '@/lib/charges/schema';
+import { recordChargeResult } from '@/lib/charges/record-charge-result';
+import type { Charge } from '@/lib/charges/schema';
 import type { Customer } from '@/lib/customers/schema';
 import type { Database } from '@/lib/db';
 import type { ChargeResult } from '@/lib/payments/provider';
@@ -28,18 +27,7 @@ export const settleFirstCharge = (db: Database, { charge, result, tenant, custom
     if (subscription === undefined) throw new Error('charged subscription missing');
 
     const succeeded = result.outcome === CHARGE_STATUS.SUCCEEDED;
-    await tx
-      .update(chargesTable)
-      .set(
-        succeeded
-          ? { status: CHARGE_STATUS.SUCCEEDED, providerChargeRef: result.providerChargeRef }
-          : {
-              status: CHARGE_STATUS.FAILED,
-              providerChargeRef: result.providerChargeRef ?? null,
-              failureReason: declineReason(result.reason),
-            },
-      )
-      .where(eq(chargesTable.chargeId, charge.chargeId));
+    await recordChargeResult(tx, charge.chargeId, result);
 
     const event = succeeded ? LIFECYCLE_EVENT.FIRST_CHARGE_SUCCEEDED : LIFECYCLE_EVENT.FIRST_CHARGE_FAILED;
     const outcome = transition(toState(subscription), event, transitionContextFor(subscription, tenant));

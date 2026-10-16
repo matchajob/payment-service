@@ -294,6 +294,8 @@ Spec: S1 r5, r6, r7, Spec 2 due detection, Spec 1 double-charge guards.
 - [x] Partial unique index: one succeeded charge per (subscription, `periodEnd`). Done early in slice 5 as `charges_one_live_per_period`, which counts `pending` too (ADR 0008).
 - [ ] Tests: nothing charges before `currentPeriodEnd`; a row stays `active` during cron lag; two concurrent crons charge once; the unique index fires if the lock is bypassed in a test.
 
+Decided 2026-10-16, `docs/adr/0013-renewal-runs-hourly-in-batches.md`: hourly, at most 100 per run, `FOR UPDATE SKIP LOCKED` in tx1, and the due query skips periods that already have a live charge. Settlement shares `recordChargeResult` with charge #1.
+
 Delivers: a subscription renews on its anniversary and the tenant hears about it.
 
 ### 9. Cancel and resume
