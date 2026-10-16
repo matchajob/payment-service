@@ -8,6 +8,7 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
       '@matcha/infra': fileURLToPath(new URL('./node_modules/@matcha/infra', import.meta.url)),
       '@tests': fileURLToPath(new URL('./tests', import.meta.url)),
+      '@iac': fileURLToPath(new URL('./iac', import.meta.url)),
     },
   },
   test: {

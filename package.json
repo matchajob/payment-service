@@ -9,8 +9,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "format": "prettier --write \"{src,tests}/**/*.ts\" \"*.config.ts\"",
-    "format:check": "prettier --check \"{src,tests}/**/*.ts\" \"*.config.ts\"",
+    "format": "prettier --write \"{src,tests,iac}/**/*.ts\" \"*.config.ts\"",
+    "format:check": "prettier --check \"{src,tests,iac}/**/*.ts\" \"*.config.ts\"",
     "test": "vitest",
     "test:run": "vitest run",
     "dev": "tsx watch src/api/server.ts",
@@ -29,6 +29,8 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@pulumi/gcp": "^10.1.1",
+    "@pulumi/pulumi": "^3.268.0",
     "@types/node": "^22.15.18",
     "drizzle-kit": "^0.31.11",
     "eslint": "^10.12.0",

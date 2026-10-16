@@ -1,0 +1,13 @@
+name: payment-service
+description: GCP infrastructure for payment-service (slice 0.6, ADR 0012)
+main: index.ts
+runtime:
+  name: nodejs
+  options:
+    packagemanager: pnpm
+    typescript: false
+    nodeargs: "--import tsx"
+config:
+  pulumi:tags:
+    value:
+      pulumi:template: none

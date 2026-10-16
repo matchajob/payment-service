@@ -1,0 +1,65 @@
+name: infra
+
+on:
+  push:
+    paths:
+      - "iac/**"
+      - "src/lib/env-names.ts"
+      - "src/api/routes/cron.ts"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/infra.yml"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: infra-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  pulumi:
+    strategy:
+      fail-fast: false
+      matrix:
+        stack: [staging, production]
+    runs-on: ubuntu-latest
+    environment: ${{ matrix.stack }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.MATCHA_INFRA_DEPLOY_KEY }}
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_EMAIL }}
+
+      - name: pulumi preview
+        uses: pulumi/actions@v6
+        with:
+          command: preview
+          stack-name: ${{ matrix.stack }}
+          work-dir: iac
+          cloud-url: ${{ vars.PULUMI_BACKEND_URL }}
+
+      - name: pulumi up (staging, main only)
+        if: matrix.stack == 'staging' && github.ref == 'refs/heads/main'
+        uses: pulumi/actions@v6
+        with:
+          command: up
+          stack-name: staging
+          work-dir: iac
+          cloud-url: ${{ vars.PULUMI_BACKEND_URL }}
