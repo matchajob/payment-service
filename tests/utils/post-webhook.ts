@@ -1,8 +1,8 @@
 import { PAYMENT_PROVIDER } from '@/lib/payments/payment-provider-name';
 import { WEBHOOKS_PATH } from '@tests/utils/paths';
 
-export const webhookPath = (tenantSlug: string, provider: string = PAYMENT_PROVIDER.GROW) =>
-  `${WEBHOOKS_PATH}/${provider}/${tenantSlug}`;
+export const webhookPath = (providerConnectionId: string, provider: string = PAYMENT_PROVIDER.GROW) =>
+  `${WEBHOOKS_PATH}/${provider}/${providerConnectionId}`;
 
 export const postWebhook = (rawBody: string): RequestInit => ({
   method: 'POST',

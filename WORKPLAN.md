@@ -154,19 +154,33 @@ What you learn: why reservation and handler mutations must share a transaction, 
 
 ### 19. Organizations and provider connections
 
-Blocked by: 5, and ADR 0010 accepted. Lands before 8, so renewal is written against the provider factory once.
+Blocked by: 5. ADR 0010 accepted 2026-10-16. Lands before 8, so renewal is written against the provider factory once.
 
-Spec: `docs/adr/0010-organizations-and-provider-connections.md` (proposed 2026-10-15). Context in `docs/product/hosted-service-strategy.md`.
+Spec: `docs/adr/0010-organizations-and-provider-connections.md` (accepted 2026-10-16, with amendments). Context in `docs/product/hosted-service-strategy.md`.
 
-- [ ] `organizations` and `provider_connections` entities. Credentials are an encrypted column (envelope, KMS key per environment) and never appear in a read schema, a log or a problem response.
-- [ ] `tenants` gains `organizationId` and `providerConnectionId`, with a composite foreign key so an application can only use a connection of its own organization.
-- [ ] `subscriptions`, `payment_methods` and `charges` carry the `providerConnectionId` pinned when the subscription is created.
-- [ ] `createApp` takes `providerFor(connection)` instead of one `provider`. `assertProviderSupported` runs when a connection is created, not at boot.
-- [ ] Inbound webhook route becomes `/v1/webhooks/:provider/:providerConnectionId`. The tenant is found from the checkout reference, and dedup is scoped per connection.
-- [ ] Seed CLI creates an organization, a connection and an application.
-- [ ] Tests: a connection from another organization is rejected by the database; a token is never charged through a connection other than the one that captured it; a subscription keeps its connection after the tenant switches; a webhook to an unknown connection is `404`.
+- [x] `organizations` and `provider_connections` entities. Credentials are an encrypted column (envelope, KMS key per environment) and never appear in a read schema, a log or a problem response.
+- [x] `tenants` gains `organizationId` and `providerConnectionId`, with a composite foreign key so an application can only use a connection of its own organization.
+- [x] `subscriptions`, `payment_methods` and `charges` carry the `providerConnectionId` pinned when the subscription is created.
+- [x] `createApp` takes `providerFor(connection)` instead of one `provider`. `assertProviderSupported` runs when a connection is created, not at boot.
+- [x] Inbound webhook route becomes `/v1/webhooks/:provider/:providerConnectionId`. The tenant is found from the checkout reference, and dedup is scoped per connection.
+- [x] Seed CLI creates an organization, a connection and an application, in one transaction.
+- [x] `localCredentialCipher` (AES-256-GCM, 16-byte tag enforced) for development. `selectCredentialCipher` never falls back to it where a KMS key is configured (ADR 0010 amendment 8).
+- [x] Tests: a connection from another organization is rejected by the database; a token is never charged through a connection other than the one that captured it; a subscription keeps its connection after the tenant switches; a webhook to an unknown connection is `404`.
 
 Delivers: two applications of one organization charge through one merchant account, and two organizations never share one.
+
+### 20. KMS credential cipher
+
+Blocked by: 0.6, 19.
+
+Spec: ADR 0010 amendments 4 and 8.
+
+- [ ] Envelope `CredentialCipher` on the `provider-credentials` key: a fresh data key per seal, wrapped by Cloud KMS, with the format version in the sealed string.
+- [ ] Old rows still open after the key rotates (90 days). KMS keeps old versions for decrypt; test that the sealed string doesn't pin a version.
+- [ ] Decide whether `seal` binds the sealed blob to its `providerConnectionId` as associated data. Without it, someone who can write to the database can copy one organization's sealed credentials onto another organization's connection row, and charges go through the wrong merchant account.
+- [ ] `selectCredentialCipher` returns it where `PROVIDER_CREDENTIALS_KMS_KEY` is set.
+
+Delivers: credentials stored in production are sealed under a key that never leaves KMS.
 
 ---
 
@@ -242,12 +256,12 @@ Blocked by: 5.
 
 Spec: `spec/outbox-delivery.md` rules 2, 5, 6, 7, D12, D13.
 
-- [ ] `drainOutbox(now)`: claim with `FOR UPDATE SKIP LOCKED`, POST to the tenant's `webhookUrl`, mark delivered on 2xx, exponential backoff otherwise.
-- [ ] HMAC-SHA256 over `timestamp.body` as a pure function with a known-answer test. Headers `Payments-Signature` and `Payments-Timestamp`.
-- [ ] `FakeTenantEndpoint` in `tests/utils/`: records each delivery (headers and body), answers with scripted statuses. Moved here from 0.4.
-- [ ] Dead letter at 8 attempts with the last error retained.
-- [ ] Manual redrive script.
-- [ ] Tests using the fake tenant endpoint and the truncate-mode database: two concurrent drainers never deliver the same event twice; a 500 then a 200 delivers once with backoff; the ninth attempt never happens.
+- [x] `drainOutbox(now)`: claim with `FOR UPDATE SKIP LOCKED`, POST to the tenant's `webhookUrl`, mark delivered on 2xx, exponential backoff otherwise.
+- [x] HMAC-SHA256 over `timestamp.body` as a pure function with a known-answer test. Headers `Payments-Signature` and `Payments-Timestamp`.
+- [x] `FakeTenantEndpoint` in `tests/utils/`: records each delivery (headers and body), answers with scripted statuses. Moved here from 0.4.
+- [x] Dead letter at 8 attempts with the last error retained.
+- [x] Manual redrive script.
+- [x] Tests using the fake tenant endpoint and the truncate-mode database: two concurrent drainers never deliver the same event twice; a 500 then a 200 delivers once with backoff; the ninth attempt never happens.
 
 Delivers: the tenant receives a signed, fat `subscription.activated` event.
 
@@ -380,7 +394,7 @@ Delivers: the first real tenant reacts to a real event.
 
 ### 16. Production deploy
 
-Blocked by: 0.6, 12, 13, 15, 17.
+Blocked by: 0.6, 12, 13, 15, 17, 20.
 
 - [ ] Cloud Scheduler jobs for the four crons and the drainer, declared in the Pulumi program (0.6).
 - [ ] Secrets, tenant onboarding runbook, redrive runbook.

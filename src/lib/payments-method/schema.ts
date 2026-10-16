@@ -9,6 +9,8 @@ import { dzdThemeUuid } from '@matcha/infra/dzd/dzd-uuid';
 import { REFERENTIAL_ACTION } from '@/lib/referential-action';
 import { subscriptionsTable } from '@/lib/subscriptions/schema';
 import { tenantsTable } from '@/lib/tenants/schema';
+import { providerConnectionsTable } from '@/lib/provider-connections/schema';
+import { foreignKey } from '@matcha/infra/domain-drizzle/exports';
 
 const restrict = { onDelete: REFERENTIAL_ACTION.RESTRICT };
 
@@ -26,6 +28,14 @@ export const paymentMethodsEntity = defineEntity(
           'SubscriptionId',
         ),
       ),
+    providerConnectionId: (f) =>
+      entityFromDzd(
+        dzdThemeUuid.requiredRef(
+          f,
+          { ref: () => providerConnectionsTable.providerConnectionId, actions: restrict },
+          'ProviderConnectionId',
+        ),
+      ),
     providerToken: (f) => entityFromDzd(dzdThemeStr.nonEmpty.token(f)),
     captureRef: (f) => entityFromDzd(dzdThemeStr.nonEmpty.token(f)),
     createdAt: (f) => entityFromDzd(dzdThemeTimestamp.defaultNow(f)),
@@ -35,6 +45,12 @@ export const paymentMethodsEntity = defineEntity(
     extraConstraints: (t) => [
       unique('payment_methods_one_per_capture').on(t.tenantId, t.captureRef),
       uniqueIndex('payment_methods_one_current_per_subscription').on(t.subscriptionId).where(isNull(t.replacedAt)),
+      unique('payment_methods_connection_pin').on(t.paymentMethodId, t.providerConnectionId),
+      foreignKey({
+        name: 'payment_methods_subscription_connection',
+        columns: [t.subscriptionId, t.providerConnectionId],
+        foreignColumns: [subscriptionsTable.subscriptionId, subscriptionsTable.providerConnectionId],
+      }).onDelete(REFERENTIAL_ACTION.RESTRICT),
     ],
   },
 );

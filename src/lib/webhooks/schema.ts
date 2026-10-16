@@ -7,25 +7,24 @@ import { dzdThemeEnum } from '@matcha/infra/dzd/dzd-enum';
 import { dzdThemeStr, makeDzdString } from '@matcha/infra/dzd/dzd-string';
 import { dzdThemeTimestamp } from '@matcha/infra/dzd/dzd-timestamp';
 import { dzdThemeUuid } from '@matcha/infra/dzd/dzd-uuid';
-import { createDbEnumPair } from '@matcha/infra/dzd/enumUtils-server';
 import { StrMaxSizes, StrMinSizes } from '@matcha/infra/validations/z-string';
-import { PAYMENT_PROVIDER } from '@/lib/payments/payment-provider-name';
 import { REFERENTIAL_ACTION } from '@/lib/referential-action';
-import { tenantsTable } from '@/lib/tenants/schema';
-
-export const paymentProviderEnum = createDbEnumPair('paymentProvider', PAYMENT_PROVIDER);
-export const paymentProviderPgEnum = paymentProviderEnum.dz;
+import { paymentProviderEnum } from '@/lib/payments/schema';
+import { providerConnectionsTable } from '@/lib/provider-connections/schema';
 
 export const webhookEventsEntity = defineEntity(
   'webhook_events',
   {
     webhookEventId: (f) => entityFromDzd(dzdThemeUuid.primaryKey(f, 'WebhookEventId')),
-    tenantId: (f) =>
+    providerConnectionId: (f) =>
       entityFromDzd(
         dzdThemeUuid.requiredRef(
           f,
-          { ref: () => tenantsTable.tenantId, actions: { onDelete: REFERENTIAL_ACTION.RESTRICT } },
-          'TenantId',
+          {
+            ref: () => providerConnectionsTable.providerConnectionId,
+            actions: { onDelete: REFERENTIAL_ACTION.RESTRICT },
+          },
+          'ProviderConnectionId',
         ),
       ),
     provider: (f) => entityFromDzd(dzdThemeEnum.fromPair(f, paymentProviderEnum)),
@@ -36,7 +35,7 @@ export const webhookEventsEntity = defineEntity(
     processedAt: (f) => entityFromDzd(dzdThemeTimestamp.custom(f), DZD_NULLABLE),
   },
   {
-    extraConstraints: (t) => [unique('webhook_events_dedup').on(t.tenantId, t.provider, t.dedupKey)],
+    extraConstraints: (t) => [unique('webhook_events_dedup').on(t.providerConnectionId, t.dedupKey)],
   },
 );
 

@@ -3,12 +3,15 @@ import { CHARGE_STATUS } from '@/lib/charges/charge-status';
 import type { Database } from '@/lib/db';
 import { insertCharge, seedChargeOwner } from '@tests/utils/charge-rows';
 import { testDb, withRollback } from '@tests/utils/db';
+import { GLOBEX } from '@tests/utils/tenant-fixtures';
 import { violatedConstraint } from '@tests/utils/violated-constraint';
 
 const SUCCEEDED_HAS_REF = 'charges_succeeded_has_provider_ref';
 const REASON_IFF_FAILED = 'charges_failure_reason_iff_failed';
 const ONE_PER_ATTEMPT = 'charges_one_per_attempt';
 const ONE_LIVE_PER_PERIOD = 'charges_one_live_per_period';
+const SUBSCRIPTION_CONNECTION = 'charges_subscription_connection';
+const PAYMENT_METHOD_CONNECTION = 'charges_payment_method_connection';
 const DECLINED = 'card declined';
 const CHARGE_1 = 'charge-1';
 const CHARGE_2 = 'charge-2';
@@ -97,6 +100,31 @@ describe('charges table constraints', () => {
         const nextPeriod = (db: Database) =>
           insertCharge(db, owner, { periodEnd: NEXT_PERIOD_END, providerChargeRef: CHARGE_2 });
         expect(await violatedConstraint(tx, nextPeriod)).toBeUndefined();
+      });
+    });
+  });
+
+  describe('the charge runs through the connection that captured the card (ADR 0010 amendment 1)', () => {
+    it("rejects a charge on a connection other than its subscription's", async () => {
+      await withRollback(testDb(), async (tx) => {
+        const ours = await seedChargeOwner(tx);
+        const theirs = await seedChargeOwner(tx, GLOBEX);
+        const write = (db: Database) =>
+          insertCharge(db, {
+            ...ours,
+            paymentMethodId: theirs.paymentMethodId,
+            providerConnectionId: theirs.providerConnectionId,
+          });
+        expect(await violatedConstraint(tx, write)).toBe(SUBSCRIPTION_CONNECTION);
+      });
+    });
+
+    it('rejects a charge whose card was captured on another connection', async () => {
+      await withRollback(testDb(), async (tx) => {
+        const ours = await seedChargeOwner(tx);
+        const theirs = await seedChargeOwner(tx, GLOBEX);
+        const write = (db: Database) => insertCharge(db, { ...ours, paymentMethodId: theirs.paymentMethodId });
+        expect(await violatedConstraint(tx, write)).toBe(PAYMENT_METHOD_CONNECTION);
       });
     });
   });

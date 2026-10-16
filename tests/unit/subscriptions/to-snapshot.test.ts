@@ -15,6 +15,7 @@ const subscription = (overrides: Record<string, unknown> = {}) =>
     tenantId: randomUUID(),
     customerId: randomUUID(),
     planId: randomUUID(),
+    providerConnectionId: randomUUID(),
     status: SUBSCRIPTION_STATUS.ACTIVE,
     scheduleOwner: SCHEDULE_OWNER.SELF,
     checkoutSessionRef: 'session-1',

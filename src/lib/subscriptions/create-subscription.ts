@@ -3,7 +3,6 @@ import type { Database } from '@/lib/db';
 import { findCustomer } from '@/lib/customers/find-customer';
 import type { Customer } from '@/lib/customers/schema';
 import { CHECKOUT_MODE } from '@/lib/payments/checkout-mode';
-import type { PaymentProvider } from '@/lib/payments/provider';
 import { findPlan } from '@/lib/plans/find-plan';
 import type { Plan } from '@/lib/plans/schema';
 import { CREATE_SUBSCRIPTION_OUTCOME } from '@/lib/subscriptions/create-subscription-outcome';
@@ -11,9 +10,13 @@ import { subscriptionsTable, zSubscriptionRead, type Subscription } from '@/lib/
 import { SCHEDULE_OWNER } from '@/lib/subscriptions/state-machine/schedule-owner';
 import { SUBSCRIPTION_STATUS } from '@/lib/subscriptions/state-machine/subscription-status';
 import type { Tenant } from '@/lib/tenants/schema';
+import { findProviderConnection } from '@/lib/provider-connections/find-provider-connection';
+import type { ProviderFor } from '@/lib/provider-connections/provider-for';
+
+export type CreateSubscriptionDeps = { db: Database; providerFor: ProviderFor };
 
 export type CreateSubscriptionInput = {
-  tenantId: Tenant['tenantId'];
+  tenant: Tenant;
   customerId: Customer['customerId'];
   planId: Plan['planId'];
   returnUrl: string;
@@ -25,14 +28,17 @@ export type CreateSubscriptionResult =
   | { outcome: typeof CREATE_SUBSCRIPTION_OUTCOME.PLAN_NOT_FOUND };
 
 export const createSubscription = async (
-  db: Database,
-  provider: PaymentProvider,
-  { tenantId, customerId, planId, returnUrl }: CreateSubscriptionInput,
+  { db, providerFor }: CreateSubscriptionDeps,
+  { tenant, customerId, planId, returnUrl }: CreateSubscriptionInput,
 ): Promise<CreateSubscriptionResult> => {
-  const customer = await findCustomer(db, tenantId, customerId);
+  const customer = await findCustomer(db, tenant.tenantId, customerId);
   if (customer === undefined) return { outcome: CREATE_SUBSCRIPTION_OUTCOME.CUSTOMER_NOT_FOUND };
-  const plan = await findPlan(db, tenantId, planId);
+  const plan = await findPlan(db, tenant.tenantId, planId);
   if (plan === undefined) return { outcome: CREATE_SUBSCRIPTION_OUTCOME.PLAN_NOT_FOUND };
+
+  const connection = await findProviderConnection(db, tenant.providerConnectionId);
+  if (connection === undefined) throw new Error('tenant references a missing provider connection');
+  const provider = await providerFor(connection);
 
   const subscriptionId = zSubscriptionRead.shape.subscriptionId.parse(randomUUID());
   const session = await provider.startCheckout({
@@ -47,7 +53,8 @@ export const createSubscription = async (
     .insert(subscriptionsTable)
     .values({
       subscriptionId,
-      tenantId,
+      tenantId: tenant.tenantId,
+      providerConnectionId: connection.providerConnectionId,
       customerId,
       planId,
       status: SUBSCRIPTION_STATUS.INCOMPLETE,

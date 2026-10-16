@@ -7,5 +7,4 @@ import { drainOutbox } from '@/lib/outbox/drain-outbox';
 export const cronRoutes = (clock: Clock) =>
   new Hono<AppEnv>()
     .post('/purge-idempotency', async (c) => c.json(await runIdempotencyPurge(c.get('db'), clock.now())))
-    .post('/drain-outbox', async (c) => c.json(await drainOutbox(c.get('db'), clock.now()))
-  );
+    .post('/drain-outbox', async (c) => c.json(await drainOutbox(c.get('db'), clock.now())));

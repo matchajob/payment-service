@@ -1,7 +1,6 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import { outboxEventsTable } from '@/lib/outbox/schema';
 import { subscriptionsTable } from '@/lib/subscriptions/schema';
-import { createTenant } from '@/lib/tenants/create-tenant';
 import { tenantsTable } from '@/lib/tenants/schema';
 import { testDb } from '@tests/utils/db';
 import { insertOutboxEvent } from '@tests/utils/outbox-rows';
@@ -9,6 +8,7 @@ import { seedSubscriptionOwner } from '@tests/utils/payment-method-rows';
 import { ACME } from '@tests/utils/tenant-fixtures';
 import { truncateAll } from '@tests/utils/truncate';
 import { truncateModeDb } from '@tests/utils/truncate-mode';
+import { seedTenant } from '@tests/utils/tenant-rows';
 
 describe('truncate mode (ADR 0003 mode b)', () => {
   const db = truncateModeDb();
@@ -16,7 +16,7 @@ describe('truncate mode (ADR 0003 mode b)', () => {
   afterAll(() => otherConnection.$client.end());
 
   it('makes a commit on one connection visible to another, which rollback mode cannot', async () => {
-    await createTenant(db, ACME);
+    await seedTenant(db, ACME);
     expect(await otherConnection.$count(tenantsTable)).toBe(1);
   });
 

@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { problemSchema } from '@/contract/problem';
-import { createTenant } from '@/lib/tenants/create-tenant';
 import { bearer } from '@tests/utils/bearer';
 import { testDb, withRollback } from '@tests/utils/db';
 import { PURGE_IDEMPOTENCY_PATH } from '@tests/utils/paths';
 import { TEST_CRON_SECRET, testApp } from '@tests/utils/test-app';
 import { ACME } from '@tests/utils/tenant-fixtures';
+import { seedTenant } from '@tests/utils/tenant-rows';
 
 const post = (init: RequestInit = {}): RequestInit => ({ ...init, method: 'POST' });
 
@@ -27,7 +27,7 @@ describe('cron authentication (ADR 0002)', () => {
 
   it("does not accept a tenant's API key", async () => {
     await withRollback(testDb(), async (tx) => {
-      const { apiKey } = await createTenant(tx, ACME);
+      const { apiKey } = await seedTenant(tx, ACME);
       const res = await testApp(tx).request(PURGE_IDEMPOTENCY_PATH, post(bearer(apiKey)));
       expect(res.status).toBe(401);
     });

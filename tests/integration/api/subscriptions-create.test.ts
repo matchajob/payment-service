@@ -10,6 +10,7 @@ import { SUBSCRIPTION_STATUS } from '@/lib/subscriptions/state-machine/subscript
 import { seedBillingContext, type BillingContext } from '@tests/utils/billing-context';
 import { testDb, withRollback } from '@tests/utils/db';
 import { FAKE_CHECKOUT_URL, fakePaymentProvider } from '@tests/utils/fake-payment-provider';
+import { everyConnection } from '@tests/utils/fake-provider-factory';
 import { SUBSCRIPTIONS_PATH } from '@tests/utils/paths';
 import { postJson } from '@tests/utils/post-json';
 import { testApp } from '@tests/utils/test-app';
@@ -67,7 +68,10 @@ describe('POST /v1/subscriptions', () => {
       const ctx = await seedBillingContext(tx);
       const provider = fakePaymentProvider();
       const { data } = await (
-        await testApp(tx, { provider }).request(SUBSCRIPTIONS_PATH, postJson(ctx.apiKey, validBody(ctx)))
+        await testApp(tx, { providerFor: everyConnection(provider) }).request(
+          SUBSCRIPTIONS_PATH,
+          postJson(ctx.apiKey, validBody(ctx)),
+        )
       ).json();
       expect(provider.calls.startCheckout).toEqual([
         {
@@ -85,7 +89,7 @@ describe('POST /v1/subscriptions', () => {
     await withRollback(testDb(), async (tx) => {
       const ctx = await seedBillingContext(tx);
       const provider = fakePaymentProvider();
-      await testApp(tx, { provider }).request(
+      await testApp(tx, { providerFor: everyConnection(provider) }).request(
         SUBSCRIPTIONS_PATH,
         postJson(ctx.apiKey, { ...validBody(ctx), amountMinor: 1 }),
       );
@@ -112,7 +116,10 @@ describe('POST /v1/subscriptions', () => {
       await withRollback(testDb(), async (tx) => {
         const ctx = await seedBillingContext(tx);
         const provider = fakePaymentProvider();
-        const res = await testApp(tx, { provider }).request(SUBSCRIPTIONS_PATH, postJson(ctx.apiKey, body(ctx)));
+        const res = await testApp(tx, { providerFor: everyConnection(provider) }).request(
+          SUBSCRIPTIONS_PATH,
+          postJson(ctx.apiKey, body(ctx)),
+        );
         expect(res.status).toBe(404);
         expect(problemSchema.parse(await res.json()).status).toBe(404);
         expect(provider.calls.startCheckout).toEqual([]);
@@ -150,7 +157,10 @@ describe('POST /v1/subscriptions', () => {
       await withRollback(testDb(), async (tx) => {
         const ctx = await seedBillingContext(tx);
         const provider = fakePaymentProvider();
-        const res = await testApp(tx, { provider }).request(SUBSCRIPTIONS_PATH, postJson(ctx.apiKey, body(ctx)));
+        const res = await testApp(tx, { providerFor: everyConnection(provider) }).request(
+          SUBSCRIPTIONS_PATH,
+          postJson(ctx.apiKey, body(ctx)),
+        );
         expect(res.status).toBe(400);
         expect(provider.calls.startCheckout).toEqual([]);
       });
@@ -174,7 +184,10 @@ describe('POST /v1/subscriptions', () => {
         const ctx = await seedBillingContext(tx);
         const provider = fakePaymentProvider();
         provider.failCheckouts();
-        const res = await testApp(tx, { provider }).request(SUBSCRIPTIONS_PATH, postJson(ctx.apiKey, validBody(ctx)));
+        const res = await testApp(tx, { providerFor: everyConnection(provider) }).request(
+          SUBSCRIPTIONS_PATH,
+          postJson(ctx.apiKey, validBody(ctx)),
+        );
         expect(res.status).toBe(500);
         expect(await tx.$count(subscriptionsTable)).toBe(0);
         expect(await tx.$count(idempotencyKeysTable)).toBe(0);
@@ -187,7 +200,7 @@ describe('POST /v1/subscriptions', () => {
       await withRollback(testDb(), async (tx) => {
         const ctx = await seedBillingContext(tx);
         const provider = fakePaymentProvider();
-        const app = testApp(tx, { provider });
+        const app = testApp(tx, { providerFor: everyConnection(provider) });
         const key = randomUUID();
         const first = await app.request(SUBSCRIPTIONS_PATH, postJson(ctx.apiKey, validBody(ctx), key));
         const replay = await app.request(SUBSCRIPTIONS_PATH, postJson(ctx.apiKey, validBody(ctx), key));

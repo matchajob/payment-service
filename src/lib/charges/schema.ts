@@ -16,6 +16,8 @@ import { REFERENTIAL_ACTION } from '@/lib/referential-action';
 import { sqlLiteral } from '@/lib/sql-literal';
 import { subscriptionsTable } from '@/lib/subscriptions/schema';
 import { tenantsTable } from '@/lib/tenants/schema';
+import { providerConnectionsTable } from '@/lib/provider-connections/schema';
+import { foreignKey } from '@matcha/infra/domain-drizzle/exports';
 
 const FIRST_ATTEMPT = 0;
 
@@ -46,6 +48,14 @@ export const chargesEntity = defineEntity(
           'PaymentMethodId',
         ),
       ),
+    providerConnectionId: (f) =>
+      entityFromDzd(
+        dzdThemeUuid.requiredRef(
+          f,
+          { ref: () => providerConnectionsTable.providerConnectionId, actions: restrict },
+          'ProviderConnectionId',
+        ),
+      ),
     periodEnd: (f) => entityFromDzd(dzdThemeTimestamp.custom(f)),
     attempt: (f) => entityFromDzd(makeDzdInteger(f, { minSize: FIRST_ATTEMPT })),
     amountMinor: (f) => entityFromDzd(dzdThemeInt.positive(f)),
@@ -69,6 +79,16 @@ export const chargesEntity = defineEntity(
       uniqueIndex('charges_one_live_per_period')
         .on(t.subscriptionId, t.periodEnd)
         .where(sql`${t.status} in (${sqlLiteral(CHARGE_STATUS.PENDING)}, ${sqlLiteral(CHARGE_STATUS.SUCCEEDED)})`),
+      foreignKey({
+        name: 'charges_subscription_connection',
+        columns: [t.subscriptionId, t.providerConnectionId],
+        foreignColumns: [subscriptionsTable.subscriptionId, subscriptionsTable.providerConnectionId],
+      }).onDelete(REFERENTIAL_ACTION.RESTRICT),
+      foreignKey({
+        name: 'charges_payment_method_connection',
+        columns: [t.paymentMethodId, t.providerConnectionId],
+        foreignColumns: [paymentMethodsTable.paymentMethodId, paymentMethodsTable.providerConnectionId],
+      }).onDelete(REFERENTIAL_ACTION.RESTRICT),
     ],
   },
 );

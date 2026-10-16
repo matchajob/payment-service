@@ -23,7 +23,9 @@ export const NEW_DELIVERY = {
   lastError: null,
 } as const;
 
-export const snapshotFor = ({ subscriptionId }: SubscriptionOwner): SubscriptionSnapshot => ({
+type EventOwner = Pick<SubscriptionOwner, 'tenantId' | 'subscriptionId'>;
+
+export const snapshotFor = ({ subscriptionId }: Pick<SubscriptionOwner, 'subscriptionId'>): SubscriptionSnapshot => ({
   subscriptionId,
   customerId: '7d1c6a1e-2f3b-4c5d-8e9f-0a1b2c3d4e5f',
   customerExternalRef: 'user-42',
@@ -36,7 +38,7 @@ export const snapshotFor = ({ subscriptionId }: SubscriptionOwner): Subscription
 
 export const insertOutboxEvent = (
   db: Database,
-  { tenantId, subscriptionId }: SubscriptionOwner,
+  { tenantId, subscriptionId }: EventOwner,
   sequence: number,
   delivery: Delivery = {},
 ) =>
@@ -45,7 +47,7 @@ export const insertOutboxEvent = (
     subscriptionId,
     eventType: OUTBOUND_EVENT_TYPE.SUBSCRIPTION_ACTIVATED,
     sequence,
-    snapshot: snapshotFor({ tenantId, subscriptionId }),
+    snapshot: snapshotFor({ subscriptionId }),
     occurredAt: OCCURRED_AT,
     ...NEW_DELIVERY,
     ...delivery,

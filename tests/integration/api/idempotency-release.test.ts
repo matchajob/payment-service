@@ -4,11 +4,11 @@ import { createCustomer } from '@/lib/customers/create-customer';
 import { customersTable } from '@/lib/customers/schema';
 import type { Database } from '@/lib/db';
 import { idempotencyKeysTable } from '@/lib/idempotency/schema';
-import { createTenant } from '@/lib/tenants/create-tenant';
 import { testDb, withRollback } from '@tests/utils/db';
 import { postJson } from '@tests/utils/post-json';
 import { testApp } from '@tests/utils/test-app';
 import { ACME } from '@tests/utils/tenant-fixtures';
+import { seedTenant } from '@tests/utils/tenant-rows';
 
 const WRITES_THEN_THROWS_PATH = '/v1/writes-then-throws';
 
@@ -24,7 +24,7 @@ const writesThenThrows = (db: Database) => {
 describe('a handler that throws', () => {
   it("rolls back the handler's writes and releases the key", async () => {
     await withRollback(testDb(), async (tx) => {
-      const { apiKey } = await createTenant(tx, ACME);
+      const { apiKey } = await seedTenant(tx, ACME);
       const res = await writesThenThrows(tx).request(WRITES_THEN_THROWS_PATH, postJson(apiKey, {}));
       expect(res.status).toBe(500);
       expect(await tx.$count(customersTable)).toBe(0);
@@ -34,7 +34,7 @@ describe('a handler that throws', () => {
 
   it('lets a retry with the same key execute again instead of replaying the 500', async () => {
     await withRollback(testDb(), async (tx) => {
-      const { apiKey } = await createTenant(tx, ACME);
+      const { apiKey } = await seedTenant(tx, ACME);
       const app = writesThenThrows(tx);
       const key = randomUUID();
       await app.request(WRITES_THEN_THROWS_PATH, postJson(apiKey, {}, key));

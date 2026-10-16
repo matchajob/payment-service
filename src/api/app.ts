@@ -13,24 +13,22 @@ import type { Clock } from '@/lib/clock';
 import { idempotency } from '@/api/idempotency';
 import { cronAuth } from '@/api/cron-auth';
 import { cronRoutes } from '@/api/routes/cron';
-import type { PaymentProvider } from '@/lib/payments/provider';
 import { subscriptionsRoutes } from '@/api/routes/subscriptions';
-import { assertProviderSupported } from '@/lib/payments/assert-provider-supported';
 import { webhooksRoutes } from '@/api/routes/webhooks';
+import type { ProviderFor } from '@/lib/provider-connections/provider-for';
 
-export type AppDeps = { logger: Logger; db: Database; clock: Clock; cronSecret: string; provider: PaymentProvider };
+export type AppDeps = { logger: Logger; db: Database; clock: Clock; cronSecret: string; providerFor: ProviderFor };
 
 const V1 = '/v1/*';
 const CRON_PREFIX = '/internal/cron';
 const WEBHOOKS_PREFIX = '/v1/webhooks';
 
-export const createApp = ({ logger, db, clock, cronSecret, provider }: AppDeps) => {
-  assertProviderSupported(provider);
+export const createApp = ({ logger, db, clock, cronSecret, providerFor }: AppDeps) => {
   const app = new Hono<AppEnv>();
 
   app.use(requestLogger(logger));
   app.use(dbContext(db));
-  app.route(WEBHOOKS_PREFIX, webhooksRoutes(provider, clock));
+  app.route(WEBHOOKS_PREFIX, webhooksRoutes(providerFor, clock));
 
   // Registered before the V1 middleware: Hono runs middleware in registration order, and providers carry no tenant API key.
   app.use(V1, tenantAuth());
@@ -40,7 +38,7 @@ export const createApp = ({ logger, db, clock, cronSecret, provider }: AppDeps) 
   app.route('/v1/plans', plansRoutes());
   app.route('/v1/customers', customersRoutes());
   app.route(CRON_PREFIX, cronRoutes(clock));
-  app.route('/v1/subscriptions', subscriptionsRoutes(provider));
+  app.route('/v1/subscriptions', subscriptionsRoutes(providerFor));
 
   app.get('/health', (c) => c.json({ ok: true }));
   app.notFound((c) => problemResponse(c, HTTP_STATUS.NOT_FOUND, c.req.path));

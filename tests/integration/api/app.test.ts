@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { testApp } from '@tests/utils/test-app';
 import { problemSchema } from '@/contract/problem';
-import { unconfiguredProvider } from '@/lib/payments/unconfigured-provider';
 import { testDb } from '@tests/utils/db';
 import { fakePaymentProvider } from '@tests/utils/fake-payment-provider';
+import { everyConnection } from '@tests/utils/fake-provider-factory';
 
 const db = testDb();
 
@@ -21,13 +21,9 @@ describe('createApp', () => {
     expect(problemSchema.parse(await res.json()).status).toBe(404);
   });
 
-  it('refuses to build with a provider it cannot run safely (ADR 0007)', () => {
+  it('builds without asking any provider for capabilities; connection creation checks them now (ADR 0010 decision 3)', () => {
     const provider = fakePaymentProvider();
     const unsafe = { ...provider, capabilities: { ...provider.capabilities, saveCardWithoutCharge: false } };
-    expect(() => testApp(db, { provider: unsafe })).toThrow(/saveCardWithoutCharge/);
-  });
-
-  it('builds with the unconfigured provider, so the server starts before slice 13', () => {
-    expect(() => testApp(db, { provider: unconfiguredProvider })).not.toThrow();
+    expect(() => testApp(db, { providerFor: everyConnection(unsafe) })).not.toThrow();
   });
 });

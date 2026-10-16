@@ -5,35 +5,41 @@ import type { Database } from '@/lib/db';
 import { CHECKOUT_VERIFICATION } from '@/lib/payments/checkout-verification';
 import type { PaymentProvider } from '@/lib/payments/provider';
 import { findPlan } from '@/lib/plans/find-plan';
+import type { ProviderConnection } from '@/lib/provider-connections/schema';
 import { activateCheckout } from '@/lib/subscriptions/activate-checkout';
 import { ACTIVATION } from '@/lib/subscriptions/activation';
 import { cancelAlreadySubscribed } from '@/lib/subscriptions/cancel-already-subscribed';
-import { findSubscription } from '@/lib/subscriptions/find-subscription';
+import { findSubscriptionOnConnection } from '@/lib/subscriptions/find-subscription-on-connection';
 import { zSubscriptionRead } from '@/lib/subscriptions/schema';
 import { settleFirstCharge } from '@/lib/subscriptions/settle-first-charge';
 import { SUBSCRIPTION_STATUS } from '@/lib/subscriptions/state-machine/subscription-status';
-import type { Tenant } from '@/lib/tenants/schema';
+import { findTenant } from '@/lib/tenants/find-tenant';
 
 export type CompleteCheckoutDeps = { db: Database; provider: PaymentProvider; clock: Clock };
-export type CompleteCheckoutInput = { tenant: Tenant; reference: string; sessionRef: string };
+export type CompleteCheckoutInput = {
+  providerConnectionId: ProviderConnection['providerConnectionId'];
+  reference: string;
+  sessionRef: string;
+};
 
 export const completeCheckout = async (
   { db, provider, clock }: CompleteCheckoutDeps,
-  { tenant, reference, sessionRef }: CompleteCheckoutInput,
+  { providerConnectionId, reference, sessionRef }: CompleteCheckoutInput,
 ): Promise<void> => {
   const subscriptionId = zSubscriptionRead.shape.subscriptionId.safeParse(reference);
   if (!subscriptionId.success) return;
-  const subscription = await findSubscription(db, tenant.tenantId, subscriptionId.data);
+  const subscription = await findSubscriptionOnConnection(db, providerConnectionId, subscriptionId.data);
   if (subscription?.status !== SUBSCRIPTION_STATUS.INCOMPLETE) return;
   if (subscription.checkoutSessionRef !== sessionRef) return;
 
   const verified = await provider.verifyCheckout(sessionRef);
   if (verified.outcome === CHECKOUT_VERIFICATION.NOT_COMPLETED) return;
 
-  const customer = await findCustomer(db, tenant.tenantId, subscription.customerId);
-  const plan = await findPlan(db, tenant.tenantId, subscription.planId);
-  if (customer === undefined || plan === undefined)
-    throw new Error('subscription references a missing customer or plan');
+  const tenant = await findTenant(db, subscription.tenantId);
+  const customer = await findCustomer(db, subscription.tenantId, subscription.customerId);
+  const plan = await findPlan(db, subscription.tenantId, subscription.planId);
+  if (tenant === undefined || customer === undefined || plan === undefined)
+    throw new Error('subscription references a missing tenant, customer or plan');
 
   const activation = await activateCheckout(db, {
     subscriptionId: subscription.subscriptionId,

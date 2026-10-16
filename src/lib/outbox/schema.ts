@@ -54,20 +54,20 @@ export const outboxEventsEntity = defineEntity(
   },
   {
     extraConstraints: (t) => [
-    unique('outbox_events_one_per_sequence').on(t.subscriptionId, t.sequence),
-    check(
-      'outbox_events_delivered_at_iff_delivered',
-      sql`(${t.deliveryStatus} = ${sqlLiteral(DELIVERY_STATUS.DELIVERED)}) = (${t.deliveredAt} is not null)`,
-    ),
-    check(
-      'outbox_events_dead_has_last_error',
-      sql`${t.deliveryStatus} <> ${sqlLiteral(DELIVERY_STATUS.DEAD)} or ${t.lastError} is not null`,
-    ),
-    index('outbox_events_due')
-      .on(t.nextAttemptAt)
-      .where(sql`${t.deliveryStatus} = ${sqlLiteral(DELIVERY_STATUS.PENDING)}`),
-    ], 
-  }
+      unique('outbox_events_one_per_sequence').on(t.subscriptionId, t.sequence),
+      check(
+        'outbox_events_delivered_at_iff_delivered',
+        sql`(${t.deliveryStatus} = ${sqlLiteral(DELIVERY_STATUS.DELIVERED)}) = (${t.deliveredAt} is not null)`,
+      ),
+      check(
+        'outbox_events_dead_has_last_error',
+        sql`${t.deliveryStatus} <> ${sqlLiteral(DELIVERY_STATUS.DEAD)} or ${t.lastError} is not null`,
+      ),
+      index('outbox_events_due')
+        .on(t.nextAttemptAt)
+        .where(sql`${t.deliveryStatus} = ${sqlLiteral(DELIVERY_STATUS.PENDING)}`),
+    ],
+  },
 );
 
 export const outboxEventsTable = outboxEventsEntity.table;

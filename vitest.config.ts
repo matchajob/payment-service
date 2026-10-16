@@ -14,7 +14,7 @@ export default defineConfig({
   test: {
     passWithNoTests: true,
     server: { deps: { inline: [/@matcha\/infra/] } },
-        projects: [
+    projects: [
       { extends: true, test: { name: 'unit', include: ['tests/unit/**/*.test.ts'], sequence: { groupOrder: 0 } } },
       {
         extends: true,

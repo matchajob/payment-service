@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { readSeedArgs } from '@/cli/seed-args';
 
+const CREDENTIALS = '{"userId":"grow-user-1","apiKey":"grow-secret-api-key"}';
+
 const VALID = [
+  '--organization-name',
+  'Acme Ltd',
+  '--provider',
+  'grow',
+  '--credentials',
+  CREDENTIALS,
   '--slug',
   'acme',
   '--webhook-url',
@@ -28,15 +36,25 @@ const withoutFlag = (flag: string) => {
 };
 
 describe('readSeedArgs', () => {
-  it('reads a complete set of flags into a tenant and a plan', () => {
+  it('reads a complete set of flags into an organization, a connection, a tenant and a plan (ADR 0010)', () => {
     expect(readSeedArgs(VALID)).toEqual({
+      organization: { name: 'Acme Ltd' },
+      connection: { provider: 'grow', credentials: CREDENTIALS },
       tenant: { slug: 'acme', webhookUrl: 'https://acme.test/webhooks' },
       plan: { name: 'Pro monthly', amountMinor: 4900, currency: 'ILS', interval: 'month' },
     });
   });
 
-  it('rejects a missing flag', () => {
-    expect(() => readSeedArgs(withoutFlag('--slug'))).toThrow();
+  it.each(['--slug', '--organization-name', '--provider', '--credentials'])('rejects a missing %s', (flag) => {
+    expect(() => readSeedArgs(withoutFlag(flag))).toThrow();
+  });
+
+  it('rejects an unknown provider', () => {
+    expect(() => readSeedArgs(withFlag('--provider', 'stripe'))).toThrow();
+  });
+
+  it('rejects empty credentials', () => {
+    expect(() => readSeedArgs(withFlag('--credentials', ''))).toThrow();
   });
 
   it('rejects a non-numeric amount', () => {

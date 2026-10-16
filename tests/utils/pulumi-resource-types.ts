@@ -5,9 +5,11 @@ export const RESOURCE_TYPE = {
   cryptoKeyIamMember: 'gcp:kms/cryptoKeyIAMMember:CryptoKeyIAMMember',
   databaseInstance: 'gcp:sql/databaseInstance:DatabaseInstance',
   projectIamMember: 'gcp:projects/iAMMember:IAMMember',
+  projectService: 'gcp:projects/service:Service',
   schedulerJob: 'gcp:cloudscheduler/job:Job',
   secret: 'gcp:secretmanager/secret:Secret',
   secretIamMember: 'gcp:secretmanager/secretIamMember:SecretIamMember',
   secretVersion: 'gcp:secretmanager/secretVersion:SecretVersion',
   sqlUser: 'gcp:sql/user:User',
+  workloadIdentityPoolProvider: 'gcp:iam/workloadIdentityPoolProvider:WorkloadIdentityPoolProvider',
 } as const;

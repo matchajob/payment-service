@@ -47,6 +47,7 @@ export const activateCheckout = async (db: Database, input: ActivateCheckoutInpu
         .values({
           tenantId: subscription.tenantId,
           subscriptionId: subscription.subscriptionId,
+          providerConnectionId: subscription.providerConnectionId,
           providerToken: input.paymentMethodToken,
           captureRef: input.sessionRef,
         })
@@ -68,6 +69,7 @@ export const activateCheckout = async (db: Database, input: ActivateCheckoutInpu
         .values({
           tenantId: subscription.tenantId,
           subscriptionId: subscription.subscriptionId,
+          providerConnectionId: subscription.providerConnectionId,
           paymentMethodId: card.paymentMethodId,
           periodEnd,
           attempt: FIRST_ATTEMPT,

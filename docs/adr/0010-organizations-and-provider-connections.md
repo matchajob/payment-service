@@ -1,6 +1,6 @@
 # ADR 0010: Organizations own provider connections, applications use them
 
-**Status:** Proposed, 2026-10-15
+**Status:** Accepted, 2026-10-16 (proposed 2026-10-15). See "Amendments on acceptance" at the end.
 **Slice:** 19 (new). It changes the tenant schema, so it lands before slice 8 adds renewal charges.
 
 ## Context
@@ -57,3 +57,16 @@ organizations                 the legal entity; one per customer business
 - Reconciliation per application is free: every charge row already carries `tenantId`, so payouts on a shared merchant account can be split by application.
 - **Not decided here, deferred:** reusing a customer's card across sibling applications of one organization. The token technically allows it, but it needs the customer's consent and a customer identity shared across tenants. Organization-level API keys and a dashboard login are also deferred. Today every API key belongs to an application.
 - **Open:** whether we verify that an organization really is one legal entity (for example, the registration number on its merchant account matches the organization's) or rely on contract terms. To decide with the lawyer.
+
+## Amendments on acceptance (2026-10-16)
+
+These come from reading the code against the proposal. Where they disagree with the Decision section above, these win.
+
+1. **The pinned connection is enforced by the database too, not only copied in code.** `subscriptions` has `unique(subscriptionId, providerConnectionId)`. `payment_methods` and `charges` reference that pair with composite foreign keys, and `charges` also references `payment_methods (paymentMethodId, providerConnectionId)`. A charge path written later (renewal, dunning, slice 11) that copies the wrong connection id fails at the insert instead of charging a token through the wrong merchant account. This is the same reasoning as decision 1.
+2. **No capabilities snapshot column.** Capabilities have one source: the adapter code. `createProviderConnection` builds the adapter from the new connection's credentials, runs `assertProviderSupported` on it, and only then inserts. A stored copy would go stale when an adapter gains a capability.
+3. **Two factory shapes instead of one.** `buildProvider({ providerConnectionId, provider, credentials })` builds an adapter from plaintext credentials. It is used at creation, before any row exists. `providerFor(connection)` takes a stored row, opens its sealed credentials and calls `buildProvider`. It is async because opening goes through KMS. `createApp` takes `providerFor`.
+4. **Credentials are an opaque sealed string.** The `CredentialCipher` port (`seal`, `open`) owns the envelope format, so the schema never changes when the format does. The KMS envelope implementation is owned separately, on the key that `iac/provider-credentials-key.ts` declares.
+5. **`webhook_events` drops `tenantId` for `providerConnectionId`.** Events are stored before they're interpreted, and on the new route the tenant is unknown until the payload names a subscription. Dedup is `unique(providerConnectionId, dedupKey)`. A `:provider` path segment that doesn't match the connection's provider is `404`.
+6. **`completeCheckout` looks the subscription up within the connection.** A webhook on connection X can't find, verify or charge a subscription pinned to connection Y. The tenant is loaded from the subscription.
+7. **The statement descriptor is deferred to slice 13.** Whether Grow takes a per-transaction descriptor is only known once its API is read. `dynamicDescriptor` is not added to `ProviderCapabilities` until then.
+8. **Two ciphers, chosen by environment (decided 2026-10-16, option A).** Local development seals with AES-256-GCM under a 32-byte key from `PROVIDER_CREDENTIALS_LOCAL_KEY`, so seeding needs no GCP access. Where `PROVIDER_CREDENTIALS_KMS_KEY` is set, as on every deployed service, the local key is never used, even if it is also set. Until the KMS envelope cipher lands (slice 20), sealing and opening there throw, and the server still boots. This is the same pattern as `unconfiguredProvider`. The rejected option B built the KMS cipher in this slice. It would have tied every local seed to GCP credentials, and key rotation deserves its own review.

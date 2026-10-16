@@ -15,10 +15,11 @@ import { webhookEventsTable } from '@/lib/webhooks/schema';
 import { seedBillingContext } from '@tests/utils/billing-context';
 import { startTestCheckout } from '@tests/utils/checkout-flow';
 import { testDb, withRollback } from '@tests/utils/db';
-import { fakeCheckoutCompletedBody, fakePaymentProvider } from '@tests/utils/fake-payment-provider';
+import { fakeCheckoutCompletedBody } from '@tests/utils/fake-payment-provider';
+import { fakeProviderFactory } from '@tests/utils/fake-provider-factory';
 import { postWebhook, webhookPath } from '@tests/utils/post-webhook';
 import { TEST_NOW, testApp } from '@tests/utils/test-app';
-import { ACME, GLOBEX } from '@tests/utils/tenant-fixtures';
+import { GLOBEX } from '@tests/utils/tenant-fixtures';
 
 const SESSION_1 = 'session-1';
 const SESSION_2 = 'session-2';
@@ -40,11 +41,15 @@ const subscriptionRow = async (db: Database, subscriptionId: Subscription['subsc
 
 const setup = async (tx: Database) => {
   const ctx = await seedBillingContext(tx);
-  const provider = fakePaymentProvider();
-  const app = testApp(tx, { provider });
+  const providers = fakeProviderFactory();
+  const provider = providers.providerOf(ctx.providerConnectionId);
+  const app = testApp(tx, { providerFor: providers.providerFor });
   const subscriptionId = await startTestCheckout(app, ctx);
-  const complete = (sessionRef = SESSION_1, reference: string = subscriptionId, slug = ACME.slug) =>
-    app.request(webhookPath(slug), postWebhook(fakeCheckoutCompletedBody(reference, sessionRef)));
+  const complete = (
+    sessionRef = SESSION_1,
+    reference: string = subscriptionId,
+    connectionId: string = ctx.providerConnectionId,
+  ) => app.request(webhookPath(connectionId), postWebhook(fakeCheckoutCompletedBody(reference, sessionRef)));
   return { ctx, provider, app, subscriptionId, complete };
 };
 
@@ -308,11 +313,11 @@ describe('checkout completed webhook (S1 r2, ADR 0007, ADR 0008)', () => {
       });
     });
 
-    it("ignores another tenant's subscription posted to this tenant's URL", async () => {
+    it("ignores a subscription posted to another organization's connection (ADR 0010 amendment 6)", async () => {
       await withRollback(testDb(), async (tx) => {
         const { provider, subscriptionId, complete } = await setup(tx);
-        await seedBillingContext(tx, GLOBEX);
-        expect((await complete(SESSION_1, subscriptionId, GLOBEX.slug)).status).toBe(200);
+        const globex = await seedBillingContext(tx, GLOBEX);
+        expect((await complete(SESSION_1, subscriptionId, globex.providerConnectionId)).status).toBe(200);
         expect(provider.calls.verifyCheckout).toEqual([]);
         expect(await subscriptionRow(tx, subscriptionId)).toMatchObject({ status: SUBSCRIPTION_STATUS.INCOMPLETE });
       });

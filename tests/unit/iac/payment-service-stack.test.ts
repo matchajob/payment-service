@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import { deployerTrustCondition } from '@iac/deployer-trust-condition';
 import { RUNTIME_SECRET_ENV } from '@iac/runtime-secret-env';
 import type { StackSettings } from '@iac/stack-settings';
 import { ENV } from '@/lib/env-names';
@@ -25,10 +26,12 @@ const envVarSchema = z.object({
 const serviceInputsSchema = z.object({
   template: z.object({
     serviceAccount: z.string(),
+    timeout: z.string(),
     containers: z.array(z.object({ envs: z.array(envVarSchema) })).length(1),
   }),
 });
 const jobInputsSchema = z.object({
+  attemptDeadline: z.string().optional(),
   httpTarget: z.object({
     uri: z.string(),
     httpMethod: z.string(),
@@ -68,8 +71,8 @@ const serviceInputs = () => serviceInputsSchema.parse(only(RESOURCE_TYPE.cloudRu
 const runtimeMember = () => mockMember(serviceInputs().template.serviceAccount);
 const containerEnv = () => serviceInputs().template.containers[0]!.envs;
 const envValue = (name: string) => containerEnv().find((e) => e.name === name)?.value;
-const schedulerTargets = () =>
-  ofType(recorded, RESOURCE_TYPE.schedulerJob).map((job) => jobInputsSchema.parse(job.inputs).httpTarget);
+const schedulerJobs = () => ofType(recorded, RESOURCE_TYPE.schedulerJob).map((job) => jobInputsSchema.parse(job.inputs));
+const schedulerTargets = () => schedulerJobs().map((job) => job.httpTarget);
 
 describe('payment service stack (slice 0.6)', () => {
   beforeAll(async () => {
@@ -134,6 +137,27 @@ describe('payment service stack (slice 0.6)', () => {
 
     it('no longer passes CRON_SECRET to the service', () => {
       expect(containerEnv().map((e) => e.name)).not.toContain(ENV.CRON_SECRET);
+    });
+
+    it('waits as long as the service may run, so a slow run is not recorded as a failed job', () => {
+      const timeout = serviceInputs().template.timeout;
+      for (const job of schedulerJobs()) {
+        expect(job.attemptDeadline).toBe(timeout);
+      }
+    });
+  });
+
+  describe('deployer (ADR 0012)', () => {
+    it('trusts GitHub tokens only under the condition for this environment', () => {
+      const provider = only(RESOURCE_TYPE.workloadIdentityPoolProvider);
+      expect(provider.inputs['attributeCondition']).toBe(deployerTrustCondition(SETTINGS));
+    });
+  });
+
+  describe('empty project', () => {
+    it('enables the Resource Manager API that project IAM bindings call', () => {
+      const apis = ofType(recorded, RESOURCE_TYPE.projectService).map((s) => s.inputs['service']);
+      expect(apis).toContain('cloudresourcemanager.googleapis.com');
     });
   });
 
