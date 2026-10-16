@@ -1,23 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import { CHARGE_STATUS } from '@/lib/charges/charge-status';
 import type { Database } from '@/lib/db';
+import { CANCEL_REASON } from '@/lib/subscriptions/cancel-reason';
 import { OUTBOUND_EVENT_TYPE } from '@/lib/subscriptions/state-machine/outbound-event-types';
 import { SUBSCRIPTION_STATUS } from '@/lib/subscriptions/state-machine/subscription-status';
+import { DAY_MS } from '@/lib/time/day-ms';
 import { testDb, withRollback } from '@tests/utils/db';
+import { DECLINE_REASON, DECLINED } from '@tests/utils/declined-charge-fixtures';
 import { fakeProviderFactory } from '@tests/utils/fake-provider-factory';
 import { chargesOf, eventsOf, subscriptionRow } from '@tests/utils/renewal-reads';
 import { NEXT_PERIOD_END, PERIOD_END, seedRenewing } from '@tests/utils/renewal-rows';
 import { renewWith } from '@tests/utils/renewal-run';
 import { RENEWAL_CHARGE_REF, RENEWAL_SUCCEEDED } from '@tests/utils/renewal-charge-fixtures';
 
-const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
-const LATE = new Date(PERIOD_END.getTime() + THREE_DAYS_MS);
+const THREE_DAYS = 3;
+const LATE = new Date(PERIOD_END.getTime() + THREE_DAYS * DAY_MS);
 const CLAMPED_PERIOD_END = new Date('2026-02-28T10:00:00.000Z');
 const UNCLAMPED_NEXT_END = new Date('2026-03-31T10:00:00.000Z');
 const LAST_DAY_ANCHOR = 31;
 const RENEWAL_ATTEMPT = 0;
-const DECLINE = 'insufficient funds';
-const DECLINED = { outcome: CHARGE_STATUS.FAILED, providerChargeRef: undefined, reason: DECLINE } as const;
+const FIRST_RETRY_AT = new Date('2026-02-16T10:00:00.000Z');
 
 const setup = async (tx: Database, overrides: Parameters<typeof seedRenewing>[1] = {}) => {
   const providers = fakeProviderFactory();
@@ -107,8 +109,25 @@ describe('runRenewal: a declined charge (S1 r6)', () => {
         status: SUBSCRIPTION_STATUS.PAST_DUE,
         currentPeriodEnd: PERIOD_END,
       });
+    });
+  });
+
+  it('starts the dunning clock at the failed attempt and schedules retry 1 a day later (ADR 0014)', async () => {
+    await withRollback(testDb(), async (tx) => {
+      const { subscription, provider, renew } = await setup(tx);
+      provider.scriptCharge(DECLINED);
+      await renew(PERIOD_END);
+      expect(await subscriptionRow(tx, subscription.subscriptionId)).toMatchObject({
+        dunningStartedAt: PERIOD_END,
+        nextRetryAt: FIRST_RETRY_AT,
+        dunningAttempt: 0,
+      });
       expect(await chargesOf(tx, subscription.subscriptionId)).toEqual([
-        expect.objectContaining({ status: CHARGE_STATUS.FAILED, failureReason: DECLINE, attempt: RENEWAL_ATTEMPT }),
+        expect.objectContaining({
+          status: CHARGE_STATUS.FAILED,
+          failureReason: DECLINE_REASON,
+          attempt: RENEWAL_ATTEMPT,
+        }),
       ]);
     });
   });
@@ -138,6 +157,7 @@ describe('runRenewal: a subscription set to cancel (S1 r7)', () => {
         status: SUBSCRIPTION_STATUS.CANCELED,
         cancelAtPeriodEnd: false,
         canceledAt: LATE,
+        cancelReason: CANCEL_REASON.CUSTOMER_REQUEST,
       });
       const events = await eventsOf(tx, subscription.subscriptionId);
       expect(events.map(({ eventType }) => eventType)).toEqual([OUTBOUND_EVENT_TYPE.SUBSCRIPTION_CANCELED]);

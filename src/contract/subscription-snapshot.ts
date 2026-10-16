@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { subscriptionStatusSchema } from '@/contract/subscription-status';
+import { cancelReasonSchema } from '@/contract/cancel-reason';
 
 const EXTERNAL_REF_MAX_LENGTH = 64;
 
@@ -12,6 +13,7 @@ export const subscriptionSnapshotSchema = z.object({
   entitled: z.boolean(),
   currentPeriodEnd: z.iso.datetime().nullable(),
   cancelAtPeriodEnd: z.boolean(),
+  cancelReason: cancelReasonSchema.nullable(),
 });
 
 export type SubscriptionSnapshot = z.infer<typeof subscriptionSnapshotSchema>;

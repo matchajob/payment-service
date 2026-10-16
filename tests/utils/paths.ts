@@ -1,4 +1,5 @@
 export const CUSTOMERS_PATH = '/v1/customers';
+export const DUN_PATH = '/internal/cron/dun';
 export const DRAIN_OUTBOX_PATH = '/internal/cron/drain-outbox';
 export const PLANS_PATH = '/v1/plans';
 export const PURGE_IDEMPOTENCY_PATH = '/internal/cron/purge-idempotency';

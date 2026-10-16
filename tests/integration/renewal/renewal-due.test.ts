@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Database } from '@/lib/db';
 import { SCHEDULE_OWNER } from '@/lib/subscriptions/state-machine/schedule-owner';
 import { SUBSCRIPTION_STATUS } from '@/lib/subscriptions/state-machine/subscription-status';
+import { DAY_MS } from '@/lib/time/day-ms';
 import { testDb, withRollback } from '@tests/utils/db';
 import { fakeProviderFactory } from '@tests/utils/fake-provider-factory';
 import { PERIOD_END, seedRenewing } from '@tests/utils/renewal-rows';
@@ -9,7 +10,6 @@ import { renewWith } from '@tests/utils/renewal-run';
 import { RENEWAL_SUCCEEDED } from '@tests/utils/renewal-charge-fixtures';
 
 const ONE_MS = 1;
-const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const NOTHING_DONE = { processed: 0, failed: 0 };
 
 const setup = async (tx: Database, overrides: Parameters<typeof seedRenewing>[1] = {}) => {
@@ -45,7 +45,7 @@ describe('runRenewal: due detection (Spec 2, S1 r5)', () => {
   ])('ignores %s subscription', async (_, overrides) => {
     await withRollback(testDb(), async (tx) => {
       const { provider, renew } = await setup(tx, overrides);
-      expect(await renew(new Date(PERIOD_END.getTime() + ONE_DAY_MS))).toEqual(NOTHING_DONE);
+      expect(await renew(new Date(PERIOD_END.getTime() + DAY_MS))).toEqual(NOTHING_DONE);
       expect(provider.calls.charge).toEqual([]);
     });
   });

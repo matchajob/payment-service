@@ -9,6 +9,7 @@ import { toState } from '@/lib/subscriptions/to-state';
 import { transitionContextFor } from '@/lib/subscriptions/transition-context-for';
 import type { Tenant } from '@/lib/tenants/schema';
 import { LIFECYCLE_EVENT } from '@/lib/subscriptions/state-machine/lifecycle-events';
+import { CANCEL_REASON } from '@/lib/subscriptions/cancel-reason';
 
 export type CancelAlreadySubscribedInput = {
   subscriptionId: Subscription['subscriptionId'];
@@ -30,7 +31,7 @@ export const cancelAlreadySubscribed = (db: Database, input: CancelAlreadySubscr
     await applyTransition(tx, {
       subscription,
       outcome,
-      changes: { canceledAt: input.now },
+      changes: { canceledAt: input.now, cancelReason: CANCEL_REASON.ALREADY_SUBSCRIBED },
       customer: input.customer,
       tenant: input.tenant,
       occurredAt: input.now,

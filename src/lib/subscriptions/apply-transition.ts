@@ -9,12 +9,23 @@ import { toSnapshot } from '@/lib/subscriptions/to-snapshot';
 import { newDelivery } from '@/lib/outbox/new-delivery';
 
 type Accepted = Extract<Outcome, { kind: typeof OUTCOME_KIND.ACCEPTED }>;
-type Changes = Partial<Pick<Subscription, 'currentPeriodEnd' | 'anchorDay' | 'canceledAt'>>;
+export type TransitionChanges = Partial<
+  Pick<
+    Subscription,
+    | 'currentPeriodEnd'
+    | 'anchorDay'
+    | 'canceledAt'
+    | 'cancelReason'
+    | 'dunningAttempt'
+    | 'dunningStartedAt'
+    | 'nextRetryAt'
+  >
+>;
 
 export type ApplyTransitionInput = {
   subscription: Subscription;
   outcome: Accepted;
-  changes: Changes;
+  changes: TransitionChanges;
   customer: Pick<Customer, 'externalRef'>;
   tenant: Pick<Tenant, 'graceEntitlement'>;
   occurredAt: Date;

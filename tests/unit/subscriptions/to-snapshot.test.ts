@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { subscriptionSnapshotSchema } from '@/contract/subscription-snapshot';
+import { CANCEL_REASON } from '@/lib/subscriptions/cancel-reason';
 import { zSubscriptionRead } from '@/lib/subscriptions/schema';
 import { SCHEDULE_OWNER } from '@/lib/subscriptions/state-machine/schedule-owner';
 import { SUBSCRIPTION_STATUS } from '@/lib/subscriptions/state-machine/subscription-status';
@@ -24,6 +25,9 @@ const subscription = (overrides: Record<string, unknown> = {}) =>
     cancelAtPeriodEnd: false,
     canceledAt: null,
     dunningAttempt: 0,
+    dunningStartedAt: null,
+    nextRetryAt: null,
+    cancelReason: null,
     sequence: 0,
     createdAt: PERIOD_END,
     ...overrides,
@@ -41,7 +45,19 @@ describe('toSnapshot (Spec 5 rule 3, D12)', () => {
       entitled: true,
       currentPeriodEnd: PERIOD_END.toISOString(),
       cancelAtPeriodEnd: false,
+      cancelReason: null,
     });
+  });
+
+  it('tells the receiver why a subscription was canceled (S1 r11, ADR 0014)', () => {
+    const canceled = subscription({
+      status: SUBSCRIPTION_STATUS.CANCELED,
+      canceledAt: PERIOD_END,
+      cancelReason: CANCEL_REASON.PAYMENT_FAILURE,
+    });
+    expect(toSnapshot(canceled, { externalRef: EXTERNAL_REF }, { graceEntitlement: true }).cancelReason).toBe(
+      CANCEL_REASON.PAYMENT_FAILURE,
+    );
   });
 
   it('computes entitlement from the tenant grace policy, never leaving it to the receiver', () => {

@@ -34,6 +34,7 @@ export const snapshotFor = ({ subscriptionId }: Pick<SubscriptionOwner, 'subscri
   entitled: true,
   currentPeriodEnd: '2026-02-15T10:00:00.000Z',
   cancelAtPeriodEnd: false,
+  cancelReason: null,
 });
 
 export const insertOutboxEvent = (

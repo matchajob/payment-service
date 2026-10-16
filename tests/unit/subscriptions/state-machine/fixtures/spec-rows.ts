@@ -122,7 +122,7 @@ export const ROWS: readonly SpecRow[] = [
     event: 'retry_failed',
     to: pastDue,
     effects: ['record_charge', 'schedule_next_retry'],
-    emits: [],
+    emits: ['charge.failed'],
     selfOnly: false,
   },
   {
@@ -131,7 +131,7 @@ export const ROWS: readonly SpecRow[] = [
     event: 'final_retry_failed',
     to: canceled,
     effects: ['record_charge'],
-    emits: ['subscription.canceled'],
+    emits: ['charge.failed', 'subscription.canceled'],
     selfOnly: false,
   },
   {
@@ -185,7 +185,7 @@ export const ROWS: readonly SpecRow[] = [
     event: 'immediate_retry_failed',
     to: pastDue,
     effects: ['record_charge', 'restart_dunning'],
-    emits: [],
+    emits: ['charge.failed'],
     selfOnly: true,
   },
 ];

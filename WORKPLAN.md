@@ -289,10 +289,10 @@ Blocked by: 6, 7, 19.
 
 Spec: S1 r5, r6, r7, Spec 2 due detection, Spec 1 double-charge guards.
 
-- [ ] `runRenewal(now)` through the cron endpoint: select due rows, lock each, re-verify status and unpaid period, charge via the port with dedup key `subscriptionId:periodEnd:0`.
-- [ ] Success: advance from `oldPeriodEnd`, write `charge.succeeded`. Failure: `past_due`, write `charge.failed` and `subscription.past_due`, start the dunning clock. Flagged: `canceled` with no charge, write `subscription.canceled`.
+- [x] `runRenewal(now)` through the cron endpoint: select due rows, lock each, re-verify status and unpaid period, charge via the port with dedup key `subscriptionId:periodEnd:0`.
+- [x] Success: advance from `oldPeriodEnd`, write `charge.succeeded`. Failure: `past_due`, write `charge.failed` and `subscription.past_due`, start the dunning clock. Flagged: `canceled` with no charge, write `subscription.canceled`.
 - [x] Partial unique index: one succeeded charge per (subscription, `periodEnd`). Done early in slice 5 as `charges_one_live_per_period`, which counts `pending` too (ADR 0008).
-- [ ] Tests: nothing charges before `currentPeriodEnd`; a row stays `active` during cron lag; two concurrent crons charge once; the unique index fires if the lock is bypassed in a test.
+- [x] Tests: nothing charges before `currentPeriodEnd`; a row stays `active` during cron lag; two concurrent crons charge once; the unique index fires if the lock is bypassed in a test.
 
 Decided 2026-10-16, `docs/adr/0013-renewal-runs-hourly-in-batches.md`: hourly, at most 100 per run, `FOR UPDATE SKIP LOCKED` in tx1, and the due query skips periods that already have a live charge. Settlement shares `recordChargeResult` with charge #1.
 
@@ -317,11 +317,13 @@ Blocked by: 8.
 
 Spec: S1 r10, r11, Spec 2 retry arithmetic and recovery period, D3, D4, D7.
 
-- [ ] Pure `nextRetryAt(failedAt, attempt, dunningSchedule)`.
-- [ ] `runDunning(now)`: due retries, same lock and guards as renewal, dedup key attempt 1..N.
-- [ ] Success: new period from the original `periodEnd`, dunning reset. Final failure: `canceled` with `reason: payment_failure`.
-- [ ] `entitled` honours `graceEntitlement` while `past_due`.
-- [ ] Tests: the +1d/+3d/+7d default fires on the right days; a rescue on day 5 still ends the new period one interval after the old end; a tenant with `graceEntitlement: false` is not entitled while `past_due`.
+- [x] Pure `nextRetryAt(failedAt, attempt, dunningSchedule)`.
+- [x] `runDunning(now)`: due retries, same lock and guards as renewal, dedup key attempt 1..N.
+- [x] Success: new period from the original `periodEnd`, dunning reset. Final failure: `canceled` with `reason: payment_failure`.
+- [x] `entitled` honours `graceEntitlement` while `past_due`.
+- [x] Tests: the +1d/+3d/+7d default fires on the right days; a rescue on day 5 still ends the new period one interval after the old end; a tenant with `graceEntitlement: false` is not entitled while `past_due`.
+
+Decided 2026-10-16, `docs/adr/0014-dunning-schedule-events-and-cancel-reason.md`: stored `nextRetryAt` and `dunningStartedAt`, one charge engine shared with renewal, `charge.failed` on every failed retry, and `cancelReason` in the schema and the published snapshot. The `entitled` item was already covered by `isEntitled` and `to-snapshot.test.ts` (slice 5).
 
 Delivers: a failed card gets a week of retries and the customer keeps access while it happens.
 
@@ -385,15 +387,34 @@ Delivers: an App Store subscription mirrored into the same four states.
 
 ### 15. Receiver in job-platform
 
-Blocked by: 6, 9.
+Blocked by: 6, 9, 23.
 
 Spec: `spec/outbox-delivery.md` receiver contract. Resolves PRD open question 5, the PRODUCT:HIGH downgrade.
 
 - [ ] Endpoint in job-platform: verify HMAC, reject timestamps older than 5 minutes, respond 2xx first, dedup by event id, upsert a `subscription_status` mirror by sequence.
 - [ ] Product decision: what an employer loses when `entitled` becomes false, and when. Recorded as an ADR in job-platform.
-- [ ] Import the zod contract from this repo. One type on both sides of the wire.
+- [ ] Use the SDK (slice 23) for the API calls and for verifying and parsing events. One type on both sides of the wire.
 
 Delivers: the first real tenant reacts to a real event.
+
+### 23. Typed SDK
+
+Blocked by: 4, 6, 9, 11. Its surface is every tenant-facing route and every outbound event, so it waits until those exist.
+
+Added 2026-10-16, in v1. Context: `docs/product/hosted-service-strategy.md` section 6, developer experience. job-platform (15) is its first user.
+
+A tenant integrates through one package and never hand-writes a request body, a response type or an HMAC check. Every type comes from `src/contract`, so the SDK cannot drift from the server.
+
+- [x] Decision (ADR 0015, 2026-10-16): a hand-written thin client over `fetch`, one method per route, requests validated and responses parsed with the contract's zod schemas. No codegen step; a test enumerating the routes catches a missing method. OpenAPI generation (B) is deferred until a non-TypeScript tenant needs a spec. Hono's `hc` client is ruled out: it types against the route tree, which drags `src/api` and hono into a package tenants install.
+- [ ] Decision: packaging. A workspace package (`packages/sdk`) published to a private registry, or a git dependency on a tagged build. Either way it depends on `src/contract` and nothing else from this repo, which the layer lint already makes possible.
+- [ ] Client: `createClient({ baseUrl, apiKey, fetch? })`, with methods for plans, customers, subscriptions (create, get, cancel, resume, update payment method). Errors surface as a typed problem+json error (`src/contract/problem.ts`), not a thrown `Response`.
+- [ ] Idempotency: every mutating method takes an optional `idempotencyKey` and generates one when absent, so a caller's retry is safe by default (spec rule set for idempotency, slice 2).
+- [ ] Webhooks: `verifyAndParseEvent(rawBody, headers, secret, now)` checks the HMAC and the 5-minute timestamp window, then parses with the outbound-event contract and returns a discriminated union on the event type. Exhaustive `switch` on it is a compile-time check in the tenant.
+- [ ] Tests: each client method against the real app through `app.request()` passed as `fetch`, so the SDK is tested against the server and not a mock; a response with an extra or missing field fails the parse; a tampered body, a wrong secret and a stale timestamp each reject; every route in the router has an SDK method.
+
+Delivers: a tenant installs one package and gets typed calls, safe retries and verified, typed events.
+
+What you learn: why the contract layer is zod-only and separate from `src/api`, and what that separation buys the moment a second repo consumes it.
 
 ### 16. Production deploy
 
@@ -438,6 +459,53 @@ What you learn: why idempotency keys, unique indexes and reconcile are three lay
 
 ---
 
+## Phase 7: Roadmap after v1
+
+Added 2026-10-16. Not v1 work. Neither slice has an ADR yet; each starts with one.
+
+### 21. Sandbox mode
+
+Blocked by: 8, 10, 17, 19.
+
+Context: `docs/product/hosted-service-strategy.md` section 6, developer experience. Absorbs slice 17's production decision.
+
+Stripe's model: every application has a test key and a live key, every object records which mode created it, test and live data never meet, and test clocks let a developer move time forward. A tenant integrates and rehearses renewal and dunning without moving real money and without waiting a month.
+
+- [ ] Decision (ADR): how a mode is stored. **A.** A sandbox application is a sibling `tenants` row with `mode: sandbox`, linked to its live application. Isolation by `tenantId` already exists, so no money table gains a column, and a missed filter cannot leak across modes. **B.** One application and a `livemode` column on every row, as Stripe does. Closer to Stripe's API, but every query and every unique index must include the mode, and one missed filter mixes test data into live data. Recommendation: A.
+- [ ] `provider_connections` gains `mode`. A sandbox application can only use a sandbox connection, enforced by the database the same way the organization boundary is (ADR 0010 composite key).
+- [ ] API keys carry the mode in a visible prefix (`pk_test_`, `pk_live_`), so a key pasted in the wrong place is obvious in a log. Auth resolves the application, and the mode with it.
+- [ ] Outbound events carry `livemode`, and each mode has its own webhook URL and secret, so a receiver can drop a test event that reaches its live endpoint.
+- [ ] A simulated provider connection: the fake provider behind magic card tokens (always succeeds, always declines, declines on the second charge). A tenant can try the API before it has a Grow sandbox account.
+- [ ] Test clocks: a sandbox-only endpoint that advances one subscription's clock and runs renewal, dunning and housekeeping for it. The crons already take `now`, which is why this is cheap. A live key gets `404`, not `403`, so the route doesn't reveal itself.
+- [ ] Tests: a live key cannot read a sandbox subscription; the database rejects a sandbox application on a live connection; the clock endpoint is `404` for a live key; advancing a clock past `currentPeriodEnd` charges once and emits `charge.succeeded` with `livemode: false`.
+
+Delivers: a tenant integrates end to end, renewal and dunning included, in an afternoon and without real money.
+
+What you learn: why Stripe isolates modes at the key, and why isolation by row (A) fails safer than isolation by filter (B).
+
+### 22. Stripe adapter
+
+Blocked by: 13 for the layering pattern, 19. Better after 21, because Stripe's test keys are the natural sandbox connection.
+
+Context: the wedge in `docs/product/hosted-service-strategy.md` section 2 is cheaper local acquirers, so Stripe is not the second Israeli acquirer that section 6 asks for. It serves organizations that bill through a foreign entity, and it is the first provider with signed webhooks and a schedule we own. That combination is untested by Grow (unsigned) and RevenueCat (signed, external schedule), so it checks that the port doesn't assume "signed means external".
+
+Spec: PRD 5.1 capabilities, 5.2 rule 4, D11, ADR 0007, ADR 0008.
+
+- [ ] Decision (ADR): credentials. **A.** The organization's restricted API key and webhook signing secret, sealed in `provider_connections` like Grow's. **B.** Stripe Connect, where we are the platform and the organization authorises us by OAuth. A gives one credential model across providers and keeps us outside the platform role. B gives smoother onboarding but changes the legal boundary in ADR 0010. Recommendation: A.
+- [ ] `src/infra/stripe/` wrapping the `stripe` SDK with injected config. `src/lib/payments/stripe.ts` implements `PaymentProvider` with `selfManagedSchedule: true`, `signedWebhooks: true`, `saveCardWithoutCharge: true`, `refunds: true`.
+- [ ] Checkout is a Stripe Checkout session in `setup` mode with our checkout reference in its metadata. It saves a payment method and charges nothing, which is what ADR 0007 needs.
+- [ ] Charges are off-session PaymentIntents. Our dedup key (`subscriptionId:periodEnd:attempt`) is sent as Stripe's `Idempotency-Key`, so a retry after a timeout charges once at Stripe too. The amount comes from the plan row.
+- [ ] Inbound webhooks verify `Stripe-Signature` against the connection's signing secret and dedup on the Stripe event id. Under D11 a verified `payment_intent.succeeded` settles a charge without a verify call. Reconcile still calls `verifyCharge`.
+- [ ] Off-session charges can fail with `authentication_required` (SCA). Decide whether it is an ordinary failure that runs dunning, with update payment method (slice 11) as the rescue, or a distinct reason exposed to the tenant.
+- [ ] Check ILS against ADR 0004: minor units and Stripe's minimum charge amount.
+- [ ] Tests: contract tests against recorded Stripe responses, and a test-mode run behind an env flag; a tampered signature has no state effect; a charge retried with the same key charges once; `authentication_required` lands `past_due` with the raw reason stored.
+
+Delivers: an organization with a Stripe account bills subscriptions through it with the same lifecycle, events and contract as Grow.
+
+What you learn: what a signed webhook lets you skip, and what it still doesn't let you trust (the amount).
+
+---
+
 ## Frontier at start
 
 Slices with no unfinished blockers right now: **0.0**. After 0.0, slices **0.1**, **3**, and **7** open up, and 3 and 7 are pure modules you can write while the toolchain settles.
@@ -446,6 +514,6 @@ Slices with no unfinished blockers right now: **0.0**. After 0.0, slices **0.1**
 
 Plan changes, trials, proration, multi-currency, hard-decline short-circuiting, refunds, alerting on dead letters, and the RevenueCat adapter with external mode (slice 14, v2). All listed as out of scope in `PRD.md`. The `refunds` capability flag exists in the port but no slice implements a refund.
 
-Hosted-service gaps (invoicing, onboarding, dashboard, SDK, a second provider, legal and operations) are listed in `docs/product/hosted-service-strategy.md` section 6 and are not slices yet.
+Hosted-service gaps (invoicing, onboarding, dashboard, a second Israeli acquirer, legal and operations) are listed in `docs/product/hosted-service-strategy.md` section 6 and are not slices yet. The typed SDK is slice 23, in v1. Sandbox mode (21) and the Stripe adapter (22) are roadmap slices in phase 7.
 
 Also deferred: the fallback for providers without `saveCardWithoutCharge` (charge at checkout, plus refund-on-conflict). It depends on the refund flow above. Until it exists, such providers fail the boot guard. See ADR 0007 and PRD open question 6.

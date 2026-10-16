@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createCustomer, CREATE_CUSTOMER_OUTCOME } from '@/lib/customers/create-customer';
 import type { Database } from '@/lib/db';
+import { CANCEL_REASON } from '@/lib/subscriptions/cancel-reason';
 import { SUBSCRIPTION_STATUS } from '@/lib/subscriptions/state-machine/subscription-status';
 import { testDb, withRollback } from '@tests/utils/db';
 import { insertSubscription, PERIOD_END, seedSubscriptionParents } from '@tests/utils/subscription-rows';
@@ -110,6 +111,44 @@ describe('subscriptions table constraints', () => {
           );
         expect(await violatedConstraint(tx, write)).toBeUndefined();
       });
+    });
+  });
+});
+
+describe('dunning and cancel columns follow the status (ADR 0014)', () => {
+  const RETRY_IFF_PAST_DUE = 'subscriptions_retry_iff_past_due';
+  const DUNNING_CLOCK_WITH_RETRY = 'subscriptions_dunning_clock_with_retry';
+  const CANCEL_REASON_IFF_CANCELED = 'subscriptions_cancel_reason_iff_canceled';
+  const RETRY_AT = new Date('2026-02-16T10:00:00.000Z');
+
+  it.each([
+    ['a past_due row without a next retry', { status: PAST_DUE, nextRetryAt: null, dunningStartedAt: null }],
+    ['an active row with a next retry', { status: ACTIVE, nextRetryAt: RETRY_AT, dunningStartedAt: PERIOD_END }],
+  ])('rejects %s', async (_, row) => {
+    await withRollback(testDb(), async (tx) => {
+      const parents = await seedSubscriptionParents(tx);
+      const write = (db: Database) => insertSubscription(db, parents, { ...row, currentPeriodEnd: PERIOD_END });
+      expect(await violatedConstraint(tx, write)).toBe(RETRY_IFF_PAST_DUE);
+    });
+  });
+
+  it('rejects a next retry without the moment dunning started', async () => {
+    await withRollback(testDb(), async (tx) => {
+      const parents = await seedSubscriptionParents(tx);
+      const write = (db: Database) =>
+        insertSubscription(db, parents, { status: PAST_DUE, currentPeriodEnd: PERIOD_END, dunningStartedAt: null });
+      expect(await violatedConstraint(tx, write)).toBe(DUNNING_CLOCK_WITH_RETRY);
+    });
+  });
+
+  it.each([
+    ['a canceled row without a reason', { status: CANCELED, cancelReason: null }],
+    ['an active row with a reason', { status: ACTIVE, cancelReason: CANCEL_REASON.PAYMENT_FAILURE }],
+  ])('rejects %s', async (_, row) => {
+    await withRollback(testDb(), async (tx) => {
+      const parents = await seedSubscriptionParents(tx);
+      const write = (db: Database) => insertSubscription(db, parents, { ...row, currentPeriodEnd: PERIOD_END });
+      expect(await violatedConstraint(tx, write)).toBe(CANCEL_REASON_IFF_CANCELED);
     });
   });
 });

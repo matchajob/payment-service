@@ -17,4 +17,5 @@ export const toSnapshot = (
   entitled: isEntitled(subscription.status, graceEntitlement),
   currentPeriodEnd: subscription.currentPeriodEnd?.toISOString() ?? null,
   cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+  cancelReason: subscription.cancelReason,
 });

@@ -16,4 +16,5 @@ export const CRON_JOBS: readonly CronJob[] = [
     retryCount: DAILY_RETRIES,
   },
   { name: 'renew', path: '/internal/cron/renew', schedule: HOURLY, retryCount: NO_RETRY },
+  { name: 'dun', path: '/internal/cron/dun', schedule: HOURLY, retryCount: NO_RETRY },
 ];

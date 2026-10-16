@@ -14,6 +14,7 @@ import { REFERENTIAL_ACTION } from '@/lib/referential-action';
 
 const restrict = { onDelete: REFERENTIAL_ACTION.RESTRICT };
 const MIN_CHECKOUT_TTL_HOURS = 1;
+const MIN_DUNNING_RETRIES = 1;
 
 export const tenantsEntity = defineEntity(
   'tenants',
@@ -42,7 +43,7 @@ export const tenantsEntity = defineEntity(
     checkoutTtlHours: (f) => entityFromDzd(makeDzdInteger(f, { minSize: MIN_CHECKOUT_TTL_HOURS })),
     resumeAllowed: (f) => entityFromDzd(dzdThemeBool.required(f)),
     graceEntitlement: (f) => entityFromDzd(dzdThemeBool.required(f)),
-    dunningScheduleDays: (f) => entityFromDzd(makeDzdJson(f, z.array(z.int().positive()))),
+    dunningScheduleDays: (f) => entityFromDzd(makeDzdJson(f, z.array(z.int().positive()).min(MIN_DUNNING_RETRIES))),
     createdAt: (f) => entityFromDzd(dzdThemeTimestamp.defaultNow(f)),
   },
   {

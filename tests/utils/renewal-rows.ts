@@ -61,8 +61,11 @@ export const seedRenewing = async (
 export const seedRenewings = async (
   db: Database,
   count: number,
+  overrides: SubscriptionOverrides = {},
 ): Promise<{ ctx: BillingContext; renewings: Renewing[] }> => {
   const ctx = await seedBillingContext(db);
-  const renewings = await Promise.all(Array.from({ length: count }, (_, index) => addRenewing(db, ctx, index)));
+  const renewings = await Promise.all(
+    Array.from({ length: count }, (_, index) => addRenewing(db, ctx, index, overrides)),
+  );
   return { ctx, renewings };
 };

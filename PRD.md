@@ -19,6 +19,7 @@ The first tenant is the job-platform app. The first provider is Grow (card gatew
 - Charge customers on an anniversary-based schedule, never early, and never trusting amounts from external payloads.
 - Guarantee at-most-once execution for retried requests and provider webhook redeliveries.
 - Deliver state changes to tenants at least once, in a self-describing and ordered form, so tenant apps never depend on service uptime to interpret an event.
+- Ship a fully typed TypeScript SDK built from the published contract: typed API calls, safe retries, and verified, typed events (`WORKPLAN.md` slice 23), added 2026-10-16.
 
 ### 1.2 Out of Scope (v1)
 
@@ -29,6 +30,7 @@ The first tenant is the job-platform app. The first provider is Grow (card gatew
 - Resurrecting a canceled subscription. Resubscription is a new row.
 - Alerting or automation around dead-letter events (D13).
 - Post-cancel downgrade behaviour in the tenant application (see 1.3).
+- Sandbox mode with test keys and test clocks, and the Stripe adapter. Roadmap after v1 (`WORKPLAN.md` slices 21, 22), added 2026-10-16.
 - The RevenueCat adapter and external mode (section 2.3). Decided 2026-10-14. `scheduleOwner` and the provider capability flags stay in the schema and port so v2 adds an adapter, not a migration of the core.
 
 ### 1.3 Product Constraints and Consequences

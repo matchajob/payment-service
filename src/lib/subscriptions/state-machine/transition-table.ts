@@ -71,8 +71,16 @@ export const TABLE = {
       effects: ['record_charge', 'advance_period', 'reset_dunning'],
       emits: [CHARGE_SUCCEEDED],
     },
-    [LIFECYCLE_EVENT.RETRY_FAILED]: { to: PAST_DUE, effects: ['record_charge', 'schedule_next_retry'], emits: [] },
-    [LIFECYCLE_EVENT.FINAL_RETRY_FAILED]: { to: CANCELED, effects: ['record_charge'], emits: [SUBSCRIPTION_CANCELED] },
+    [LIFECYCLE_EVENT.RETRY_FAILED]: {
+      to: PAST_DUE,
+      effects: ['record_charge', 'schedule_next_retry'],
+      emits: [CHARGE_FAILED],
+    },
+    [LIFECYCLE_EVENT.FINAL_RETRY_FAILED]: {
+      to: CANCELED,
+      effects: ['record_charge'],
+      emits: [CHARGE_FAILED, SUBSCRIPTION_CANCELED],
+    },
     [LIFECYCLE_EVENT.CANCEL]: {
       to: CANCELED,
       effects: ['stop_dunning'],
@@ -88,7 +96,7 @@ export const TABLE = {
     [LIFECYCLE_EVENT.IMMEDIATE_RETRY_FAILED]: {
       to: PAST_DUE,
       effects: ['record_charge', 'restart_dunning'],
-      emits: [],
+      emits: [CHARGE_FAILED],
       selfOnly: true,
     },
   },

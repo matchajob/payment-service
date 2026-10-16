@@ -92,8 +92,8 @@ The sales argument is the prospect's own numbers: their monthly volume times the
 
 ### Developer experience
 
-- [ ] Test mode per application with a sandbox connection (slice 17 is part of it).
-- [ ] A typed SDK generated from `src/contract`.
+- [ ] Test mode per application with a sandbox connection, and test clocks (slice 21; slice 17 is part of it).
+- [ ] A fully typed SDK from `src/contract`, in v1 (slice 23).
 - [ ] Local webhook forwarding, like `stripe listen`.
 - [ ] Public docs with copy-paste examples, a changelog and API versioning.
 
@@ -103,6 +103,7 @@ The sales argument is the prospect's own numbers: their monthly volume times the
 - [ ] At least one second Israeli acquirer (Cardcom, Tranzila or PayPlus). Until then, "use whichever provider" is a promise, not a feature.
 - [ ] A fallback for providers without card-save-without-charge (PRD open question 6). It needs refunds.
 - [ ] RevenueCat (v2, slice 14).
+- [ ] Stripe (slice 22), for organizations that bill through a foreign entity. It does not count as the second Israeli acquirer.
 
 ### Legal and compliance
 

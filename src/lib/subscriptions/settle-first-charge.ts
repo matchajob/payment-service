@@ -12,6 +12,7 @@ import { toState } from '@/lib/subscriptions/to-state';
 import { transitionContextFor } from '@/lib/subscriptions/transition-context-for';
 import type { Tenant } from '@/lib/tenants/schema';
 import { LIFECYCLE_EVENT } from '@/lib/subscriptions/state-machine/lifecycle-events';
+import { CANCEL_REASON } from '@/lib/subscriptions/cancel-reason';
 
 export type SettleFirstChargeInput = {
   charge: Charge;
@@ -35,7 +36,7 @@ export const settleFirstCharge = (db: Database, { charge, result, tenant, custom
     await applyTransition(tx, {
       subscription,
       outcome,
-      changes: succeeded ? {} : { canceledAt: now },
+      changes: succeeded ? {} : { canceledAt: now, cancelReason: CANCEL_REASON.PAYMENT_FAILURE },
       customer,
       tenant,
       occurredAt: now,

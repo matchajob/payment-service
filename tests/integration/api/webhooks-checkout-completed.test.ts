@@ -10,6 +10,7 @@ import { outboxEventsTable } from '@/lib/outbox/schema';
 import { paymentMethodsTable } from '@/lib/payments-method/schema';
 import { subscriptionsTable, type Subscription } from '@/lib/subscriptions/schema';
 import { OUTBOUND_EVENT_TYPE } from '@/lib/subscriptions/state-machine/outbound-event-types';
+import { CANCEL_REASON } from '@/lib/subscriptions/cancel-reason';
 import { SUBSCRIPTION_STATUS } from '@/lib/subscriptions/state-machine/subscription-status';
 import { webhookEventsTable } from '@/lib/webhooks/schema';
 import { seedBillingContext } from '@tests/utils/billing-context';
@@ -131,6 +132,7 @@ describe('checkout completed webhook (S1 r2, ADR 0007, ADR 0008)', () => {
               entitled: true,
               currentPeriodEnd: PERIOD_1_END.toISOString(),
               cancelAtPeriodEnd: false,
+              cancelReason: null,
             },
           }),
         ]);
@@ -186,6 +188,7 @@ describe('checkout completed webhook (S1 r2, ADR 0007, ADR 0008)', () => {
         expect(await subscriptionRow(tx, subscriptionId)).toMatchObject({
           status: SUBSCRIPTION_STATUS.CANCELED,
           canceledAt: TEST_NOW,
+          cancelReason: CANCEL_REASON.PAYMENT_FAILURE,
         });
         expect(await tx.select().from(chargesTable)).toEqual([
           expect.objectContaining({ status: CHARGE_STATUS.FAILED, failureReason: DECLINED, providerChargeRef: null }),
@@ -241,6 +244,7 @@ describe('checkout completed webhook (S1 r2, ADR 0007, ADR 0008)', () => {
         expect(await subscriptionRow(tx, second)).toMatchObject({
           status: SUBSCRIPTION_STATUS.CANCELED,
           canceledAt: TEST_NOW,
+          cancelReason: CANCEL_REASON.ALREADY_SUBSCRIBED,
         });
       });
     });
@@ -291,7 +295,11 @@ describe('checkout completed webhook (S1 r2, ADR 0007, ADR 0008)', () => {
         const { provider, subscriptionId, complete } = await setup(tx);
         await tx
           .update(subscriptionsTable)
-          .set({ status: SUBSCRIPTION_STATUS.CANCELED, canceledAt: TEST_NOW })
+          .set({
+            status: SUBSCRIPTION_STATUS.CANCELED,
+            canceledAt: TEST_NOW,
+            cancelReason: CANCEL_REASON.CUSTOMER_REQUEST,
+          })
           .where(eq(subscriptionsTable.subscriptionId, subscriptionId));
         expect((await complete()).status).toBe(200);
         expect(provider.calls.verifyCheckout).toEqual([]);

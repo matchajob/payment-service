@@ -4,6 +4,7 @@ import { publicPlanSchema } from '@/contract/public-plan';
 import { outboundEventSchema } from '@/contract/outbound-event';
 import { subscriptionSnapshotSchema } from '@/contract/subscription-snapshot';
 import { CURRENCY } from '@/lib/money/currency';
+import { CANCEL_REASON } from '@/lib/subscriptions/cancel-reason';
 import { BILLING_INTERVAL } from '@/lib/subscriptions/billing-interval';
 import { OUTBOUND_EVENT_TYPE } from '@/lib/subscriptions/state-machine/outbound-event-types';
 import { SUBSCRIPTION_STATUS } from '@/lib/subscriptions/state-machine/subscription-status';
@@ -27,6 +28,12 @@ describe('contract enums match the server enums', () => {
 
   it('snapshot statuses match the server statuses', () => {
     expect(sorted(subscriptionSnapshotSchema.shape.status.options)).toEqual(sorted(Object.values(SUBSCRIPTION_STATUS)));
+  });
+
+  it('lists exactly the cancel reasons the server stores (ADR 0014)', () => {
+    expect(sorted(subscriptionSnapshotSchema.shape.cancelReason.unwrap().options)).toEqual(
+      sorted(Object.values(CANCEL_REASON)),
+    );
   });
 
   it('lists exactly the event types the outbox stores', () => {
