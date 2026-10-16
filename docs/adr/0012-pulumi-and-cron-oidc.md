@@ -28,7 +28,8 @@ That rule collides with ADR 0002. Cloud Scheduler would have to send `Authorizat
 - TypeScript, in `iac/` at the repo root. Not `src/infra`, which is the portable code layer. It uses the root `package.json` and runs through `tsx`, the same loader the app uses. It may import `@/lib/env-names`, so an env var the program sets and the name the app reads can't drift. Typecheck enforces that.
 - State in a GCS bucket per GCP project (`gs://<project>-pulumi-state`, versioned). The secrets provider is a Cloud KMS key in the same project. No extra vendor, and access is GCP IAM.
 - One stack per environment, `staging` and `production`, each in its own GCP project. The stack name is the environment.
-- CI (`.github/workflows/infra.yml`) runs `preview` on both stacks on every push that touches infra, and `up` on staging from `main`. Production is applied by hand. CI authenticates through Workload Identity Federation, limited to this repository. No JSON key exists.
+- CI (`.github/workflows/infra.yml`) runs the iac unit tests, then `preview` on staging on every push that touches infra and on production from `main` only, then `up` on staging from `main`. Production is applied by hand. CI authenticates through Workload Identity Federation. No JSON key exists.
+- The staging pool trusts any branch of this repository, so branches can preview. The production pool also requires `assertion.ref == "refs/heads/main"`. The deployer is close to project owner, and a rule in the workflow file can be edited on the branch it runs from. The `ref` claim is signed by GitHub, so a branch can't fake it.
 
 ### What the program owns
 
@@ -68,7 +69,7 @@ unset PASSWORD
 pulumi up
 ```
 
-Then set the GitHub environment `$STACK`: vars `GCP_WORKLOAD_IDENTITY_PROVIDER` (stack output `workloadIdentityProvider`), `GCP_DEPLOYER_EMAIL` (output `deployerEmail`), `PULUMI_BACKEND_URL` (`gs://$PROJECT-pulumi-state`), and secret `MATCHA_INFRA_DEPLOY_KEY` (ADR 0001). The deployer also needs `roles/cloudkms.cryptoKeyEncrypterDecrypter` on the `pulumi/state` key, granted by hand, because that key is outside the program.
+Then set the GitHub environment `$STACK`: vars `GCP_WORKLOAD_IDENTITY_PROVIDER` (stack output `workloadIdentityProvider`), `GCP_DEPLOYER_EMAIL` (output `deployerEmail`), `PULUMI_BACKEND_URL` (`gs://$PROJECT-pulumi-state`), and secret `MATCHA_INFRA_DEPLOY_KEY` (ADR 0001). The deployer also needs `roles/cloudkms.cryptoKeyEncrypterDecrypter` on the `pulumi/state` key, granted by hand, because that key is outside the program. For `production`, also restrict the GitHub environment's deployment branches to `main`.
 
 ## Consequences
 

@@ -9,10 +9,9 @@ import { testDb, withRollback } from '@tests/utils/db';
 import { fakeCredentialCipher } from '@tests/utils/fake-credential-cipher';
 import { fakePaymentProvider } from '@tests/utils/fake-payment-provider';
 import { fakeProviderFactory } from '@tests/utils/fake-provider-factory';
+import { GROW_CREDENTIALS, GROW_SECRET_API_KEY } from '@tests/utils/provider-credentials-fixtures';
 
-const SECRET_API_KEY = 'grow-secret-api-key';
 const KMS_DOWN = 'kms unavailable';
-const GROW_CREDENTIALS = JSON.stringify({ userId: 'grow-user-1', pageCode: 'grow-page-1', apiKey: SECRET_API_KEY });
 
 const newConnection = async (db: Database) => {
   const { organizationId } = await createOrganization(db, TEST_ORGANIZATION);
@@ -26,7 +25,7 @@ describe('createProviderConnection (ADR 0010 decision 3, amendments 2 and 3)', (
       const { buildProvider } = fakeProviderFactory();
       await createProviderConnection(tx, { cipher, buildProvider }, await newConnection(tx));
       const [row] = await tx.select().from(providerConnectionsTable);
-      expect(row?.sealedCredentials).not.toContain(SECRET_API_KEY);
+      expect(row?.sealedCredentials).not.toContain(GROW_SECRET_API_KEY);
       expect(await cipher.open(row?.sealedCredentials ?? '')).toBe(GROW_CREDENTIALS);
     });
   });

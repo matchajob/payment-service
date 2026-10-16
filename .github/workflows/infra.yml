@@ -6,6 +6,9 @@ on:
       - "iac/**"
       - "src/lib/env-names.ts"
       - "src/api/routes/cron.ts"
+      - "tests/unit/iac/**"
+      - "tests/utils/pulumi-*.ts"
+      - "tsconfig.json"
       - "package.json"
       - "pnpm-lock.yaml"
       - ".github/workflows/infra.yml"
@@ -23,7 +26,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        stack: [staging, production]
+        stack: ${{ github.ref == 'refs/heads/main' && fromJSON('["staging","production"]') || fromJSON('["staging"]') }}
     runs-on: ubuntu-latest
     environment: ${{ matrix.stack }}
     steps:
@@ -41,6 +44,8 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+
+      - run: pnpm vitest run --project unit tests/unit/iac
 
       - uses: google-github-actions/auth@v2
         with:

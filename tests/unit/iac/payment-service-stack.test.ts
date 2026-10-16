@@ -71,7 +71,8 @@ const serviceInputs = () => serviceInputsSchema.parse(only(RESOURCE_TYPE.cloudRu
 const runtimeMember = () => mockMember(serviceInputs().template.serviceAccount);
 const containerEnv = () => serviceInputs().template.containers[0]!.envs;
 const envValue = (name: string) => containerEnv().find((e) => e.name === name)?.value;
-const schedulerJobs = () => ofType(recorded, RESOURCE_TYPE.schedulerJob).map((job) => jobInputsSchema.parse(job.inputs));
+const schedulerJobs = () =>
+  ofType(recorded, RESOURCE_TYPE.schedulerJob).map((job) => jobInputsSchema.parse(job.inputs));
 const schedulerTargets = () => schedulerJobs().map((job) => job.httpTarget);
 
 describe('payment service stack (slice 0.6)', () => {

@@ -96,10 +96,11 @@ Delivers: a URL that returns `/health`. Deploying early means every later slice 
 
 Blocked by: 0.1.
 
-- [ ] ADR: Pulumi in TypeScript, the state backend (Pulumi Cloud or a GCS bucket), one stack per environment (`staging`, `production`), and where the program lives. Not under `src/infra`, which is the portable code layer and means something else here.
-- [ ] Declared resources: Artifact Registry, the Cloud Run service and its service account, the Postgres instance, Secret Manager entries (values set out of band, never in the stack config), and the Cloud Scheduler jobs for the crons and the drainer as they appear.
-- [ ] CI runs `pulumi preview` on every push and `pulumi up` on `staging` from `main`. `production` is applied by hand.
-- [ ] Unit tests of the program with Pulumi's mocks: every secret is a Secret Manager reference, the cron endpoints are not public, the scheduler jobs carry `CRON_SECRET`.
+- [x] ADR: Pulumi in TypeScript, the state backend (Pulumi Cloud or a GCS bucket), one stack per environment (`staging`, `production`), and where the program lives. Not under `src/infra`, which is the portable code layer and means something else here. ADR 0012.
+- [x] Declared resources: Artifact Registry, the Cloud Run service and its service account, the Postgres instance, Secret Manager entries (values set out of band, never in the stack config), and the Cloud Scheduler jobs for the crons and the drainer as they appear.
+- [x] CI runs the iac unit tests, then `pulumi preview` on every push and `pulumi up` on `staging` from `main`. `production` is previewed from `main` only and applied by hand.
+- [x] Unit tests of the program with Pulumi's mocks: every secret is a Secret Manager reference, the scheduler jobs are OIDC-signed by `cron-invoker` with no `Authorization` header (ADR 0012 amends ADR 0002), and only `main` can become the production deployer. Cloud Run is publicly invocable by design, so "the cron endpoints are not public" is the app's job and `cron-auth.test.ts` covers it.
+- [ ] Review fixes (2026-10-16): production deployer trust pinned to `main`, iac tests gate the apply, `attemptDeadline` matches the service timeout, Resource Manager API enabled.
 
 Delivers: `pulumi up` on an empty GCP project produces everything 0.5 deploys into. Nothing is clicked in the console, so staging and production cannot drift apart.
 

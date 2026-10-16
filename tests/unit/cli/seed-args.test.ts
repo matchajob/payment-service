@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { readSeedArgs } from '@/cli/seed-args';
-
-const CREDENTIALS = '{"userId":"grow-user-1","apiKey":"grow-secret-api-key"}';
+import { PAYMENT_PROVIDER } from '@/lib/payments/payment-provider-name';
+import { GROW_CREDENTIALS } from '@tests/utils/provider-credentials-fixtures';
 
 const VALID = [
   '--organization-name',
   'Acme Ltd',
   '--provider',
-  'grow',
+  PAYMENT_PROVIDER.GROW,
   '--credentials',
-  CREDENTIALS,
+  GROW_CREDENTIALS,
   '--slug',
   'acme',
   '--webhook-url',
@@ -39,7 +39,7 @@ describe('readSeedArgs', () => {
   it('reads a complete set of flags into an organization, a connection, a tenant and a plan (ADR 0010)', () => {
     expect(readSeedArgs(VALID)).toEqual({
       organization: { name: 'Acme Ltd' },
-      connection: { provider: 'grow', credentials: CREDENTIALS },
+      connection: { provider: PAYMENT_PROVIDER.GROW, credentials: GROW_CREDENTIALS },
       tenant: { slug: 'acme', webhookUrl: 'https://acme.test/webhooks' },
       plan: { name: 'Pro monthly', amountMinor: 4900, currency: 'ILS', interval: 'month' },
     });
