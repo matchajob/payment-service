@@ -38,7 +38,7 @@ export const createApp = ({ logger, db, clock, cronSecret, providerFor }: AppDep
   app.route('/v1/plans', plansRoutes());
   app.route('/v1/customers', customersRoutes());
   app.route(CRON_PREFIX, cronRoutes({ clock, providerFor, logger }));
-  app.route('/v1/subscriptions', subscriptionsRoutes(providerFor));
+  app.route('/v1/subscriptions', subscriptionsRoutes(providerFor, clock));
 
   app.get('/health', (c) => c.json({ ok: true }));
   app.notFound((c) => problemResponse(c, HTTP_STATUS.NOT_FOUND, c.req.path));

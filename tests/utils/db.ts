@@ -1,14 +1,11 @@
+import { inject } from 'vitest';
 import { createDb, type Db } from '@/lib/db';
 
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 
 const ROLLBACK = Symbol('rollback');
 
-export const testDb = (): Db => {
-  const url = process.env['DATABASE_URL'];
-  if (url === undefined) throw new Error('DATABASE_URL is not set; is this the integration project?');
-  return createDb(url);
-};
+export const testDb = (): Db => createDb(inject('testDatabaseUrl'));
 
 export const withRollback = async (db: Db, fn: (tx: Tx) => Promise<void>): Promise<void> => {
   await db

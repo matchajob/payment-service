@@ -304,10 +304,12 @@ Blocked by: 5.
 
 Spec: S1 r4, r8, r9, r12, r15, D2, D6.
 
-- [ ] `POST /v1/subscriptions/:id/cancel`: no parameters. State decides: `incomplete` and `past_due` cancel now, `active` sets the flag.
-- [ ] `POST /v1/subscriptions/:id/resume`: clears the flag when `resumeAllowed`, else `409`.
-- [ ] Every mutation on `canceled` is `409`.
-- [ ] Computed `entitled` added to the subscription resource and to every outbox snapshot.
+- [x] `POST /v1/subscriptions/:id/cancel`: no parameters. State decides: `incomplete` and `past_due` cancel now, `active` sets the flag.
+- [x] `POST /v1/subscriptions/:id/resume`: clears the flag when `resumeAllowed`, else `409`.
+- [x] Every mutation on `canceled` is `409`.
+- [x] Computed `entitled` added to the subscription resource and to every outbox snapshot.
+
+Decided 2026-10-16, `docs/adr/0015-cancel-resume-and-the-subscription-resource.md`: the resource is the event snapshot (with `canceledAt`, plus `GET /v1/subscriptions/:id`), resume on an unflagged active subscription is a `200` no-op, and cancel is `409` with `Retry-After` while a charge is pending. `entitled` in every snapshot shipped in slice 5.
 
 Delivers: the full cancel story end to end, including the tenant-visible flag and effective date.
 

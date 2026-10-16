@@ -18,4 +18,5 @@ export const toSnapshot = (
   currentPeriodEnd: subscription.currentPeriodEnd?.toISOString() ?? null,
   cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
   cancelReason: subscription.cancelReason,
+  canceledAt: subscription.canceledAt?.toISOString() ?? null,
 });

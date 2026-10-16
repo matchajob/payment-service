@@ -10,9 +10,9 @@ import { reserveKey } from '@/lib/idempotency/reserve-key';
 import { RESERVE_OUTCOME } from '@/lib/idempotency/reserve-outcome';
 import { zIdempotencyKeyRead } from '@/lib/idempotency/schema';
 import { READ_METHODS } from '@/api/read-methods';
+import { RETRY_AFTER_HEADER } from '@/api/retry-after';
 
 const KEY_HEADER = 'idempotency-key';
-const RETRY_AFTER_HEADER = 'retry-after';
 const RETRY_AFTER_SECONDS = '1';
 const CONTENT_TYPE_HEADER = 'content-type';
 const FALLBACK_CONTENT_TYPE = 'application/octet-stream';

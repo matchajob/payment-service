@@ -22,6 +22,7 @@ const SNAPSHOT: SubscriptionSnapshot = {
   currentPeriodEnd: '2026-02-15T10:00:00.000Z',
   cancelAtPeriodEnd: false,
   cancelReason: null,
+  canceledAt: null,
 };
 
 const row = zOutboxEventRead.parse({

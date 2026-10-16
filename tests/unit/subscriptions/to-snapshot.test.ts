@@ -46,18 +46,20 @@ describe('toSnapshot (Spec 5 rule 3, D12)', () => {
       currentPeriodEnd: PERIOD_END.toISOString(),
       cancelAtPeriodEnd: false,
       cancelReason: null,
+      canceledAt: null,
     });
   });
 
-  it('tells the receiver why a subscription was canceled (S1 r11, ADR 0014)', () => {
+  it('tells the receiver why and when a subscription was canceled (S1 r11, ADR 0014, slice 9 D1)', () => {
     const canceled = subscription({
       status: SUBSCRIPTION_STATUS.CANCELED,
       canceledAt: PERIOD_END,
       cancelReason: CANCEL_REASON.PAYMENT_FAILURE,
     });
-    expect(toSnapshot(canceled, { externalRef: EXTERNAL_REF }, { graceEntitlement: true }).cancelReason).toBe(
-      CANCEL_REASON.PAYMENT_FAILURE,
-    );
+    expect(toSnapshot(canceled, { externalRef: EXTERNAL_REF }, { graceEntitlement: true })).toMatchObject({
+      cancelReason: CANCEL_REASON.PAYMENT_FAILURE,
+      canceledAt: PERIOD_END.toISOString(),
+    });
   });
 
   it('computes entitlement from the tenant grace policy, never leaving it to the receiver', () => {

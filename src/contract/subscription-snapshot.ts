@@ -14,6 +14,7 @@ export const subscriptionSnapshotSchema = z.object({
   currentPeriodEnd: z.iso.datetime().nullable(),
   cancelAtPeriodEnd: z.boolean(),
   cancelReason: cancelReasonSchema.nullable(),
+  canceledAt: z.iso.datetime().nullable(),
 });
 
 export type SubscriptionSnapshot = z.infer<typeof subscriptionSnapshotSchema>;

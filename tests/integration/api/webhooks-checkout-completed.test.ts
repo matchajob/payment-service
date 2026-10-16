@@ -133,6 +133,7 @@ describe('checkout completed webhook (S1 r2, ADR 0007, ADR 0008)', () => {
               currentPeriodEnd: PERIOD_1_END.toISOString(),
               cancelAtPeriodEnd: false,
               cancelReason: null,
+              canceledAt: null,
             },
           }),
         ]);
