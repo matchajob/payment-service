@@ -11,6 +11,8 @@ import {
   type ProviderConnectionView,
 } from '@/lib/provider-connections/schema';
 
+const NO_ROW = 'provider connection insert returned no row';
+
 export type CreateProviderConnectionDeps = { cipher: CredentialCipher; buildProvider: BuildProvider };
 export type CreateProviderConnectionInput = {
   organizationId: Organization['organizationId'];
@@ -30,6 +32,6 @@ export const createProviderConnection = async (
     .insert(providerConnectionsTable)
     .values({ providerConnectionId, organizationId, provider, sealedCredentials })
     .returning();
-  if (connection === undefined) throw new Error('provider connection insert returned no row');
+  if (connection === undefined) throw new Error(NO_ROW);
   return zProviderConnectionRead.parse(connection);
 };

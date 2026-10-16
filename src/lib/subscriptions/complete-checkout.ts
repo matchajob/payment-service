@@ -15,6 +15,8 @@ import { settleFirstCharge } from '@/lib/subscriptions/settle-first-charge';
 import { SUBSCRIPTION_STATUS } from '@/lib/subscriptions/state-machine/subscription-status';
 import { findTenant } from '@/lib/tenants/find-tenant';
 
+const MISSING_PARENTS = 'subscription references a missing tenant, customer or plan';
+
 export type CompleteCheckoutDeps = { db: Database; provider: PaymentProvider; clock: Clock };
 export type CompleteCheckoutInput = {
   providerConnectionId: ProviderConnection['providerConnectionId'];
@@ -39,7 +41,7 @@ export const completeCheckout = async (
   const customer = await findCustomer(db, subscription.tenantId, subscription.customerId);
   const plan = await findPlan(db, subscription.tenantId, subscription.planId);
   if (tenant === undefined || customer === undefined || plan === undefined)
-    throw new Error('subscription references a missing tenant, customer or plan');
+    throw new Error(MISSING_PARENTS);
 
   const activation = await activateCheckout(db, {
     subscriptionId: subscription.subscriptionId,

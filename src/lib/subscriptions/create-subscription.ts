@@ -13,6 +13,8 @@ import type { Tenant } from '@/lib/tenants/schema';
 import { findProviderConnection } from '@/lib/provider-connections/find-provider-connection';
 import type { ProviderFor } from '@/lib/provider-connections/provider-for';
 
+const MISSING_CONNECTION = 'tenant references a missing provider connection';
+
 export type CreateSubscriptionDeps = { db: Database; providerFor: ProviderFor };
 
 export type CreateSubscriptionInput = {
@@ -37,7 +39,7 @@ export const createSubscription = async (
   if (plan === undefined) return { outcome: CREATE_SUBSCRIPTION_OUTCOME.PLAN_NOT_FOUND };
 
   const connection = await findProviderConnection(db, tenant.providerConnectionId);
-  if (connection === undefined) throw new Error('tenant references a missing provider connection');
+  if (connection === undefined) throw new Error(MISSING_CONNECTION);
   const provider = await providerFor(connection);
 
   const subscriptionId = zSubscriptionRead.shape.subscriptionId.parse(randomUUID());

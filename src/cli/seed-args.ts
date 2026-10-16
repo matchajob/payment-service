@@ -12,6 +12,13 @@ const seedArgsSchema = z.object({
   plan: zPlanCreate.pick({ name: true, amountMinor: true, currency: true, interval: true }),
 });
 
+const FLAG = {
+  WEBHOOK_URL: 'webhook-url',
+  PLAN_NAME: 'plan-name',
+  AMOUNT_MINOR: 'amount-minor',
+  ORGANIZATION_NAME: 'organization-name',
+} as const;
+
 export type SeedArgs = z.infer<typeof seedArgsSchema>;
 
 export const readSeedArgs = (argv: string[]): SeedArgs => {
@@ -19,10 +26,10 @@ export const readSeedArgs = (argv: string[]): SeedArgs => {
     args: argv,
     options: {
       slug: { type: 'string' },
-      'webhook-url': { type: 'string' },
-      'plan-name': { type: 'string' },
-      'amount-minor': { type: 'string' },
-      'organization-name': { type: 'string' },
+      [FLAG.WEBHOOK_URL]: { type: 'string' },
+      [FLAG.PLAN_NAME]: { type: 'string' },
+      [FLAG.AMOUNT_MINOR]: { type: 'string' },
+      [FLAG.ORGANIZATION_NAME]: { type: 'string' },
       provider: { type: 'string' },
       credentials: { type: 'string' },
       currency: { type: 'string' },
@@ -30,12 +37,12 @@ export const readSeedArgs = (argv: string[]): SeedArgs => {
     },
   });
   return seedArgsSchema.parse({
-    organization: { name: values['organization-name'] },
+    organization: { name: values[FLAG.ORGANIZATION_NAME] },
     connection: { provider: values.provider, credentials: values.credentials },
-    tenant: { slug: values.slug, webhookUrl: values['webhook-url'] },
+    tenant: { slug: values.slug, webhookUrl: values[FLAG.WEBHOOK_URL] },
     plan: {
-      name: values['plan-name'],
-      amountMinor: Number(values['amount-minor']),
+      name: values[FLAG.PLAN_NAME],
+      amountMinor: Number(values[FLAG.AMOUNT_MINOR]),
       currency: values.currency,
       interval: values.interval,
     },
