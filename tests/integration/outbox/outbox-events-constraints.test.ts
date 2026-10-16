@@ -80,7 +80,11 @@ describe('outbox_events (Spec 5)', () => {
     it('accepts a dead row with its last error, and a pending retry that keeps the previous one', async () => {
       await withRollback(testDb(), async (tx) => {
         const owner = await seedSubscriptionOwner(tx);
-        await insertOutboxEvent(tx, owner, 1, { deliveryStatus: DELIVERY_STATUS.DEAD, attempts: MAX_DELIVERY_ATTEMPTS, lastError: LAST_ERROR });
+        await insertOutboxEvent(tx, owner, 1, {
+          deliveryStatus: DELIVERY_STATUS.DEAD,
+          attempts: MAX_DELIVERY_ATTEMPTS,
+          lastError: LAST_ERROR,
+        });
         await insertOutboxEvent(tx, owner, 2, { attempts: 1, lastError: LAST_ERROR });
       });
     });

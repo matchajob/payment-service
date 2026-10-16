@@ -8,7 +8,7 @@ import type { SubscriptionOwner } from '@tests/utils/payment-method-rows';
 
 export const OCCURRED_AT = new Date('2026-01-15T10:00:00.000Z');
 
-type Delivery = Partial<
+export type Delivery = Partial<
   Pick<
     typeof outboxEventsTable.$inferInsert,
     'deliveryStatus' | 'attempts' | 'nextAttemptAt' | 'deliveredAt' | 'lastError'
@@ -34,12 +34,18 @@ export const snapshotFor = ({ subscriptionId }: SubscriptionOwner): Subscription
   cancelAtPeriodEnd: false,
 });
 
-export const insertOutboxEvent = (db: Database, owner: SubscriptionOwner, sequence: number, delivery: Delivery = {}) =>
+export const insertOutboxEvent = (
+  db: Database,
+  { tenantId, subscriptionId }: SubscriptionOwner,
+  sequence: number,
+  delivery: Delivery = {},
+) =>
   db.insert(outboxEventsTable).values({
-    ...owner,
+    tenantId,
+    subscriptionId,
     eventType: OUTBOUND_EVENT_TYPE.SUBSCRIPTION_ACTIVATED,
     sequence,
-    snapshot: snapshotFor(owner),
+    snapshot: snapshotFor({ tenantId, subscriptionId }),
     occurredAt: OCCURRED_AT,
     ...NEW_DELIVERY,
     ...delivery,

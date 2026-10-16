@@ -73,3 +73,5 @@ export const outboxEventsEntity = defineEntity(
 export const outboxEventsTable = outboxEventsEntity.table;
 
 export type OutboxEvent = typeof outboxEventsTable.$inferSelect;
+
+export const zOutboxEventRead = outboxEventsEntity.read;

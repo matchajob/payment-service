@@ -1,4 +1,5 @@
 import type { OutboundEvent } from '@/contract/outbound-event';
+import { subscriptionSnapshotSchema } from '@/contract/subscription-snapshot';
 import type { OutboxEvent } from '@/lib/outbox/schema';
 
 export const toOutboundEvent = ({
@@ -12,5 +13,5 @@ export const toOutboundEvent = ({
   type: eventType,
   sequence,
   occurredAt: occurredAt.toISOString(),
-  subscription: snapshot,
+  subscription: subscriptionSnapshotSchema.parse(snapshot),
 });
