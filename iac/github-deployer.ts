@@ -1,6 +1,8 @@
 import * as gcp from '@pulumi/gcp';
 import * as pulumi from '@pulumi/pulumi';
 import { DEPLOYER_ROLES } from '@iac/deployer-roles';
+import { deployerTrustCondition } from '@iac/deployer-trust-condition';
+import { GITHUB_TOKEN_CLAIM } from '@iac/github-token-claims';
 import type { StackSettings } from '@iac/stack-settings';
 
 const POOL_ID = 'github';
@@ -29,9 +31,11 @@ export const declareGithubDeployer = (settings: StackSettings, opts: pulumi.Cust
       project: settings.project,
       workloadIdentityPoolId: pool.workloadIdentityPoolId,
       workloadIdentityPoolProviderId: PROVIDER_ID,
-      attributeMapping: { 'google.subject': 'assertion.sub', [REPOSITORY_ATTRIBUTE]: 'assertion.repository' },
-      // Without a condition, any GitHub repository could exchange a token against this pool.
-      attributeCondition: `assertion.repository == "${settings.githubRepository}"`,
+      attributeMapping: {
+        'google.subject': GITHUB_TOKEN_CLAIM.SUBJECT,
+        [REPOSITORY_ATTRIBUTE]: GITHUB_TOKEN_CLAIM.REPOSITORY,
+      },
+      attributeCondition: deployerTrustCondition(settings),
       oidc: { issuerUri: GITHUB_ISSUER },
     },
     opts,

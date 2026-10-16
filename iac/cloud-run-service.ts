@@ -2,6 +2,7 @@ import * as gcp from '@pulumi/gcp';
 import type * as pulumi from '@pulumi/pulumi';
 import { ENV } from '@/lib/env-names';
 import { PRODUCTION } from '@iac/environments';
+import { REQUEST_TIMEOUT } from '@iac/request-timeout';
 import type { StackSettings } from '@iac/stack-settings';
 import type { declareRuntimeSecrets } from '@iac/runtime-secrets';
 
@@ -12,7 +13,6 @@ const CLOUDSQL_VOLUME = 'cloudsql';
 const CLOUDSQL_MOUNT_PATH = '/cloudsql';
 const HEALTH_PATH = '/health';
 const LOG_LEVEL = 'info';
-const REQUEST_TIMEOUT = '300s';
 const MIN_INSTANCES = 0;
 const LATEST_VERSION = 'latest';
 
