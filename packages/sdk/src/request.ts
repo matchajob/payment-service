@@ -1,8 +1,11 @@
 import type { z } from 'zod';
 import type { ClientOptions, FetchLike } from '@sdk/client-options';
+import { defaultSleep } from '@sdk/default-sleep';
 import { HTTP_METHOD, type HttpMethod } from '@sdk/http-method';
 import { PaymentServiceError } from '@sdk/payment-service-error';
 import { readProblem } from '@sdk/read-problem';
+import { DEFAULT_RETRIES, DEFAULT_TIMEOUT_MS } from '@sdk/retry-policy';
+import { sendWithRetry } from '@sdk/send-with-retry';
 
 const JSON_CONTENT_TYPE = 'application/json';
 const AUTHORIZATION_HEADER = 'authorization';
@@ -23,22 +26,34 @@ export type Requester = <T>(call: Call<T>) => Promise<T>;
 
 const globalFetch: FetchLike = (url, init) => fetch(url, init);
 
-export const createRequester = ({ baseUrl, apiKey, fetch: send = globalFetch }: ClientOptions): Requester => {
+export const createRequester = ({
+  baseUrl,
+  apiKey,
+  fetch: send = globalFetch,
+  retries = DEFAULT_RETRIES,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+  sleep = defaultSleep,
+}: ClientOptions): Requester => {
   const root = baseUrl.replace(TRAILING_SLASHES, '');
 
   return async (call) => {
     const body = call.body === undefined ? undefined : JSON.stringify(call.body);
-    const response = await send(`${root}${call.path}`, {
-      method: call.method,
-      headers: {
-        [AUTHORIZATION_HEADER]: `${BEARER_PREFIX}${apiKey}`,
-        ...(body === undefined ? {} : { [CONTENT_TYPE_HEADER]: JSON_CONTENT_TYPE }),
-        ...(call.method === HTTP_METHOD.GET
-          ? {}
-          : { [IDEMPOTENCY_HEADER]: call.idempotencyKey ?? crypto.randomUUID() }),
+    const response = await sendWithRetry(
+      send,
+      `${root}${call.path}`,
+      {
+        method: call.method,
+        headers: {
+          [AUTHORIZATION_HEADER]: `${BEARER_PREFIX}${apiKey}`,
+          ...(body === undefined ? {} : { [CONTENT_TYPE_HEADER]: JSON_CONTENT_TYPE }),
+          ...(call.method === HTTP_METHOD.GET
+            ? {}
+            : { [IDEMPOTENCY_HEADER]: call.idempotencyKey ?? crypto.randomUUID() }),
+        },
+        body,
       },
-      body,
-    });
+      { retries, timeoutMs, sleep },
+    );
     if (!response.ok) throw new PaymentServiceError(await readProblem(response));
     return call.response.parse(await response.json());
   };

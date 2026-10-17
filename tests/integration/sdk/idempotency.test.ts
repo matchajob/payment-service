@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto';
+import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
+import { customersTable } from '@/lib/customers/schema';
 import { createClient } from '@sdk/create-client';
 import { testDb, withRollback } from '@tests/utils/db';
-import { fetchInto, recordingFetch, SDK_BASE_URL } from '@tests/utils/sdk-client';
+import { fetchInto, losingFirstAnswer, recordingFetch, SDK_BASE_URL } from '@tests/utils/sdk-client';
 import { testApp } from '@tests/utils/test-app';
 import { ACME } from '@tests/utils/tenant-fixtures';
 import { seedTenant } from '@tests/utils/tenant-rows';
@@ -53,6 +55,23 @@ describe('SDK idempotency keys (spec idempotency, ADR 0006)', () => {
       const retry = await sdk.customers.create({ externalRef: FIRST_REF }, { idempotencyKey: key });
 
       expect(retry).toEqual(first);
+    });
+  });
+
+  it('creates one customer when the answer is lost after the server acted and the SDK retries by itself', async () => {
+    await withRollback(testDb(), async (tx) => {
+      const { tenant, apiKey } = await seedTenant(tx, ACME);
+      const sdk = createClient({
+        baseUrl: SDK_BASE_URL,
+        apiKey,
+        fetch: losingFirstAnswer(fetchInto(testApp(tx))),
+        sleep: async () => undefined,
+      });
+
+      const created = await sdk.customers.create({ externalRef: FIRST_REF });
+
+      const rows = await tx.select().from(customersTable).where(eq(customersTable.tenantId, tenant.tenantId));
+      expect(rows.map((row) => row.customerId)).toEqual([created.customerId]);
     });
   });
 

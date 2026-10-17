@@ -25,6 +25,40 @@ export const recordingFetch = (inner: FetchLike) => {
 export const sdkFor = (app: App, apiKey: string) =>
   createClient({ baseUrl: SDK_BASE_URL, apiKey, fetch: fetchInto(app) });
 
+export const losingFirstAnswer = (inner: FetchLike): FetchLike => {
+  const attempts: number[] = [];
+  return async (url, init) => {
+    const response = await inner(url, init);
+    attempts.push(attempts.length);
+    if (attempts.length === 1) throw new TypeError('fetch failed');
+    return response;
+  };
+};
+
+export type ScriptedStep = Response | Error;
+
+export const scriptedFetch = (...steps: ScriptedStep[]) => {
+  const calls: RecordedCall[] = [];
+  const fetch: FetchLike = async (url, init) => {
+    calls.push({ url, init });
+    const step = steps[calls.length - 1];
+    if (step === undefined) throw new Error('scripted fetch ran out of steps');
+    if (step instanceof Error) throw step;
+    return step;
+  };
+  return { fetch, calls };
+};
+
+export const recordingSleep = () => {
+  const delays: number[] = [];
+  return {
+    delays,
+    sleep: async (ms: number) => {
+      delays.push(ms);
+    },
+  };
+};
+
 export const stubResponse =
   (status: number, body: string, contentType: string): FetchLike =>
   async () =>
