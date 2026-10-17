@@ -7,7 +7,7 @@ import { WEBHOOK_KIND } from '@/lib/payments/webhook-kind';
 import { findProviderConnection } from '@/lib/provider-connections/find-provider-connection';
 import type { ProviderFor } from '@/lib/provider-connections/provider-for';
 import { zProviderConnectionRead } from '@/lib/provider-connections/schema';
-import { completeCheckout } from '@/lib/subscriptions/complete-checkout';
+import { handleCheckoutCompleted } from '@/lib/webhooks/handle-checkout-completed';
 import { markWebhookProcessed } from '@/lib/webhooks/mark-webhook-processed';
 import { recordWebhookEvent } from '@/lib/webhooks/record-webhook-event';
 
@@ -34,7 +34,7 @@ export const webhooksRoutes = (providerFor: ProviderFor, clock: Clock) =>
     const provider = await providerFor(connection);
     const parsed = provider.parseWebhook(event.rawBody);
     if (parsed.kind === WEBHOOK_KIND.CHECKOUT_COMPLETED) {
-      await completeCheckout(
+      await handleCheckoutCompleted(
         { db, provider, clock },
         {
           providerConnectionId: connection.providerConnectionId,

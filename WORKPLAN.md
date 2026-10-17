@@ -8,13 +8,13 @@ Spec references point at `spec/subscription-lifecycle.md` rows (S1 r5 means Spec
 
 ## Test seams (agreed before any test is written)
 
-| Seam | What it exercises | What it misses |
-|---|---|---|
-| Pure functions | State machine transitions, period math, dunning arithmetic, HMAC. No DB, no IO. | Nothing about persistence or concurrency. |
-| HTTP via `app.request()` | Routes, auth, problem+json, idempotency middleware, webhook ingestion. Real Postgres underneath. | Real network, real provider. |
-| Cron entry functions | `runRenewal(now)`, `runDunning(now)`, `runHousekeeping(now)`, `drainOutbox(now)` called directly with an injected clock. | Scheduler wiring. |
-| Fake provider | In-memory `PaymentProvider` that records calls and returns scripted results. | Provider-specific parsing, covered by adapter slices. |
-| Fake tenant endpoint | In-memory HTTP sink the drainer POSTs to. Asserts signature, body, retries. | A real receiver, covered by slice 13. |
+| Seam                     | What it exercises                                                                                                        | What it misses                                        |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
+| Pure functions           | State machine transitions, period math, dunning arithmetic, HMAC. No DB, no IO.                                          | Nothing about persistence or concurrency.             |
+| HTTP via `app.request()` | Routes, auth, problem+json, idempotency middleware, webhook ingestion. Real Postgres underneath.                         | Real network, real provider.                          |
+| Cron entry functions     | `runRenewal(now)`, `runDunning(now)`, `runHousekeeping(now)`, `drainOutbox(now)` called directly with an injected clock. | Scheduler wiring.                                     |
+| Fake provider            | In-memory `PaymentProvider` that records calls and returns scripted results.                                             | Provider-specific parsing, covered by adapter slices. |
+| Fake tenant endpoint     | In-memory HTTP sink the drainer POSTs to. Asserts signature, body, retries.                                              | A real receiver, covered by slice 13.                 |
 
 Integration tests run against a real local Postgres. Each test runs in a transaction that is rolled back, or truncates. Decided in slice 0.4.
 
@@ -243,6 +243,7 @@ Spec: S1 r2, Spec 4 rules 1 to 7, Spec 5 rules 1 and 3.
 - [x] Fix `advancePeriod` reading the year in local time (`getFullYear`), found during slice 5.
 
 Deferred from slice 5:
+
 - A tenant cancel landing between tx1 and tx2 leaves `active_flagged`, so `first_charge_succeeded` is rejected: the charge is recorded but no event goes out. Resolve with cancel in slice 9.
 - The `ChargeResult` port type uses `'succeeded'`/`'failed'` literals that only match `CHARGE_STATUS` by coincidence. Type them from the const in slice 13, together with the Grow adapter.
 - A crash in tx2 leaves charge #1 `pending` with no event. Reconcile (slice 12) settles it, which needs a lookup by our dedup key: a port change and probably a provider capability with a fallback (ADR 0008).
@@ -333,11 +334,13 @@ Delivers: a failed card gets a week of retries and the customer keeps access whi
 
 Blocked by: 10.
 
-Spec: S1 r13, r14, D5.
+Spec: S1 r13, r14, D5. ADR 0018.
 
-- [ ] `POST /v1/subscriptions/:id/update-payment-method`: capture-mode checkout, no charge.
-- [ ] Completion webhook replaces the token. From `past_due`, an immediate retry runs and supersedes the pending scheduled retry.
-- [ ] Tests: a capture never produces a charge row; the immediate retry and the scheduled retry cannot both fire.
+- [x] `POST /v1/subscriptions/:id/update-payment-method` with `{ returnUrl }`: capture-mode checkout on the pinned connection, no charge. `409` for `incomplete`, `canceled` and store-billed.
+- [x] `payment_method_updates` entity: one row per request, session unique per connection (ADR 0018 decision 1).
+- [x] Completion webhook replaces the token. From `past_due`, an immediate retry runs and supersedes the pending scheduled retry.
+- [x] `subscriptions.dunningAttemptBase`: a failed immediate retry restarts the full schedule (ADR 0018 decision 2).
+- [x] Tests: a capture never produces a charge row; the immediate retry and the scheduled retry cannot both fire; an older link still works; a replay replaces once; the restarted schedule runs +1d/+3d/+7d from the update.
 
 Delivers: the rescue path a real customer uses when their card expired.
 
@@ -347,12 +350,12 @@ Blocked by: 8.
 
 Spec: S1 r3, Spec 4 rule 8.
 
-- [ ] `runHousekeeping(now)`: `incomplete` rows older than the tenant's `checkoutTtlHours` become `canceled` silently.
-- [ ] Port (ADR 0017): `verifyCharge({ dedupKey, providerChargeRef })`, capability `lookupByReference`, `VerifiedCharge` gains `not_found` and the amount on success.
-- [ ] `runReconcile(now)`: hourly, not nightly (ADR 0017). Settles each pending charge through its own cycle. `not_found` past 24h is a decline (decision X). Flags what it can't settle (`stuck_pending`, `ref_not_found`, `no_reference_lookup`, `amount_mismatch`) and re-checks not-found failures for 7 days (`late_success`).
-- [ ] `recordChargeResult` settles only a `pending` row, so a live settle and reconcile can't both apply.
-- [ ] CLI to settle a flagged charge by hand, through the same cycle.
-- [ ] Tests: a 12h-old checkout is canceled, an 11h one is not; a charge the provider says succeeded but we never heard about is settled; every row of the ADR 0017 outcome table; two concurrent reconciles settle once.
+- [x] `runHousekeeping(now)`: `incomplete` rows older than the tenant's `checkoutTtlHours` become `canceled` silently.
+- [x] Port (ADR 0017): `verifyCharge({ dedupKey, providerChargeRef })`, capability `lookupByReference`, `VerifiedCharge` gains `not_found` and the amount on success.
+- [x] `runReconcile(now)`: hourly, not nightly (ADR 0017). Settles each pending charge through its own cycle. `not_found` past 24h is a decline (decision X). Flags what it can't settle (`stuck_pending`, `ref_not_found`, `no_reference_lookup`, `amount_mismatch`) and re-checks not-found failures for 7 days (`late_success`).
+- [x] `recordChargeResult` settles only a `pending` row, so a live settle and reconcile can't both apply.
+- [ ] CLI to settle a flagged charge by hand, through the same cycle. Not built in the slice 12 commit; a follow-up before slice 16.
+- [x] Tests: a 12h-old checkout is canceled, an 11h one is not; a charge the provider says succeeded but we never heard about is settled; every row of the ADR 0017 outcome table; two concurrent reconciles settle once.
 
 Delivers: the two safety nets that make the system self-healing.
 

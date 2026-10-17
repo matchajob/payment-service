@@ -63,6 +63,8 @@ export const subscriptionsEntity = defineEntity(
     canceledAt: (f) => entityFromDzd(dzdThemeTimestamp.custom(f), DZD_NULLABLE),
     cancelReason: (f) => entityFromDzd(dzdThemeEnum.fromPair(f, cancelReasonEnum), DZD_NULLABLE),
     dunningAttempt: (f) => entityFromDzd(makeDzdInteger(f, { minSize: COUNTER_START, defaultValue: COUNTER_START })),
+    dunningAttemptBase: (f) =>
+      entityFromDzd(makeDzdInteger(f, { minSize: COUNTER_START, defaultValue: COUNTER_START })),
     dunningStartedAt: (f) => entityFromDzd(dzdThemeTimestamp.custom(f), DZD_NULLABLE),
     nextRetryAt: (f) => entityFromDzd(dzdThemeTimestamp.custom(f), DZD_NULLABLE),
     sequence: (f) => entityFromDzd(makeDzdInteger(f, { minSize: COUNTER_START, defaultValue: COUNTER_START })),
@@ -90,6 +92,7 @@ export const subscriptionsEntity = defineEntity(
         'subscriptions_dunning_clock_with_retry',
         sql`(${t.nextRetryAt} is null) = (${t.dunningStartedAt} is null)`,
       ),
+      check('subscriptions_dunning_base_within_attempts', sql`${t.dunningAttemptBase} <= ${t.dunningAttempt}`),
       check(
         'subscriptions_cancel_reason_iff_canceled',
         sql`(${t.status} = ${sqlLiteral(SUBSCRIPTION_STATUS.CANCELED)}) = (${t.cancelReason} is not null)`,

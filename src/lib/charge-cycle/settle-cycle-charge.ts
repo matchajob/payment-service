@@ -1,4 +1,4 @@
-import type { CycleParties, ChargeCycle } from '@/lib/charge-cycle/charge-cycle';
+import type { CycleParties, CycleDecide } from '@/lib/charge-cycle/charge-cycle';
 import { recordChargeResult } from '@/lib/charges/record-charge-result';
 import type { Charge } from '@/lib/charges/schema';
 import type { Database } from '@/lib/db';
@@ -15,7 +15,7 @@ const MISSING = 'charged subscription missing';
 export type SettleCycleInput = { charge: Charge; result: ChargeResult; parties: CycleParties; now: Date };
 
 export const settleCycleCharge = (
-  cycle: ChargeCycle,
+  decide: CycleDecide,
   db: Database,
   { charge, result, parties, now }: SettleCycleInput,
 ) =>
@@ -24,7 +24,7 @@ export const settleCycleCharge = (
     if (subscription === undefined) throw new Error(MISSING);
     if (!(await recordChargeResult(tx, charge.chargeId, result))) return false;
 
-    const { event, changes } = cycle.decide({ subscription, charge, result, parties, now });
+    const { event, changes } = decide({ subscription, charge, result, parties, now });
     const outcome = transition(toState(subscription), event, transitionContextFor(subscription, parties.tenant));
     if (outcome.kind === OUTCOME_KIND.REJECTED) return true;
     await applyTransition(tx, {

@@ -24,7 +24,7 @@ export const settleReconciledCharge = async (
   const kind = chargeKindOf(charge);
   if (kind === CHARGE_KIND.FIRST)
     return settleFirstCharge(db, { charge, result, tenant: parties.tenant, customer: parties.customer, now });
-  return settleCycleCharge(kind === CHARGE_KIND.RENEWAL ? renewalCycle : dunningCycle, db, {
+  return settleCycleCharge((kind === CHARGE_KIND.RENEWAL ? renewalCycle : dunningCycle).decide, db, {
     charge,
     result,
     parties,

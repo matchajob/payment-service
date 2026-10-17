@@ -33,6 +33,6 @@ export const chargeOne = async (
     currency: charge.currency,
     dedupKey: chargeDedupKey(charge.subscriptionId, charge.periodEnd, charge.attempt),
   });
-  await settleCycleCharge(cycle, db, { charge, result, parties, now });
+  await settleCycleCharge(cycle.decide, db, { charge, result, parties, now });
   return CYCLE_RESULT.CHARGED;
 };

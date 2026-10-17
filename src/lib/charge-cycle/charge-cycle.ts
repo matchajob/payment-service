@@ -18,6 +18,7 @@ export type CycleSettlement = {
   now: Date;
 };
 export type CycleDecision = { event: LifecycleEvent; changes: TransitionChanges };
+export type CycleDecide = (settlement: CycleSettlement) => CycleDecision;
 
 export type ChargeCycle = {
   dueEvent: LifecycleEvent;
@@ -25,5 +26,5 @@ export type ChargeCycle = {
   isDue: (subscription: Subscription, now: Date) => boolean;
   attemptOf: (subscription: Subscription) => number;
   canceledOnDue?: (now: Date) => TransitionChanges;
-  decide: (settlement: CycleSettlement) => CycleDecision;
+  decide: CycleDecide;
 };

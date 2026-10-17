@@ -24,13 +24,18 @@ export const dunningCycle: ChargeCycle = {
         changes: {
           currentPeriodEnd: nextPeriodEnd(subscription, charge, parties.plan),
           dunningAttempt: NO_RETRIES_YET,
+          dunningAttemptBase: NO_RETRIES_YET,
           ...STOPPED,
         },
       };
     const next =
       subscription.dunningStartedAt === null
         ? null
-        : nextRetryAt(subscription.dunningStartedAt, charge.attempt + NEXT, parties.dunningScheduleDays);
+        : nextRetryAt(
+            subscription.dunningStartedAt,
+            charge.attempt + NEXT - subscription.dunningAttemptBase,
+            parties.dunningScheduleDays,
+          );
     if (next === null)
       return {
         event: LIFECYCLE_EVENT.FINAL_RETRY_FAILED,

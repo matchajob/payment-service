@@ -17,6 +17,7 @@ export type TransitionChanges = Partial<
     | 'canceledAt'
     | 'cancelReason'
     | 'dunningAttempt'
+    | 'dunningAttemptBase'
     | 'dunningStartedAt'
     | 'nextRetryAt'
   >

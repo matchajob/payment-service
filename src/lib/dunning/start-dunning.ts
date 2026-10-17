@@ -8,4 +8,5 @@ export const startDunning = (failedAt: Date, scheduleDays: readonly number[]): T
   dunningStartedAt: failedAt,
   nextRetryAt: nextRetryAt(failedAt, FIRST_RETRY, scheduleDays) ?? failedAt,
   dunningAttempt: NO_RETRIES_YET,
+  dunningAttemptBase: NO_RETRIES_YET,
 });

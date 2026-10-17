@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CUSTOMERS_PATH, PLANS_PATH, SUBSCRIPTIONS_PATH } from '@tests/utils/paths';
 import { testApp } from '@tests/utils/test-app';
 import { createSubscriptionResponseSchema } from '@/contract/create-subscription-response';
+import { updatePaymentMethodResponseSchema } from '@/contract/update-payment-method-response';
 import { customerResponseSchema } from '@/contract/customer-response';
 import { planListResponseSchema } from '@/contract/plan-list-response';
 import { createPlan } from '@/lib/plans/create-plan';
@@ -11,6 +12,8 @@ import { testDb, withRollback } from '@tests/utils/db';
 import { MONTHLY } from '@tests/utils/plan-fixtures';
 import { postJson } from '@tests/utils/post-json';
 import { ACME } from '@tests/utils/tenant-fixtures';
+import { CARD_UPDATE_RETURN_URL, cardUpdateFlow } from '@tests/utils/card-update-flow';
+import { seedRenewing } from '@tests/utils/renewal-rows';
 import { seedTenant } from '@tests/utils/tenant-rows';
 
 describe('responses conform to the published contract with no extra fields', () => {
@@ -44,6 +47,15 @@ describe('responses conform to the published contract with no extra fields', () 
         )
       ).json();
       expect(createSubscriptionResponseSchema.parse(body)).toEqual(body);
+    });
+  });
+
+  it('POST /v1/subscriptions/:subscriptionId/update-payment-method', async () => {
+    await withRollback(testDb(), async (tx) => {
+      const active = await seedRenewing(tx);
+      const res = await cardUpdateFlow(tx, active, new Date()).request(CARD_UPDATE_RETURN_URL);
+      const body = await res.json();
+      expect(updatePaymentMethodResponseSchema.parse(body)).toEqual(body);
     });
   });
 });

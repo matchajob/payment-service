@@ -17,6 +17,10 @@ import { cancelSubscription } from '@/lib/subscriptions/cancel-subscription';
 import { COMMAND_RESULT } from '@/lib/subscriptions/command-result';
 import { findSubscription } from '@/lib/subscriptions/find-subscription';
 import { resumeSubscription } from '@/lib/subscriptions/resume-subscription';
+import { updatePaymentMethodRequestSchema } from '@/contract/update-payment-method-request';
+import type { UpdatePaymentMethodResponse } from '@/contract/update-payment-method-response';
+import { START_CARD_UPDATE } from '@/lib/payment-method-updates/start-card-update-outcome';
+import { startPaymentMethodUpdate } from '@/lib/payment-method-updates/start-payment-method-update';
 
 const MISSING_CUSTOMER = 'subscription references a missing customer';
 const subscriptionIdParam = zSubscriptionRead.shape.subscriptionId;
@@ -71,4 +75,20 @@ export const subscriptionsRoutes = (providerFor: ProviderFor, clock: Clock) =>
       if (!id.success) return problemResponse(c, HTTP_STATUS.NOT_FOUND);
       const input = { tenant: c.get('tenant'), subscriptionId: id.data, now: clock.now() };
       return subscriptionResultResponse(c, await resumeSubscription(c.get('db'), input));
+    })
+    .post(`/:${ID}/update-payment-method`, async (c) => {
+      const id = subscriptionIdParam.safeParse(c.req.param(ID));
+      if (!id.success) return problemResponse(c, HTTP_STATUS.NOT_FOUND);
+      const body = updatePaymentMethodRequestSchema.safeParse(await readJsonBody(c));
+      if (!body.success) return problemResponse(c, HTTP_STATUS.BAD_REQUEST, body.error.message);
+      const result = await startPaymentMethodUpdate(
+        { db: c.get('db'), providerFor },
+        { tenant: c.get('tenant'), subscriptionId: id.data, returnUrl: body.data.returnUrl, now: clock.now() },
+      );
+      if (result.kind === START_CARD_UPDATE.NOT_FOUND) return problemResponse(c, HTTP_STATUS.NOT_FOUND);
+      if (result.kind === START_CARD_UPDATE.REJECTED) return problemResponse(c, HTTP_STATUS.CONFLICT, result.reason);
+      const response: UpdatePaymentMethodResponse = {
+        data: { subscriptionId: id.data, checkoutUrl: result.checkoutUrl },
+      };
+      return c.json(response, HTTP_STATUS.CREATED);
     });

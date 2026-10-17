@@ -26,6 +26,7 @@ export type FakePaymentProvider = PaymentProvider & {
   failCharges: () => void;
   failVerifies: () => void;
   withoutReferenceLookup: () => void;
+  lastCheckoutSession: () => CheckoutSession;
 };
 
 export const FAKE_CHECKOUT_COMPLETED = 'checkout.completed';
@@ -50,6 +51,7 @@ export const fakeCheckoutCompletedBody = (reference: string, sessionRef: string)
 export const FAKE_CHECKOUT_URL = 'https://fake.provider/checkout';
 export const FAKE_CHARGE_TIMEOUT = 'fakePaymentProvider: charge scripted to time out';
 export const FAKE_CHECKOUT_FAILURE = 'fakePaymentProvider: checkout scripted to fail';
+export const FAKE_NO_CHECKOUT = 'fakePaymentProvider: no checkout started';
 export const FAKE_VERIFY_FAILURE = 'fakePaymentProvider: verifyCharge scripted to fail';
 
 export const fakePaymentProvider = (): FakePaymentProvider => {
@@ -69,6 +71,7 @@ export const fakePaymentProvider = (): FakePaymentProvider => {
     chargeThrows: false,
     verifyThrows: false,
   };
+  const sessions: CheckoutSession[] = [];
   const capabilities: ProviderCapabilities = {
     selfManagedSchedule: true,
     providerManagedSchedule: false,
@@ -121,7 +124,14 @@ export const fakePaymentProvider = (): FakePaymentProvider => {
     startCheckout: async (request) => {
       calls.startCheckout.push(request);
       if (scripted.checkoutFails) throw new Error(FAKE_CHECKOUT_FAILURE);
-      return { checkoutUrl: FAKE_CHECKOUT_URL, providerSessionRef: `session-${calls.startCheckout.length}` };
+      const session = { checkoutUrl: FAKE_CHECKOUT_URL, providerSessionRef: `session-${calls.startCheckout.length}` };
+      sessions.push(session);
+      return session;
+    },
+    lastCheckoutSession: () => {
+      const session = sessions.at(-1);
+      if (session === undefined) throw new Error(FAKE_NO_CHECKOUT);
+      return session;
     },
     charge: async (request) => {
       calls.charge.push(request);
