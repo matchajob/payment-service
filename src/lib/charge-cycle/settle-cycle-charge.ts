@@ -22,11 +22,11 @@ export const settleCycleCharge = (
   db.transaction(async (tx) => {
     const subscription = await lockSubscription(tx, charge.subscriptionId);
     if (subscription === undefined) throw new Error(MISSING);
-    await recordChargeResult(tx, charge.chargeId, result);
+    if (!(await recordChargeResult(tx, charge.chargeId, result))) return false;
 
     const { event, changes } = cycle.decide({ subscription, charge, result, parties, now });
     const outcome = transition(toState(subscription), event, transitionContextFor(subscription, parties.tenant));
-    if (outcome.kind === OUTCOME_KIND.REJECTED) return;
+    if (outcome.kind === OUTCOME_KIND.REJECTED) return true;
     await applyTransition(tx, {
       subscription,
       outcome,
@@ -35,4 +35,5 @@ export const settleCycleCharge = (
       tenant: parties.tenant,
       occurredAt: now,
     });
+    return true;
   });

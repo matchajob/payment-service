@@ -9,8 +9,7 @@ const ROLLBACK = Symbol('rollback');
 
 const IDLE_TIMEOUT_SECONDS = 1;
 
-export const testDb = (): Db =>
-  drizzle(postgres(inject('testDatabaseUrl'), { idle_timeout: IDLE_TIMEOUT_SECONDS }));
+export const testDb = (): Db => drizzle(postgres(inject('testDatabaseUrl'), { idle_timeout: IDLE_TIMEOUT_SECONDS }));
 
 export const withRollback = async (db: Db, fn: (tx: Tx) => Promise<void>): Promise<void> => {
   await db

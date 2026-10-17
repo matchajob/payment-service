@@ -13,6 +13,7 @@ export const unconfiguredProvider: PaymentProvider = {
     signedWebhooks: false,
     refunds: false,
     saveCardWithoutCharge: false,
+    lookupByReference: false,
   },
   startCheckout: notConfigured,
   charge: notConfigured,

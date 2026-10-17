@@ -18,11 +18,14 @@ import { subscriptionsTable } from '@/lib/subscriptions/schema';
 import { tenantsTable } from '@/lib/tenants/schema';
 import { providerConnectionsTable } from '@/lib/provider-connections/schema';
 import { foreignKey } from '@matcha/infra/domain-drizzle/exports';
+import { RECONCILE_FLAG } from '@/lib/charges/reconcile-flag';
 
 const FIRST_ATTEMPT = 0;
 
 export const chargeStatusEnum = createDbEnumPair('chargeStatus', CHARGE_STATUS);
 export const chargeStatusPgEnum = chargeStatusEnum.dz;
+export const reconcileFlagEnum = createDbEnumPair('reconcileFlag', RECONCILE_FLAG);
+export const reconcileFlagPgEnum = reconcileFlagEnum.dz;
 
 const restrict = { onDelete: REFERENTIAL_ACTION.RESTRICT };
 
@@ -64,6 +67,8 @@ export const chargesEntity = defineEntity(
     providerChargeRef: (f) => entityFromDzd(dzdThemeStr.nonEmpty.token(f), DZD_NULLABLE),
     failureReason: (f) => entityFromDzd(dzdThemeStr.nonEmpty.errorMessage(f), DZD_NULLABLE),
     attemptedAt: (f) => entityFromDzd(dzdThemeTimestamp.custom(f)),
+    reconcileFlag: (f) => entityFromDzd(dzdThemeEnum.fromPair(f, reconcileFlagEnum), DZD_NULLABLE),
+    flaggedAt: (f) => entityFromDzd(dzdThemeTimestamp.custom(f), DZD_NULLABLE),
   },
   {
     extraConstraints: (t) => [
@@ -75,6 +80,7 @@ export const chargesEntity = defineEntity(
         'charges_failure_reason_iff_failed',
         sql`(${t.status} = ${sqlLiteral(CHARGE_STATUS.FAILED)}) = (${t.failureReason} is not null)`,
       ),
+      check('charges_reconcile_flag_iff_flagged_at', sql`(${t.reconcileFlag} is null) = (${t.flaggedAt} is null)`),
       unique('charges_one_per_attempt').on(t.subscriptionId, t.periodEnd, t.attempt),
       uniqueIndex('charges_one_live_per_period')
         .on(t.subscriptionId, t.periodEnd)

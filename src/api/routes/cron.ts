@@ -9,6 +9,10 @@ import { RENEWAL_BATCH_LIMIT } from '@/lib/renewal/renewal-batch-limit';
 import { runRenewal } from '@/lib/renewal/run-renewal';
 import { DUNNING_BATCH_LIMIT } from '@/lib/dunning/dunning-batch-limit';
 import { runDunning } from '@/lib/dunning/run-dunning';
+import { HOUSEKEEPING_BATCH_LIMIT } from '@/lib/housekeeping/housekeeping-batch-limit';
+import { runHousekeeping } from '@/lib/housekeeping/run-housekeeping';
+import { RECONCILE_BATCH_LIMIT } from '@/lib/reconcile/reconcile-batch-limit';
+import { runReconcile } from '@/lib/reconcile/run-reconcile';
 
 export type CronRouteDeps = { clock: Clock; providerFor: ProviderFor; logger: Logger };
 
@@ -21,4 +25,12 @@ export const cronRoutes = ({ clock, providerFor, logger }: CronRouteDeps) =>
     )
     .post('/dun', async (c) =>
       c.json(await runDunning({ db: c.get('db'), providerFor, batchLimit: DUNNING_BATCH_LIMIT, logger }, clock.now())),
+    )
+    .post('/housekeeping', async (c) =>
+      c.json(await runHousekeeping({ db: c.get('db'), batchLimit: HOUSEKEEPING_BATCH_LIMIT, logger }, clock.now())),
+    )
+    .post('/reconcile', async (c) =>
+      c.json(
+        await runReconcile({ db: c.get('db'), providerFor, batchLimit: RECONCILE_BATCH_LIMIT, logger }, clock.now()),
+      ),
     );

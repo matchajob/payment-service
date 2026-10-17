@@ -17,4 +17,6 @@ export const CRON_JOBS: readonly CronJob[] = [
   },
   { name: 'renew', path: '/internal/cron/renew', schedule: HOURLY, retryCount: NO_RETRY },
   { name: 'dun', path: '/internal/cron/dun', schedule: HOURLY, retryCount: NO_RETRY },
+  { name: 'housekeeping', path: '/internal/cron/housekeeping', schedule: HOURLY, retryCount: NO_RETRY },
+  { name: 'reconcile', path: '/internal/cron/reconcile', schedule: HOURLY, retryCount: NO_RETRY },
 ];

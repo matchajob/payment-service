@@ -28,11 +28,11 @@ export const settleFirstCharge = (db: Database, { charge, result, tenant, custom
     if (subscription === undefined) throw new Error('charged subscription missing');
 
     const succeeded = result.outcome === CHARGE_STATUS.SUCCEEDED;
-    await recordChargeResult(tx, charge.chargeId, result);
+    if (!(await recordChargeResult(tx, charge.chargeId, result))) return false;
 
     const event = succeeded ? LIFECYCLE_EVENT.FIRST_CHARGE_SUCCEEDED : LIFECYCLE_EVENT.FIRST_CHARGE_FAILED;
     const outcome = transition(toState(subscription), event, transitionContextFor(subscription, tenant));
-    if (outcome.kind === OUTCOME_KIND.REJECTED) return;
+    if (outcome.kind === OUTCOME_KIND.REJECTED) return true;
     await applyTransition(tx, {
       subscription,
       outcome,
@@ -41,4 +41,5 @@ export const settleFirstCharge = (db: Database, { charge, result, tenant, custom
       tenant,
       occurredAt: now,
     });
+    return true;
   });

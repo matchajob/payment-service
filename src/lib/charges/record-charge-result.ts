@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { CHARGE_STATUS } from '@/lib/charges/charge-status';
 import { declineReason } from '@/lib/charges/decline-reason';
 import { chargesTable, type Charge } from '@/lib/charges/schema';
@@ -9,8 +9,8 @@ export const recordChargeResult = async (
   tx: Database,
   chargeId: Charge['chargeId'],
   result: ChargeResult,
-): Promise<void> => {
-  await tx
+): Promise<boolean> => {
+  const settled = await tx
     .update(chargesTable)
     .set(
       result.outcome === CHARGE_STATUS.SUCCEEDED
@@ -21,5 +21,7 @@ export const recordChargeResult = async (
             failureReason: declineReason(result.reason),
           },
     )
-    .where(eq(chargesTable.chargeId, chargeId));
+    .where(and(eq(chargesTable.chargeId, chargeId), eq(chargesTable.status, CHARGE_STATUS.PENDING)))
+    .returning({ chargeId: chargesTable.chargeId });
+  return settled.length > 0;
 };

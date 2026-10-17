@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import type { Database } from '@/lib/db';
 import { CANCEL_REASON } from '@/lib/subscriptions/cancel-reason';
@@ -16,6 +16,7 @@ const SHORT_TTL_HOURS = 2;
 const ELEVEN_HOURS = 11;
 const ANCHOR_DAY = 15;
 const SMALL_BATCH = 1;
+const WEST_OF_UTC = 'America/New_York';
 const EXPIRED = after(CREATED_AT, DEFAULT_TTL_HOURS * HOUR_MS);
 const NOT_YET = after(CREATED_AT, ELEVEN_HOURS * HOUR_MS);
 const NOTHING_DONE = { processed: 0, failed: 0 };
@@ -63,6 +64,19 @@ describe('runHousekeeping: an abandoned checkout (S1 r3)', () => {
       await housekeepWith(tx)(EXPIRED);
 
       expect(await eventsOf(tx, subscription.subscriptionId)).toEqual([]);
+    });
+  });
+
+  it('compares instants, not wall clocks, when the database session is not in UTC', async () => {
+    await withRollback(testDb(), async (tx) => {
+      const { subscription } = await seedCheckout(tx);
+      await tx.execute(sql.raw(`set local time zone '${WEST_OF_UTC}'`));
+
+      expect(await housekeepWith(tx)(NOT_YET)).toEqual(NOTHING_DONE);
+
+      expect(await subscriptionRow(tx, subscription.subscriptionId)).toMatchObject({
+        status: SUBSCRIPTION_STATUS.INCOMPLETE,
+      });
     });
   });
 

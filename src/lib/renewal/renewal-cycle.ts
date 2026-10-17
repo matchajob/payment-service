@@ -16,7 +16,7 @@ export const renewalCycle: ChargeCycle = {
     status === SUBSCRIPTION_STATUS.ACTIVE && currentPeriodEnd !== null && currentPeriodEnd <= now,
   attemptOf: () => RENEWAL_ATTEMPT,
   canceledOnDue: (now) => ({ canceledAt: now, cancelReason: CANCEL_REASON.CUSTOMER_REQUEST }),
-  decide: ({ subscription, charge, result, parties }) =>
+  decide: ({ subscription, charge, result, parties, now }) =>
     result.outcome === CHARGE_STATUS.SUCCEEDED
       ? {
           event: LIFECYCLE_EVENT.RENEWAL_SUCCEEDED,
@@ -24,6 +24,6 @@ export const renewalCycle: ChargeCycle = {
         }
       : {
           event: LIFECYCLE_EVENT.RENEWAL_FAILED,
-          changes: startDunning(charge.attemptedAt, parties.dunningScheduleDays),
+          changes: startDunning(now, parties.dunningScheduleDays),
         },
 };
