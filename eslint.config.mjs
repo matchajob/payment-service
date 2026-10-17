@@ -20,6 +20,7 @@ export default defineConfig([
     plugins: { '@typescript-eslint': tseslint.plugin },
     languageOptions: { parser: tseslint.parser },
     linterOptions: { reportUnusedDisableDirectives: 'off' },
+    rules: { 'no-unreachable': 'error' },
   },
   {
     files: ['**/*.ts'],

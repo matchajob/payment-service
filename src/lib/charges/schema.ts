@@ -102,3 +102,5 @@ export const chargesEntity = defineEntity(
 export const chargesTable = chargesEntity.table;
 
 export type Charge = typeof chargesTable.$inferSelect;
+
+export const zChargeRead = chargesEntity.read;

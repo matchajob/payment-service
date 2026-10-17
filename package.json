@@ -19,7 +19,8 @@
     "db:complete": "pnpm db:generate && pnpm db:migrate",
     "db:seed": "tsx --env-file=.env src/cli/seed.ts",
     "prepare-commit": "pnpm typecheck && pnpm lint && pnpm run format && pnpm db:complete && pnpm test:run",
-    "outbox:redrive": "tsx --env-file=.env src/cli/redrive-outbox.ts"
+    "outbox:redrive": "tsx --env-file=.env src/cli/redrive-outbox.ts",
+    "charges:settle": "tsx --env-file=.env src/cli/settle-charge.ts"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.5",

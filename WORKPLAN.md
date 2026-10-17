@@ -354,7 +354,7 @@ Spec: S1 r3, Spec 4 rule 8.
 - [x] Port (ADR 0017): `verifyCharge({ dedupKey, providerChargeRef })`, capability `lookupByReference`, `VerifiedCharge` gains `not_found` and the amount on success.
 - [x] `runReconcile(now)`: hourly, not nightly (ADR 0017). Settles each pending charge through its own cycle. `not_found` past 24h is a decline (decision X). Flags what it can't settle (`stuck_pending`, `ref_not_found`, `no_reference_lookup`, `amount_mismatch`) and re-checks not-found failures for 7 days (`late_success`).
 - [x] `recordChargeResult` settles only a `pending` row, so a live settle and reconcile can't both apply.
-- [ ] CLI to settle a flagged charge by hand, through the same cycle. Not built in the slice 12 commit; a follow-up before slice 16.
+- [x] CLI to settle a flagged charge by hand, through the same cycle: `pnpm charges:settle --charge <id> --succeeded <ref> | --failed <reason>`. Pending or flagged only; a `late_success` is refused, its refund happens outside the system.
 - [x] Tests: a 12h-old checkout is canceled, an 11h one is not; a charge the provider says succeeded but we never heard about is settled; every row of the ADR 0017 outcome table; two concurrent reconciles settle once.
 
 Delivers: the two safety nets that make the system self-healing.
@@ -464,6 +464,16 @@ The money-safety claims (one charge per period, every state change has exactly o
 Delivers: a list of failure modes, each with a test showing the system recovers without losing or doubling money.
 
 What you learn: why idempotency keys, unique indexes and reconcile are three layers of the same defence, and which one catches each fault.
+
+### 24. Refactors left open by slices 11 and 12
+
+Blocked by: none. One commit, no behaviour change: the suite must stay green with no test edited.
+
+- [ ] Transition table on `EFFECT.*` keys. `effects.ts` became a const object in slice 11 (audit finding: `'retry_now'` was a bare literal), but `transition-table.ts` still spells every effect as a string. The `Effect` type is unchanged, so this is a mechanical swap.
+- [ ] `chargeOne` finds its provider through `providerForConnectionId` (slice 12) instead of its own inline lookup.
+- [ ] `startCycleCharge` loads tenant, customer and plan through `findCycleParties` (slice 12) instead of its own three lookups.
+
+Delivers: one definition of each effect, provider lookup and party lookup.
 
 ---
 
