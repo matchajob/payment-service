@@ -310,7 +310,7 @@ Spec: S1 r4, r8, r9, r12, r15, D2, D6.
 - [x] Every mutation on `canceled` is `409`.
 - [x] Computed `entitled` added to the subscription resource and to every outbox snapshot.
 
-Decided 2026-10-16, `docs/adr/0015-cancel-resume-and-the-subscription-resource.md`: the resource is the event snapshot (with `canceledAt`, plus `GET /v1/subscriptions/:id`), resume on an unflagged active subscription is a `200` no-op, and cancel is `409` with `Retry-After` while a charge is pending. `entitled` in every snapshot shipped in slice 5.
+Decided 2026-10-16, `docs/adr/0016-cancel-resume-and-the-subscription-resource.md`: the resource is the event snapshot (with `canceledAt`, plus `GET /v1/subscriptions/:id`), resume on an unflagged active subscription is a `200` no-op, and cancel is `409` with `Retry-After` while a charge is pending. `entitled` in every snapshot shipped in slice 5.
 
 Delivers: the full cancel story end to end, including the tenant-visible flag and effective date.
 
@@ -481,7 +481,7 @@ Delivers: one definition of each effect, provider lookup and party lookup.
 
 ## Phase 7: Roadmap after v1
 
-Added 2026-10-16. Not v1 work. Neither slice has an ADR yet; each starts with one.
+Added 2026-10-16, slices 25 and 26 on 2026-10-17. Not v1 work. No slice here has an ADR yet; each starts with one.
 
 ### 21. Sandbox mode
 
@@ -524,6 +524,40 @@ Delivers: an organization with a Stripe account bills subscriptions through it w
 
 What you learn: what a signed webhook lets you skip, and what it still doesn't let you trust (the amount).
 
+### 25. Provider overload
+
+Blocked by: 10, 12, 13. Slice 13 shows which status codes and error bodies Grow actually returns under load.
+
+Context: Grow credentials belong to the organization's merchant account (ADR 0010), and its rate limits most likely apply per merchant or terminal, not per key. Rotating or minting keys to get past a limit doesn't raise it, likely breaches Grow's terms, and putting several organizations behind one key is the payment aggregation ADR 0010 forbids. Credential rotation is for a compromised key, never for load. Overload is handled by slowing down and sorting failures, per connection.
+
+- [ ] Ask Grow for its rate limits and their scope (per terminal, per account, per key). Record the answer; no limit is invented in code.
+- [ ] Decision (ADR): sorting provider failures. **Refused** (`429`, connection refused, a documented "not processed" error): nothing was charged, so a retry is safe. **Ambiguous** (`5xx`, timeout): the charge stays `pending` and reconcile settles it (ADR 0017). Grow has no idempotency, so an ambiguous failure is never retried automatically.
+- [ ] Decision (same ADR): a refused attempt does not use up a dunning attempt. Without that, a Grow outage pushes healthy customers toward cancellation. **A.** The charge row is cancelled with no attempt counted, and the next run tries the same attempt again. **B.** A separate `deferred` status on the charge. A needs no new state; B makes outages visible in the data. Recommendation: A, with a metric for visibility.
+- [ ] A circuit breaker keyed by `providerConnectionId`. After N refused or ambiguous calls in a window, renewal, dunning and reconcile skip that connection's rows for the run. They wait an hour, still inside Spec 2's day-level contract (ADR 0013). One organization's overloaded account never slows another's.
+- [ ] Customer-facing calls (checkout, update payment method) on an open breaker or a refused call return `503` problem+json with `Retry-After`. The SDK retries with the same idempotency key (slice 23); confirm it treats `503` as retryable and honours `Retry-After`.
+- [ ] Tests: a refused renewal leaves no live charge and the same attempt runs next time; an ambiguous one stays `pending` and is never retried by renewal; a dunning attempt is not used up by a refused call; an open breaker on connection X skips X's rows and still charges connection Y's; checkout on an open breaker is `503` with `Retry-After`.
+
+Delivers: a Grow outage or throttle delays charges by hours instead of double-charging, cancelling, or spreading to other organizations.
+
+What you learn: why a payment system's retry policy hinges on "definitely not charged" versus "maybe charged", and why isolation belongs to the resource that owns the limit.
+
+### 26. API keys with overlapping rotation
+
+Blocked by: 19. Better before 21, which then only adds the mode prefix to this table.
+
+Context: each application has a single `tenants.apiKeyHash`, shown once by the seed CLI. Replacing it means downtime, and a leaked key can't be retired without breaking the integration. Keys stay per application on purpose: the key resolves which plans, `webhookUrl` and events a request acts on, and one leaked key exposes one application, not a whole organization. Organization-level keys for management (creating applications, rotating keys) come with the dashboard (`docs/product/hosted-service-strategy.md` section 6) and are not in this slice.
+
+- [ ] Decision (ADR): where keys live. **A.** An `api_keys` table: `tenantId`, hash, visible prefix, `createdAt`, `lastUsedAt`, `revokedAt`. Several live keys per application. **B.** Two columns on `tenants` (current and previous hash). A allows any number of keys, audit, and per-key revocation; B is smaller but caps overlap at two and loses history. Recommendation: A.
+- [ ] Rotation is create, deploy, revoke: a new key works next to the old one until the tenant revokes the old one. A revoked key is `401`, the same as an unknown key, so a revoked key reveals nothing.
+- [ ] `lastUsedAt` is written at most once per interval per key, not on every request, so auth stays a single read on the hot path.
+- [ ] The seed CLI prints the webhook secret next to the API key, closing the gap left by slice 23.
+- [ ] A CLI command to issue and revoke keys for an application, until self-serve onboarding exists.
+- [ ] Tests: two live keys both authenticate as the same application; a revoked key is `401`; a key from application A never resolves application B; the plaintext key is never stored or logged; `lastUsedAt` is throttled.
+
+Delivers: a tenant replaces a leaked or departing developer's key with no downtime.
+
+What you learn: why a credential needs a lifecycle (issue, overlap, revoke) and not a single column.
+
 ---
 
 ## Frontier at start
@@ -534,6 +568,6 @@ Slices with no unfinished blockers right now: **0.0**. After 0.0, slices **0.1**
 
 Plan changes, trials, proration, multi-currency, hard-decline short-circuiting, refunds, alerting on dead letters, and the RevenueCat adapter with external mode (slice 14, v2). All listed as out of scope in `PRD.md`. The `refunds` capability flag exists in the port but no slice implements a refund.
 
-Hosted-service gaps (invoicing, onboarding, dashboard, a second Israeli acquirer, legal and operations) are listed in `docs/product/hosted-service-strategy.md` section 6 and are not slices yet. The typed SDK is slice 23, in v1. Sandbox mode (21) and the Stripe adapter (22) are roadmap slices in phase 7.
+Hosted-service gaps (invoicing, onboarding, dashboard, a second Israeli acquirer, legal and operations) are listed in `docs/product/hosted-service-strategy.md` section 6 and are not slices yet. The typed SDK is slice 23, in v1. Sandbox mode (21), the Stripe adapter (22), provider overload (25) and API key rotation (26) are roadmap slices in phase 7.
 
 Also deferred: the fallback for providers without `saveCardWithoutCharge` (charge at checkout, plus refund-on-conflict). It depends on the refund flow above. Until it exists, such providers fail the boot guard. See ADR 0007 and PRD open question 6.

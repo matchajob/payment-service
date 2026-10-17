@@ -1,4 +1,4 @@
-# ADR 0015: Cancel and resume answer with the event snapshot, and refuse while a charge is in flight
+# ADR 0016: Cancel and resume answer with the event snapshot, and refuse while a charge is in flight
 
 **Status:** Accepted, 2026-10-16
 **Slice:** 9.
