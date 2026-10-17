@@ -348,8 +348,11 @@ Blocked by: 8.
 Spec: S1 r3, Spec 4 rule 8.
 
 - [ ] `runHousekeeping(now)`: `incomplete` rows older than the tenant's `checkoutTtlHours` become `canceled` silently.
-- [ ] `runReconcile(now)`: nightly `verifyCharge` for every unsettled charge; a lost webhook is repaired here.
-- [ ] Tests: a 12h-old checkout is canceled, an 11h one is not; a charge the provider says succeeded but we never heard about is settled.
+- [ ] Port (ADR 0017): `verifyCharge({ dedupKey, providerChargeRef })`, capability `lookupByReference`, `VerifiedCharge` gains `not_found` and the amount on success.
+- [ ] `runReconcile(now)`: hourly, not nightly (ADR 0017). Settles each pending charge through its own cycle. `not_found` past 24h is a decline (decision X). Flags what it can't settle (`stuck_pending`, `ref_not_found`, `no_reference_lookup`, `amount_mismatch`) and re-checks not-found failures for 7 days (`late_success`).
+- [ ] `recordChargeResult` settles only a `pending` row, so a live settle and reconcile can't both apply.
+- [ ] CLI to settle a flagged charge by hand, through the same cycle.
+- [ ] Tests: a 12h-old checkout is canceled, an 11h one is not; a charge the provider says succeeded but we never heard about is settled; every row of the ADR 0017 outcome table; two concurrent reconciles settle once.
 
 Delivers: the two safety nets that make the system self-healing.
 

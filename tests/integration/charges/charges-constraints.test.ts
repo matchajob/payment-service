@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CHARGE_STATUS } from '@/lib/charges/charge-status';
+import { RECONCILE_FLAG } from '@/lib/charges/reconcile-flag';
 import type { Database } from '@/lib/db';
 import { insertCharge, seedChargeOwner } from '@tests/utils/charge-rows';
 import { testDb, withRollback } from '@tests/utils/db';
@@ -12,6 +13,8 @@ const ONE_PER_ATTEMPT = 'charges_one_per_attempt';
 const ONE_LIVE_PER_PERIOD = 'charges_one_live_per_period';
 const SUBSCRIPTION_CONNECTION = 'charges_subscription_connection';
 const PAYMENT_METHOD_CONNECTION = 'charges_payment_method_connection';
+const FLAG_IFF_FLAGGED_AT = 'charges_reconcile_flag_iff_flagged_at';
+const FLAGGED_AT = new Date('2026-02-22T10:00:00.000Z');
 const DECLINED = 'card declined';
 const CHARGE_1 = 'charge-1';
 const CHARGE_2 = 'charge-2';
@@ -125,6 +128,30 @@ describe('charges table constraints', () => {
         const theirs = await seedChargeOwner(tx, GLOBEX);
         const write = (db: Database) => insertCharge(db, { ...ours, paymentMethodId: theirs.paymentMethodId });
         expect(await violatedConstraint(tx, write)).toBe(PAYMENT_METHOD_CONNECTION);
+      });
+    });
+  });
+
+  describe('a reconcile flag carries the time it was raised (ADR 0017)', () => {
+    it.each([
+      { reconcileFlag: null, flaggedAt: null },
+      { reconcileFlag: RECONCILE_FLAG.STUCK_PENDING, flaggedAt: FLAGGED_AT },
+    ])('accepts flag $reconcileFlag at $flaggedAt', async (row) => {
+      await withRollback(testDb(), async (tx) => {
+        const owner = await seedChargeOwner(tx);
+        const pending = { status: PENDING, providerChargeRef: null, ...row };
+        expect(await violatedConstraint(tx, (db) => insertCharge(db, owner, pending))).toBeUndefined();
+      });
+    });
+
+    it.each([
+      { reconcileFlag: RECONCILE_FLAG.STUCK_PENDING, flaggedAt: null },
+      { reconcileFlag: null, flaggedAt: FLAGGED_AT },
+    ])('rejects flag $reconcileFlag at $flaggedAt', async (row) => {
+      await withRollback(testDb(), async (tx) => {
+        const owner = await seedChargeOwner(tx);
+        const pending = { status: PENDING, providerChargeRef: null, ...row };
+        expect(await violatedConstraint(tx, (db) => insertCharge(db, owner, pending))).toBe(FLAG_IFF_FLAGGED_AT);
       });
     });
   });

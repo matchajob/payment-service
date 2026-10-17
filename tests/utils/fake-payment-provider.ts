@@ -7,7 +7,9 @@ import type {
   CheckoutRequest,
   CheckoutSession,
   PaymentProvider,
+  ProviderCapabilities,
   VerifiedCharge,
+  VerifyChargeRequest,
 } from '@/lib/payments/provider';
 
 export type FakePaymentProvider = PaymentProvider & {
@@ -15,13 +17,15 @@ export type FakePaymentProvider = PaymentProvider & {
     startCheckout: CheckoutRequest[];
     verifyCheckout: string[];
     charge: ChargeRequest[];
-    verifyCharge: string[];
+    verifyCharge: VerifyChargeRequest[];
   };
   scriptCharge: (result: ChargeResult) => void;
   scriptVerify: (result: VerifiedCharge) => void;
   failCheckouts: () => void;
   scriptCheckoutNotCompleted: () => void;
   failCharges: () => void;
+  failVerifies: () => void;
+  withoutReferenceLookup: () => void;
 };
 
 export const FAKE_CHECKOUT_COMPLETED = 'checkout.completed';
@@ -46,6 +50,7 @@ export const fakeCheckoutCompletedBody = (reference: string, sessionRef: string)
 export const FAKE_CHECKOUT_URL = 'https://fake.provider/checkout';
 export const FAKE_CHARGE_TIMEOUT = 'fakePaymentProvider: charge scripted to time out';
 export const FAKE_CHECKOUT_FAILURE = 'fakePaymentProvider: checkout scripted to fail';
+export const FAKE_VERIFY_FAILURE = 'fakePaymentProvider: verifyCharge scripted to fail';
 
 export const fakePaymentProvider = (): FakePaymentProvider => {
   const calls: FakePaymentProvider['calls'] = { startCheckout: [], verifyCheckout: [], charge: [], verifyCharge: [] };
@@ -55,7 +60,23 @@ export const fakePaymentProvider = (): FakePaymentProvider => {
     checkoutFails: boolean;
     checkoutNotCompleted: boolean;
     chargeThrows: boolean;
-  } = { charge: [], verify: [], checkoutFails: false, checkoutNotCompleted: false, chargeThrows: false };
+    verifyThrows: boolean;
+  } = {
+    charge: [],
+    verify: [],
+    checkoutFails: false,
+    checkoutNotCompleted: false,
+    chargeThrows: false,
+    verifyThrows: false,
+  };
+  const capabilities: ProviderCapabilities = {
+    selfManagedSchedule: true,
+    providerManagedSchedule: false,
+    signedWebhooks: false,
+    refunds: false,
+    saveCardWithoutCharge: true,
+    lookupByReference: true,
+  };
 
   const next = <T>(queue: T[], method: string): T => {
     const result = queue.shift();
@@ -63,13 +84,7 @@ export const fakePaymentProvider = (): FakePaymentProvider => {
     return result;
   };
   return {
-    capabilities: {
-      selfManagedSchedule: true,
-      providerManagedSchedule: false,
-      signedWebhooks: false,
-      refunds: false,
-      saveCardWithoutCharge: true,
-    },
+    capabilities,
     calls,
     scriptCharge: (result) => {
       scripted.charge.push(result);
@@ -85,6 +100,12 @@ export const fakePaymentProvider = (): FakePaymentProvider => {
     },
     failCharges: () => {
       scripted.chargeThrows = true;
+    },
+    failVerifies: () => {
+      scripted.verifyThrows = true;
+    },
+    withoutReferenceLookup: () => {
+      capabilities.lookupByReference = false;
     },
     verifyCheckout: async (sessionRef) => {
       calls.verifyCheckout.push(sessionRef);
@@ -107,8 +128,9 @@ export const fakePaymentProvider = (): FakePaymentProvider => {
       if (scripted.chargeThrows) throw new Error(FAKE_CHARGE_TIMEOUT);
       return next(scripted.charge, 'charge');
     },
-    verifyCharge: async (ref) => {
-      calls.verifyCharge.push(ref);
+    verifyCharge: async (request) => {
+      calls.verifyCharge.push(request);
+      if (scripted.verifyThrows) throw new Error(FAKE_VERIFY_FAILURE);
       return next(scripted.verify, 'verifyCharge');
     },
   };

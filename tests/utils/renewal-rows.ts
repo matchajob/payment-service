@@ -1,5 +1,6 @@
 import { createCustomer, CREATE_CUSTOMER_OUTCOME } from '@/lib/customers/create-customer';
 import type { Database } from '@/lib/db';
+import type { PaymentMethod } from '@/lib/payments-method/schema';
 import type { Subscription } from '@/lib/subscriptions/schema';
 import { SUBSCRIPTION_STATUS } from '@/lib/subscriptions/state-machine/subscription-status';
 import { seedBillingContext, type BillingContext } from '@tests/utils/billing-context';
@@ -20,7 +21,12 @@ const FIRST = 0;
 
 const DUE = { status: SUBSCRIPTION_STATUS.ACTIVE, currentPeriodEnd: PERIOD_END, anchorDay: ANCHOR_DAY } as const;
 
-export type Renewing = { ctx: BillingContext; subscription: Subscription; cardToken: string };
+export type Renewing = {
+  ctx: BillingContext;
+  subscription: Subscription;
+  cardToken: string;
+  paymentMethodId: PaymentMethod['paymentMethodId'];
+};
 
 export const addRenewing = async (
   db: Database,
@@ -48,7 +54,7 @@ export const addRenewing = async (
     `${CAPTURE_REF_PREFIX}${index}`,
   ).returning();
   if (card === undefined) throw new Error('payment method insert returned no row');
-  return { ctx, subscription, cardToken: card.providerToken };
+  return { ctx, subscription, cardToken: card.providerToken, paymentMethodId: card.paymentMethodId };
 };
 
 export const seedRenewing = async (

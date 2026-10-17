@@ -29,7 +29,9 @@ describe('unconfiguredProvider', () => {
       }),
     ).rejects.toThrow(NOT_CONFIGURED);
     await expect(unconfiguredProvider.verifyCheckout('session-1')).rejects.toThrow(NOT_CONFIGURED);
-    await expect(unconfiguredProvider.verifyCharge('charge-ref')).rejects.toThrow(NOT_CONFIGURED);
+    await expect(
+      unconfiguredProvider.verifyCharge({ dedupKey: 'dedup', providerChargeRef: 'charge-ref' }),
+    ).rejects.toThrow(NOT_CONFIGURED);
   });
 
   it('refuses to interpret a webhook', () => {
