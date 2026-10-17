@@ -1,6 +1,5 @@
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
-import { TEST_DATABASE_URL } from './tests/utils/test-database-url';
 
 export default defineConfig({
   resolve: {
@@ -21,7 +20,6 @@ export default defineConfig({
         test: {
           name: 'integration',
           include: ['tests/integration/**/*.test.ts'],
-          env: { DATABASE_URL: TEST_DATABASE_URL },
           globalSetup: ['tests/setup/migrate-test-database.ts'],
           sequence: { groupOrder: 0 },
         },
@@ -31,7 +29,6 @@ export default defineConfig({
         test: {
           name: 'integration-serial',
           include: ['tests/integration-serial/**/*.test.ts'],
-          env: { DATABASE_URL: TEST_DATABASE_URL },
           globalSetup: ['tests/setup/migrate-test-database.ts'],
           fileParallelism: false,
           sequence: { groupOrder: 1 },

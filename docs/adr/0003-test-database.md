@@ -35,3 +35,14 @@ Option 1 for the database. Mode a by default, mode b for the suites that need re
 - A module-level `db` singleton is forbidden in `src/lib` and `src/api`. The handle is constructed once in the composition root and passed down. No eslint rule enforces this yet; the `matcha-conventions` audit and code review catch it until one does.
 - Unit tests never touch the database. They live in the `unit` vitest project and run without docker. A pure module that needs Postgres to be tested is in the wrong directory.
 - The same compose file serves `pnpm dev`, so local development and tests never disagree about the Postgres major version.
+
+## Amendment, 2026-10-16: one database per run, and test pools that let go
+
+Two test runs at once (two terminals, an editor extension, or Claude and Omer together) failed broadly with `sorry, too many clients already` and 5-second timeouts.
+
+- **Cause:** `testDb()` built a new connection pool on every call (about 200 call sites), and rollback-mode tests never closed theirs. One run stayed just under the server's connection limit. Two runs crossed it.
+- **Fix 1: test pools close idle connections after 1 second** (`idle_timeout` in `tests/utils/db.ts`). This is what fixes the failures. The limit is server-wide, so no amount of database separation could fix it.
+- **Fix 2: each run gets its own database.** The global setup creates `payment_service_test_run_<ms>_<random>`, migrates it, passes its URL to tests through vitest's `provide` and `inject`, and drops it at teardown. The `integration` and `integration-serial` projects each get one, so a truncate-mode suite can never wipe rows from under another project or another run. A run that crashed before its teardown leaves its database behind, and the next run drops it after an hour. `TEST_DATABASE_URL` now names only the server to connect to, not the database tests use.
+- Verified with two full runs at the same moment: both green, and no databases left behind.
+
+Option 2 in the original Context ("per-test-file database") is still rejected. This change is one database per *run*, so migrations still run once per project per run.
