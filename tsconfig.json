@@ -20,10 +20,11 @@
     "paths": {
       "@/*": ["./src/*"],
       "@matcha/infra/*": ["./node_modules/@matcha/infra/*"],
+      "@sdk/*": ["./packages/sdk/src/*"],
       "@tests/*": ["./tests/*"],
       "@iac/*": ["./iac/*"]
     }
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts", "iac/**/*.ts", "*.config.ts"],
+  "include": ["src/**/*.ts", "packages/**/*.ts", "tests/**/*.ts","iac/**/*.ts", "*.config.ts"],
   "exclude": ["node_modules", "dist"]
 }

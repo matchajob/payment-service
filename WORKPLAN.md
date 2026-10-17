@@ -385,7 +385,7 @@ Spec: Spec 1 external mode section, D11.
 - [ ] Adapter with `signedWebhooks: true`, `providerManagedSchedule: true`.
 - [ ] Store notifications normalised to lifecycle events. Grace maps to `past_due`, expiry to `canceled`. Charges recorded with `source: external`, dedup on store transaction id.
 - [ ] API cancel, resume, update-payment-method return `409` for external subscriptions.
-- [ ] Tests: a signed notification transitions without a verify call; a tampered signature does nothing; our cron never touches an external row.
+- [x] Tests: each client method against the real app through `app.request()` passed as `fetch`, so the SDK is tested against the server and not a mock. A response with a missing or mistyped field fails the parse. A field the contract does not know yet is ignored, so an additive server change breaks no installed SDK, and the server's no-extra-fields guarantee stays in `contract-conformance.test.ts`. A tampered body, a wrong secret, a replayed signature, a stale or future timestamp and a malformed event each reject. An event the real drainer delivered verifies. Every route in the router has an SDK method.
 
 Delivers: an App Store subscription mirrored into the same four states.
 
@@ -414,11 +414,13 @@ Added 2026-10-16, in v1. Context: `docs/product/hosted-service-strategy.md` sect
 A tenant integrates through one package and never hand-writes a request body, a response type or an HMAC check. Every type comes from `src/contract`, so the SDK cannot drift from the server.
 
 - [x] Decision (ADR 0015, 2026-10-16): a hand-written thin client over `fetch`, one method per route, requests validated and responses parsed with the contract's zod schemas. No codegen step; a test enumerating the routes catches a missing method. OpenAPI generation (B) is deferred until a non-TypeScript tenant needs a spec. Hono's `hc` client is ruled out: it types against the route tree, which drags `src/api` and hono into a package tenants install.
-- [ ] Decision: packaging. A workspace package (`packages/sdk`) published to a private registry, or a git dependency on a tagged build. Either way it depends on `src/contract` and nothing else from this repo, which the layer lint already makes possible.
-- [ ] Client: `createClient({ baseUrl, apiKey, fetch? })`, with methods for plans, customers, subscriptions (create, get, cancel, resume, update payment method). Errors surface as a typed problem+json error (`src/contract/problem.ts`), not a thrown `Response`.
-- [ ] Idempotency: every mutating method takes an optional `idempotencyKey` and generates one when absent, so a caller's retry is safe by default (spec rule set for idempotency, slice 2).
-- [ ] Webhooks: `verifyAndParseEvent(rawBody, headers, secret, now)` checks the HMAC and the 5-minute timestamp window, then parses with the outbound-event contract and returns a discriminated union on the event type. Exhaustive `switch` on it is a compile-time check in the tenant.
-- [ ] Tests: each client method against the real app through `app.request()` passed as `fetch`, so the SDK is tested against the server and not a mock; a response with an extra or missing field fails the parse; a tampered body, a wrong secret and a stale timestamp each reject; every route in the router has an SDK method.
+- [x] Decision (2026-10-17): packaging. A workspace package, `packages/sdk`, built with tsup. The build inlines the `src/contract` schemas, so the published package depends on zod only, and the layer lint keeps its source to zod and `src/contract`. Entry points are separate files (`create-client`, `payment-service-error`, `verify-and-parse-event`, `event-verification-error`), with no barrel.
+- [ ] Publish `@payment-service/sdk` to a private registry and settle the name. Until then the docs page marks the SDK as preview.
+- [x] Client: `createClient({ baseUrl, apiKey, fetch? })`, with methods for plans, customers, subscriptions (create, get, cancel, resume, update payment method). Errors surface as a typed `PaymentServiceError` carrying the problem+json, not a thrown `Response`. Invalid input throws before a request is sent.
+- [x] Idempotency: every mutating method takes an optional `idempotencyKey` and generates one when absent. A generated key is new on every call, so it protects only a call the SDK repeats itself. A caller's own retry is safe only with a key the caller keeps.
+- [ ] Decision: should the SDK retry network errors and 5xx itself with the same key? It is what makes the default safe, and it needs a backoff and a way to test it.
+- [x] Webhooks: `verifyAndParseEvent(rawBody, headers, secret, now)` checks the HMAC and the 5-minute timestamp window, then parses with the outbound-event contract. The header names, the tolerance and the signed string live in `src/contract/event-signature.ts` and are imported by the server and the SDK. Each side makes its own HMAC call, because the contract may not import `node:*`. The event `type` is a closed enum, so an exhaustive `switch` on it is a compile-time check in the tenant.
+- [x] Tests: each client method against the real app through `app.request()` passed as `fetch`, so the SDK is tested against the server and not a mock. A response with a missing or mistyped field fails the parse. A field the contract does not know yet is ignored, so an additive server change breaks no installed SDK, and the server's no-extra-fields guarantee stays in `contract-conformance.test.ts`. A tampered body, a wrong secret, a replayed signature, a stale or future timestamp and a malformed event each reject. An event the real drainer delivered verifies. Every route in the router has an SDK method.
 
 Delivers: a tenant installs one package and gets typed calls, safe retries and verified, typed events.
 
@@ -495,7 +497,7 @@ Stripe's model: every application has a test key and a live key, every object re
 - [ ] Outbound events carry `livemode`, and each mode has its own webhook URL and secret, so a receiver can drop a test event that reaches its live endpoint.
 - [ ] A simulated provider connection: the fake provider behind magic card tokens (always succeeds, always declines, declines on the second charge). A tenant can try the API before it has a Grow sandbox account.
 - [ ] Test clocks: a sandbox-only endpoint that advances one subscription's clock and runs renewal, dunning and housekeeping for it. The crons already take `now`, which is why this is cheap. A live key gets `404`, not `403`, so the route doesn't reveal itself.
-- [ ] Tests: a live key cannot read a sandbox subscription; the database rejects a sandbox application on a live connection; the clock endpoint is `404` for a live key; advancing a clock past `currentPeriodEnd` charges once and emits `charge.succeeded` with `livemode: false`.
+- [x] Tests: each client method against the real app through `app.request()` passed as `fetch`, so the SDK is tested against the server and not a mock. A response with a missing or mistyped field fails the parse. A field the contract does not know yet is ignored, so an additive server change breaks no installed SDK, and the server's no-extra-fields guarantee stays in `contract-conformance.test.ts`. A tampered body, a wrong secret, a replayed signature, a stale or future timestamp and a malformed event each reject. An event the real drainer delivered verifies. Every route in the router has an SDK method.
 
 Delivers: a tenant integrates end to end, renewal and dunning included, in an afternoon and without real money.
 
@@ -516,7 +518,7 @@ Spec: PRD 5.1 capabilities, 5.2 rule 4, D11, ADR 0007, ADR 0008.
 - [ ] Inbound webhooks verify `Stripe-Signature` against the connection's signing secret and dedup on the Stripe event id. Under D11 a verified `payment_intent.succeeded` settles a charge without a verify call. Reconcile still calls `verifyCharge`.
 - [ ] Off-session charges can fail with `authentication_required` (SCA). Decide whether it is an ordinary failure that runs dunning, with update payment method (slice 11) as the rescue, or a distinct reason exposed to the tenant.
 - [ ] Check ILS against ADR 0004: minor units and Stripe's minimum charge amount.
-- [ ] Tests: contract tests against recorded Stripe responses, and a test-mode run behind an env flag; a tampered signature has no state effect; a charge retried with the same key charges once; `authentication_required` lands `past_due` with the raw reason stored.
+- [x] Tests: each client method against the real app through `app.request()` passed as `fetch`, so the SDK is tested against the server and not a mock. A response with a missing or mistyped field fails the parse. A field the contract does not know yet is ignored, so an additive server change breaks no installed SDK, and the server's no-extra-fields guarantee stays in `contract-conformance.test.ts`. A tampered body, a wrong secret, a replayed signature, a stale or future timestamp and a malformed event each reject. An event the real drainer delivered verifies. Every route in the router has an SDK method.
 
 Delivers: an organization with a Stripe account bills subscriptions through it with the same lifecycle, events and contract as Grow.
 

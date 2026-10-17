@@ -6,6 +6,8 @@ const supabaseMessage =
 const relativeParentMessage = 'Use absolute imports (@/*), never relative parent paths.';
 const contractPurityMessage =
   'src/contract is published zod-only. Import only zod and @/contract/*.';
+const sdkPurityMessage =
+  'packages/sdk is installed by tenants. Import only zod, @/contract/* and @sdk/*, never server code or node:*.';
 const libNoApiMessage = 'src/lib must not depend on the HTTP edge (src/api).';
 const libNoHonoMessage = 'hono stays in src/api.';
 const infraPortabilityMessage =
@@ -57,6 +59,34 @@ export default defineConfig([
               message: contractPurityMessage,
             },
             { regex: '^@/(?!contract/)', message: contractPurityMessage },
+            { group: ['@supabase/*'], message: supabaseMessage },
+            { regex: '^\\.\\.', message: relativeParentMessage },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['packages/sdk/src/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '@matcha/*',
+                'hono',
+                'hono/**',
+                'drizzle-orm',
+                'drizzle-orm/**',
+                'postgres',
+                'node:*',
+                'vitest',
+              ],
+              message: sdkPurityMessage,
+            },
+            { regex: '^@/(?!contract/)', message: sdkPurityMessage },
             { group: ['@supabase/*'], message: supabaseMessage },
             { regex: '^\\.\\.', message: relativeParentMessage },
           ],

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { outboundEventSchema } from '@/contract/outbound-event';
-import { SIGNATURE_HEADER, TIMESTAMP_HEADER } from '@/lib/outbox/delivery-headers';
+import { SIGNATURE_HEADER, TIMESTAMP_HEADER } from '@/contract/event-signature';
 import { DELIVERY_STATUS } from '@/lib/outbox/delivery-status';
 import { DRAIN_BATCH_SIZE } from '@/lib/outbox/delivery-timing';
 import { drainOutbox } from '@/lib/outbox/drain-outbox';

@@ -1,4 +1,4 @@
-import { SIGNATURE_HEADER, TIMESTAMP_HEADER } from '@/lib/outbox/delivery-headers';
+import { SIGNATURE_HEADER, TIMESTAMP_HEADER } from '@/contract/event-signature';
 import type { DeliveryResult } from '@/lib/outbox/delivery-result';
 import type { OutboxEvent } from '@/lib/outbox/schema';
 import { signPayload } from '@/lib/outbox/sign-payload';

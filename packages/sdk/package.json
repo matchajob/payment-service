@@ -1,0 +1,41 @@
+{
+  "name": "@payment-service/sdk",
+  "version": "0.1.0",
+  "description": "Typed client and signed-event verification for Payment Service",
+  "type": "module",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/create-client.d.ts",
+      "import": "./dist/create-client.js"
+    },
+    "./payment-service-error": {
+      "types": "./dist/payment-service-error.d.ts",
+      "import": "./dist/payment-service-error.js"
+    },
+    "./verify-and-parse-event": {
+      "types": "./dist/verify-and-parse-event.d.ts",
+      "import": "./dist/verify-and-parse-event.js"
+    },
+    "./event-verification-error": {
+      "types": "./dist/event-verification-error.d.ts",
+      "import": "./dist/event-verification-error.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.0"
+  }
+}
