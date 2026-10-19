@@ -367,10 +367,16 @@ Delivers: the two safety nets that make the system self-healing.
 
 Blocked by: 5. Can start once the port is exercised.
 
-- [ ] `src/infra/grow/` wrapper taking injected config, no domain imports.
-- [ ] `src/lib/payments/grow.ts` re-wrap implementing `PaymentProvider` with `signedWebhooks: false`.
-- [ ] Contract tests against recorded Grow responses. A sandbox run gated behind an env flag.
+- [x] `src/infra/grow/` wrapper taking injected config, no domain imports.
+- [x] `src/lib/payments/grow/` re-wrap implementing `PaymentProvider` with `signedWebhooks: false`.
+- [x] Contract tests against recorded Grow responses.
+- [ ] A sandbox run gated behind an env flag.
 - [ ] Confirm in the sandbox that Grow's token-only checkout saves a card with no charge, and that a token charge right after it succeeds without a 3DS step (ADR 0007). If either fails, the deferred fallback becomes v1 work.
+- [x] Decisions (ADR 0019, 2026-10-17): `charges.chargeSerial` as Grow's `transactionUniqueIdentifier`; opaque, adapter-owned refs; the payer's name and phone read from Grow's page; credentials `{ userId, pageCode }`, with `apiKey` as app config.
+- [x] Tests written (2026-10-17): `tests/unit/grow/grow-client.test.ts`, `tests/unit/payments/grow/*.test.ts`, `tests/integration/charges/charge-serial.test.ts`, and the existing call assertions now carry the serial.
+- [x] `charges.chargeSerial` identity column (`bigint`); `ChargeRequest` and `VerifyChargeRequest` carry it, and `VerifyChargeRequest` also carries `paymentMethodToken`.
+- [x] `buildProviderFrom` builds the Grow adapter from app config (`GROW_BASE_URL`, optional `GROW_API_KEY`, 10s timeout, `PUBLIC_BASE_URL` for `notifyUrl`).
+- [ ] Sandbox checklist: every **[?]** in `.claude/skills/grow/SKILL.md`. Above all: does the page collect the payer's name and phone when we omit them (ADR 0019 decision 3); does `chargeType=3` hold 1 ILS; is `cardToken` in `getPaymentProcessInfo`; what does `getTokenTransactionsByExternalIdentifiers` return for an id never used; and which error code does a duplicate `transactionUniqueIdentifier` return. Record each body in `wire-examples.md`.
 
 Delivers: a real card checkout in Grow's sandbox activates a subscription.
 
@@ -432,6 +438,7 @@ Blocked by: 0.6, 12, 13, 15, 17, 20.
 
 - [ ] Cloud Scheduler jobs for the four crons and the drainer, declared in the Pulumi program (0.6).
 - [ ] Secrets, tenant onboarding runbook, redrive runbook.
+- [ ] Cloud Run gets `PUBLIC_BASE_URL` and `GROW_BASE_URL` (production Grow URL), and `GROW_API_KEY` from Secret Manager once the Grow platform agreement exists (slice 13). Without the first two the service refuses to boot.
 - [ ] Smoke test through the test tenant (17), in production if 17 decides it lives there.
 
 ### 17. Test tenant

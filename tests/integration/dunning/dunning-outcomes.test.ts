@@ -43,6 +43,7 @@ describe('runDunning: the charge (S1 r10, Spec 1 double-charge guards)', () => {
           amountMinor: ctx.plan.amountMinor,
           currency: ctx.plan.currency,
           dedupKey: `${subscription.subscriptionId}:${NEXT_PERIOD_END.toISOString()}:${SECOND_RETRY}`,
+          chargeSerial: expect.any(BigInt),
         },
       ]);
     });

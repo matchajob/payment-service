@@ -5,9 +5,10 @@ import { createDb } from '@/lib/db';
 import { systemClock } from '@/lib/clock';
 import { readRequiredEnv } from '@/lib/env';
 import { ENV } from '@/lib/env-names';
-import { buildProvider } from '@/lib/provider-connections/build-provider';
 import { providerForConnections } from '@/lib/provider-connections/provider-for';
 import { selectCredentialCipher } from '@/lib/provider-connections/select-credential-cipher';
+import { buildProviderFrom } from '@/lib/provider-connections/build-provider';
+import { readProviderConfig } from '@/lib/provider-connections/read-provider-config';
 
 const DEFAULT_PORT = 8080;
 const DEFAULT_LOG_LEVEL = 'info';
@@ -20,7 +21,7 @@ const cipher = selectCredentialCipher({
   kmsKeyName: process.env[ENV.PROVIDER_CREDENTIALS_KMS_KEY],
   localKey: process.env[ENV.PROVIDER_CREDENTIALS_LOCAL_KEY],
 });
-const providerFor = providerForConnections(cipher, buildProvider);
+const providerFor = providerForConnections(cipher, buildProviderFrom(readProviderConfig()));
 
 serve({ fetch: createApp({ logger, db, clock: systemClock, cronSecret, providerFor }).fetch, port }, () =>
   logger.info({ port }, 'listening'),

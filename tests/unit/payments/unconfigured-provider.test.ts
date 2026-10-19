@@ -26,11 +26,17 @@ describe('unconfiguredProvider', () => {
         amountMinor: 4900,
         currency: CURRENCY.ILS,
         dedupKey: 'dedup',
+        chargeSerial: 1n,
       }),
     ).rejects.toThrow(NOT_CONFIGURED);
     await expect(unconfiguredProvider.verifyCheckout('session-1')).rejects.toThrow(NOT_CONFIGURED);
     await expect(
-      unconfiguredProvider.verifyCharge({ dedupKey: 'dedup', providerChargeRef: 'charge-ref' }),
+      unconfiguredProvider.verifyCharge({
+        dedupKey: 'dedup',
+        providerChargeRef: 'charge-ref',
+        paymentMethodToken: 'token',
+        chargeSerial: 1n,
+      }),
     ).rejects.toThrow(NOT_CONFIGURED);
   });
 

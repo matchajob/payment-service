@@ -5,9 +5,20 @@ import { DECLINED } from '@tests/utils/declined-charge-fixtures';
 import { FAKE_CHARGE_TIMEOUT, fakePaymentProvider } from '@tests/utils/fake-payment-provider';
 import { RENEWAL_CHARGE_REF, RENEWAL_SUCCEEDED } from '@tests/utils/renewal-charge-fixtures';
 
-const REQUEST = { paymentMethodToken: 'token-1', amountMinor: 4900, currency: CURRENCY.ILS, dedupKey: 'sub-1:p1:0' };
-const OTHER_KEY = { ...REQUEST, dedupKey: 'sub-1:p2:0' };
-const BY_KEY = { dedupKey: REQUEST.dedupKey, providerChargeRef: null };
+const REQUEST = {
+  paymentMethodToken: 'token-1',
+  amountMinor: 4900,
+  currency: CURRENCY.ILS,
+  dedupKey: 'sub-1:p1:0',
+  chargeSerial: 1n,
+};
+const OTHER_KEY = { ...REQUEST, dedupKey: 'sub-1:p2:0', chargeSerial: 2n };
+const BY_KEY = {
+  dedupKey: REQUEST.dedupKey,
+  providerChargeRef: null,
+  paymentMethodToken: REQUEST.paymentMethodToken,
+  chargeSerial: REQUEST.chargeSerial,
+};
 
 describe('fakePaymentProvider.charge: provider-side dedup (ADR 0008, M28 in code-review-1)', () => {
   it('answers a repeated dedup key with the first result and charges nothing more', async () => {

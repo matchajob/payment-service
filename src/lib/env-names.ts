@@ -7,6 +7,9 @@ export const ENV = {
   PORT: 'PORT',
   LOG_LEVEL: 'LOG_LEVEL',
   PROVIDER_CREDENTIALS_LOCAL_KEY: 'PROVIDER_CREDENTIALS_LOCAL_KEY',
+  PUBLIC_BASE_URL: 'PUBLIC_BASE_URL',
+  GROW_BASE_URL: 'GROW_BASE_URL',
+  GROW_API_KEY: 'GROW_API_KEY',
 } as const;
 
 export type EnvName = (typeof ENV)[keyof typeof ENV];

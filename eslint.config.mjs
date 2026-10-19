@@ -11,7 +11,7 @@ const sdkPurityMessage =
 const libNoApiMessage = 'src/lib must not depend on the HTTP edge (src/api).';
 const libNoHonoMessage = 'hono stays in src/api.';
 const infraPortabilityMessage =
-  'src/infra is portable: it imports only @matcha/infra/* and node_modules, never @/*.';
+  'src/infra is portable: it imports only @/infra/*, @matcha/infra/* and node_modules, never the rest of @/*.';
 
 export default defineConfig([
   {
@@ -117,7 +117,7 @@ export default defineConfig([
         'error',
         {
           patterns: [
-            { group: ['@/*'], message: infraPortabilityMessage },
+            { regex: '^@/(?!infra/)', message: infraPortabilityMessage },
             { regex: '^\\.\\.', message: relativeParentMessage },
           ],
         },

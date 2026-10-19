@@ -4,7 +4,7 @@ import {
   NOT_LOCALLY_SEALED,
   WRONG_KEY_LENGTH,
 } from '@/lib/provider-connections/local-credential-cipher';
-import { GROW_CREDENTIALS, GROW_SECRET_API_KEY } from '@tests/utils/provider-credentials-fixtures';
+import { GROW_CREDENTIALS, GROW_PAGE_CODE } from '@tests/utils/provider-credentials-fixtures';
 import { SEALED_TEST_CREDENTIALS } from '@tests/utils/connection-rows';
 
 const KEY_BYTES = 32;
@@ -36,7 +36,7 @@ describe('localCredentialCipher (ADR 0010 amendment 4, option A)', () => {
     const cipher = localCredentialCipher(KEY);
     const first = await cipher.seal(GROW_CREDENTIALS);
     const second = await cipher.seal(GROW_CREDENTIALS);
-    expect(first).not.toContain(GROW_SECRET_API_KEY);
+    expect(first).not.toContain(GROW_PAGE_CODE);
     expect(first).not.toBe(second);
   });
 

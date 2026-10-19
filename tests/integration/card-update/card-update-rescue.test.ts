@@ -45,6 +45,7 @@ describe('card update completed for a past_due subscription: the immediate retry
           amountMinor: pastDue.ctx.plan.amountMinor,
           currency: pastDue.ctx.plan.currency,
           dedupKey: `${pastDue.subscription.subscriptionId}:${NEXT_PERIOD_END.toISOString()}:${RESCUE_ATTEMPT}`,
+          chargeSerial: expect.any(BigInt),
         },
       ]);
     });

@@ -8,6 +8,7 @@ import { REPLACEMENT } from '@/lib/payment-method-updates/replacement';
 import type { PaymentMethodUpdate } from '@/lib/payment-method-updates/schema';
 import { CHECKOUT_VERIFICATION } from '@/lib/payments/checkout-verification';
 import type { PaymentProvider } from '@/lib/payments/provider';
+import { chargeRequestFor } from '@/lib/charges/charge-request-for';
 
 export type CompletePaymentMethodUpdateDeps = { db: Database; provider: PaymentProvider; clock: Clock };
 
@@ -28,11 +29,6 @@ export const completePaymentMethodUpdate = async (
   if (replaced.kind !== REPLACEMENT.RETRY) return;
 
   const { charge, parties } = replaced;
-  const result = await provider.charge({
-    paymentMethodToken: verified.paymentMethodToken,
-    amountMinor: charge.amountMinor,
-    currency: charge.currency,
-    dedupKey: chargeDedupKey(charge.subscriptionId, charge.periodEnd, charge.attempt),
-  });
+  const result = await provider.charge(chargeRequestFor(charge, verified.paymentMethodToken));
   await settleCycleCharge(immediateRetryDecide, db, { charge, result, parties, now: clock.now() });
 };

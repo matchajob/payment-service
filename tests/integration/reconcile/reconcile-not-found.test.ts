@@ -42,6 +42,8 @@ describe('runReconcile: a timed-out charge the provider cannot find (ADR 0017)',
         {
           dedupKey: `${pending.subscription.subscriptionId}:${NEXT_PERIOD_END.toISOString()}:0`,
           providerChargeRef: null,
+          paymentMethodToken: pending.cardToken,
+          chargeSerial: pending.charge.chargeSerial,
         },
       ]);
     });

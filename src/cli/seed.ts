@@ -8,7 +8,8 @@ import { ENV } from '@/lib/env-names';
 import { selectCredentialCipher } from '@/lib/provider-connections/select-credential-cipher';
 import { createOrganization } from '@/lib/organizations/create-organization';
 import { createProviderConnection } from '@/lib/provider-connections/create-provider-connection';
-import { buildProvider } from '@/lib/provider-connections/build-provider';
+import { buildProviderFrom } from '@/lib/provider-connections/build-provider';
+import { readProviderConfig } from '@/lib/provider-connections/read-provider-config';
 
 const ARGS_START = 2;
 
@@ -24,7 +25,7 @@ const seeded = await db.transaction(async (tx) => {
   const { organizationId } = await createOrganization(tx, args.organization);
   const { providerConnectionId } = await createProviderConnection(
     tx,
-    { cipher, buildProvider },
+    { cipher, buildProvider: buildProviderFrom(readProviderConfig()) },
     { organizationId, ...args.connection },
   );
   const { tenant, apiKey } = await createTenant(tx, { ...args.tenant, organizationId, providerConnectionId });

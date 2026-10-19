@@ -37,6 +37,7 @@ export const chargesEntity = defineEntity(
   'charges',
   {
     chargeId: (f) => entityFromDzd(dzdThemeUuid.primaryKey(f, 'ChargeId')),
+    chargeSerial: (f) => entityFromDzd(makeDzdBigIdentity(f), { generatedOnCreate: true, hasDbDefault: true }),
     tenantId: (f) =>
       entityFromDzd(dzdThemeUuid.requiredRef(f, { ref: () => tenantsTable.tenantId, actions: restrict }, 'TenantId')),
     subscriptionId: (f) =>
@@ -87,6 +88,7 @@ export const chargesEntity = defineEntity(
       ),
       check('charges_reconcile_flag_iff_flagged_at', sql`(${t.reconcileFlag} is null) = (${t.flaggedAt} is null)`),
       unique('charges_one_per_attempt').on(t.subscriptionId, t.periodEnd, t.attempt),
+      unique('charges_charge_serial_unique').on(t.chargeSerial),
       uniqueIndex('charges_one_live_per_period')
         .on(t.subscriptionId, t.periodEnd)
         .where(sql`${t.status} in (${sqlLiteral(CHARGE_STATUS.PENDING)}, ${sqlLiteral(CHARGE_STATUS.SUCCEEDED)})`),

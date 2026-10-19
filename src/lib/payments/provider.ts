@@ -22,12 +22,25 @@ export type CheckoutRequest = {
 };
 export type CheckoutSession = { checkoutUrl: string; providerSessionRef: string };
 
-export type ChargeRequest = { paymentMethodToken: string; amountMinor: number; currency: Currency; dedupKey: string };
+export type ChargeRequest = {
+  paymentMethodToken: string;
+  amountMinor: number;
+  currency: Currency;
+  dedupKey: string;
+  chargeSerial: bigint;
+};
+
 export type ChargeResult =
   | { outcome: 'succeeded'; providerChargeRef: string }
   | { outcome: 'failed'; providerChargeRef: string | undefined; reason: string };
 
-export type VerifyChargeRequest = { dedupKey: string; providerChargeRef: string | null };
+export type VerifyChargeRequest = {
+  dedupKey: string;
+  providerChargeRef: string | null;
+  paymentMethodToken: string;
+  chargeSerial: bigint;
+};
+
 export type VerifiedCharge =
   | { outcome: typeof VERIFY_OUTCOME.SUCCEEDED; providerChargeRef: string; amountMinor: number; currency: Currency }
   | { outcome: typeof VERIFY_OUTCOME.FAILED; providerChargeRef: string | undefined; reason: string }

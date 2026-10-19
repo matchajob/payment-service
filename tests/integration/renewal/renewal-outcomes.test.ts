@@ -41,6 +41,7 @@ describe('runRenewal: a successful charge (S1 r5, Spec 2)', () => {
           amountMinor: ctx.plan.amountMinor,
           currency: ctx.plan.currency,
           dedupKey: `${subscription.subscriptionId}:${NEXT_PERIOD_END.toISOString()}:${RENEWAL_ATTEMPT}`,
+          chargeSerial: expect.any(BigInt),
         },
       ]);
     });

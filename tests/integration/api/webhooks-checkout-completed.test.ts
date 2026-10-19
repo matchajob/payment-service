@@ -83,6 +83,7 @@ describe('checkout completed webhook (S1 r2, ADR 0007, ADR 0008)', () => {
             amountMinor: ctx.plan.amountMinor,
             currency: ctx.plan.currency,
             dedupKey: `${subscriptionId}:${PERIOD_1_END.toISOString()}:0`,
+            chargeSerial: expect.any(BigInt),
           },
         ]);
       });

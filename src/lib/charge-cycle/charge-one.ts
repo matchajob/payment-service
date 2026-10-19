@@ -3,10 +3,10 @@ import { CYCLE_RESULT, type CycleResult } from '@/lib/charge-cycle/cycle-result'
 import { CYCLE_START } from '@/lib/charge-cycle/cycle-start';
 import { settleCycleCharge } from '@/lib/charge-cycle/settle-cycle-charge';
 import { startCycleCharge } from '@/lib/charge-cycle/start-cycle-charge';
-import { chargeDedupKey } from '@/lib/charges/charge-dedup-key';
 import type { Database } from '@/lib/db';
 import { findProviderConnection } from '@/lib/provider-connections/find-provider-connection';
 import type { ProviderFor } from '@/lib/provider-connections/provider-for';
+import { chargeRequestFor } from '@/lib/charges/charge-request-for';
 
 const MISSING_CONNECTION = 'charged subscription references a missing provider connection';
 
@@ -27,12 +27,7 @@ export const chargeOne = async (
   if (start.kind === CYCLE_START.CANCELED) return CYCLE_RESULT.CANCELED;
 
   const { charge, paymentMethodToken, parties } = start;
-  const result = await provider.charge({
-    paymentMethodToken,
-    amountMinor: charge.amountMinor,
-    currency: charge.currency,
-    dedupKey: chargeDedupKey(charge.subscriptionId, charge.periodEnd, charge.attempt),
-  });
+  const result = await provider.charge(chargeRequestFor(charge, paymentMethodToken));
   await settleCycleCharge(cycle.decide, db, { charge, result, parties, now });
   return CYCLE_RESULT.CHARGED;
 };

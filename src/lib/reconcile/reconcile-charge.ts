@@ -10,6 +10,7 @@ import { RECONCILE_RESULT, type ReconcileResult } from '@/lib/reconcile/reconcil
 import { RECONCILE_WINDOW } from '@/lib/reconcile/reconcile-windows';
 import { settleReconciledCharge } from '@/lib/reconcile/settle-reconciled-charge';
 import { verifyRequestFor } from '@/lib/reconcile/verify-request-for';
+import { findPaymentMethodToken } from '@/lib/payments-method/find-payment-method-token';
 
 const LOST: ChargeResult = { outcome: VERIFY_OUTCOME.FAILED, providerChargeRef: undefined, reason: NOT_FOUND_REASON };
 
@@ -30,7 +31,9 @@ export const reconcileCharge = async (
   if (charge.providerChargeRef === null && !provider.capabilities.lookupByReference)
     return flag(RECONCILE_FLAG.NO_REFERENCE_LOOKUP);
 
-  const verified = await provider.verifyCharge(verifyRequestFor(charge));
+  const verified = await provider.verifyCharge(
+    verifyRequestFor(charge, await findPaymentMethodToken(db, charge.paymentMethodId)),
+  );
   const age = now.getTime() - charge.attemptedAt.getTime();
   switch (verified.outcome) {
     case VERIFY_OUTCOME.SUCCEEDED:

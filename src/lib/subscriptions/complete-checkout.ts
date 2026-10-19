@@ -14,6 +14,7 @@ import { zSubscriptionRead } from '@/lib/subscriptions/schema';
 import { settleFirstCharge } from '@/lib/subscriptions/settle-first-charge';
 import { SUBSCRIPTION_STATUS } from '@/lib/subscriptions/state-machine/subscription-status';
 import { findTenant } from '@/lib/tenants/find-tenant';
+import { chargeRequestFor } from '@/lib/charges/charge-request-for';
 
 const MISSING_PARENTS = 'subscription references a missing tenant, customer or plan';
 
@@ -63,11 +64,6 @@ export const completeCheckout = async (
   if (activation.kind === ACTIVATION.RACED) return;
 
   const { charge } = activation;
-  const result = await provider.charge({
-    paymentMethodToken: verified.paymentMethodToken,
-    amountMinor: charge.amountMinor,
-    currency: charge.currency,
-    dedupKey: chargeDedupKey(charge.subscriptionId, charge.periodEnd, charge.attempt),
-  });
+  const result = await provider.charge(chargeRequestFor(charge, verified.paymentMethodToken));
   await settleFirstCharge(db, { charge, result, tenant, customer, now: clock.now() });
 };

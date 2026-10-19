@@ -28,7 +28,7 @@ Every explanation answers "why is it like this" and "why does it behave this way
 
 Beyond typecheck and lint, the `matcha-conventions` agent audits: no comments except a non-obvious constraint, no `let`, absolute imports, no barrel files, no magic literals, no unexplained `as`, tests in `tests/` not beside source. Run it before every commit.
 
-Layering: `src/infra` is portable and imports only `@matcha/infra/*` and node_modules. `src/lib` is domain and never imports `src/api` or hono. `src/contract` is zod-only and published to tenants. Enforced by eslint.
+Layering: `src/infra` is portable and imports only `@/infra/*`, `@matcha/infra/*` and node_modules. `src/lib` is domain and never imports `src/api` or hono. `src/contract` is zod-only and published to tenants. Enforced by eslint.
 
 ## Agent skills
 

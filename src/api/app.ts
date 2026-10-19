@@ -16,12 +16,12 @@ import { cronRoutes } from '@/api/routes/cron';
 import { subscriptionsRoutes } from '@/api/routes/subscriptions';
 import { webhooksRoutes } from '@/api/routes/webhooks';
 import type { ProviderFor } from '@/lib/provider-connections/provider-for';
+import { WEBHOOKS_PREFIX } from '@/lib/webhooks/webhooks-prefix';
 
 export type AppDeps = { logger: Logger; db: Database; clock: Clock; cronSecret: string; providerFor: ProviderFor };
 
 const V1 = '/v1/*';
 const CRON_PREFIX = '/internal/cron';
-const WEBHOOKS_PREFIX = '/v1/webhooks';
 
 export const createApp = ({ logger, db, clock, cronSecret, providerFor }: AppDeps) => {
   const app = new Hono<AppEnv>();
