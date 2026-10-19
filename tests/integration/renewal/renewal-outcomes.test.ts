@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { CHARGE_KIND } from '@/lib/charges/charge-kind';
 import { CHARGE_STATUS } from '@/lib/charges/charge-status';
 import type { Database } from '@/lib/db';
 import { CANCEL_REASON } from '@/lib/subscriptions/cancel-reason';
@@ -29,7 +30,7 @@ const setup = async (tx: Database, overrides: Parameters<typeof seedRenewing>[1]
 };
 
 describe('runRenewal: a successful charge (S1 r5, Spec 2)', () => {
-  it('charges the plan amount on the current card with the cycle dedup key for attempt 0', async () => {
+  it('charges the plan amount on the current card, keyed on the end of the period it pays for', async () => {
     await withRollback(testDb(), async (tx) => {
       const { ctx, subscription, cardToken, provider, renew } = await setup(tx);
       provider.scriptCharge(RENEWAL_SUCCEEDED);
@@ -39,7 +40,7 @@ describe('runRenewal: a successful charge (S1 r5, Spec 2)', () => {
           paymentMethodToken: cardToken,
           amountMinor: ctx.plan.amountMinor,
           currency: ctx.plan.currency,
-          dedupKey: `${subscription.subscriptionId}:${PERIOD_END.toISOString()}:${RENEWAL_ATTEMPT}`,
+          dedupKey: `${subscription.subscriptionId}:${NEXT_PERIOD_END.toISOString()}:${RENEWAL_ATTEMPT}`,
         },
       ]);
     });
@@ -58,7 +59,8 @@ describe('runRenewal: a successful charge (S1 r5, Spec 2)', () => {
         expect.objectContaining({
           status: CHARGE_STATUS.SUCCEEDED,
           providerChargeRef: RENEWAL_CHARGE_REF,
-          periodEnd: PERIOD_END,
+          kind: CHARGE_KIND.RENEWAL,
+          periodEnd: NEXT_PERIOD_END,
           attempt: RENEWAL_ATTEMPT,
           attemptedAt: LATE,
         }),
@@ -126,6 +128,8 @@ describe('runRenewal: a declined charge (S1 r6)', () => {
         expect.objectContaining({
           status: CHARGE_STATUS.FAILED,
           failureReason: DECLINE_REASON,
+          kind: CHARGE_KIND.RENEWAL,
+          periodEnd: NEXT_PERIOD_END,
           attempt: RENEWAL_ATTEMPT,
         }),
       ]);

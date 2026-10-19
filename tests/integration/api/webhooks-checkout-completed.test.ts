@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
+import { CHARGE_KIND } from '@/lib/charges/charge-kind';
 import { CHARGE_STATUS } from '@/lib/charges/charge-status';
 import { chargesTable } from '@/lib/charges/schema';
 import { createCustomer, CREATE_CUSTOMER_OUTCOME } from '@/lib/customers/create-customer';
@@ -100,6 +101,7 @@ describe('checkout completed webhook (S1 r2, ADR 0007, ADR 0008)', () => {
           expect.objectContaining({
             subscriptionId,
             paymentMethodId: cards[0]?.paymentMethodId,
+            kind: CHARGE_KIND.FIRST,
             periodEnd: PERIOD_1_END,
             attempt: 0,
             amountMinor: ctx.plan.amountMinor,

@@ -17,6 +17,7 @@ import { toState } from '@/lib/subscriptions/to-state';
 import { transitionContextFor } from '@/lib/subscriptions/transition-context-for';
 import type { Tenant } from '@/lib/tenants/schema';
 import { LIFECYCLE_EVENT } from '@/lib/subscriptions/state-machine/lifecycle-events';
+import { CHARGE_KIND } from '@/lib/charges/charge-kind';
 
 const FIRST_ATTEMPT = 0;
 
@@ -67,6 +68,7 @@ export const activateCheckout = async (db: Database, input: ActivateCheckoutInpu
       const [charge] = await tx
         .insert(chargesTable)
         .values({
+          kind: CHARGE_KIND.FIRST,
           tenantId: subscription.tenantId,
           subscriptionId: subscription.subscriptionId,
           providerConnectionId: subscription.providerConnectionId,

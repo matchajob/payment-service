@@ -5,9 +5,10 @@ import type { Database } from '@/lib/db';
 import type { PaymentMethod } from '@/lib/payments-method/schema';
 import type { Plan } from '@/lib/plans/schema';
 import type { Subscription } from '@/lib/subscriptions/schema';
+import { nextPeriodEnd } from '@/lib/subscriptions/next-period-end';
+import { CHARGE_KIND } from '@/lib/charges/charge-kind';
 
 const NEXT = 1;
-const NO_PERIOD = 'a subscription retried after a card update has no current period';
 const NO_ROW = 'charge insert returned no row';
 
 export type ImmediateRetryChargeInput = {
@@ -21,8 +22,7 @@ export const insertImmediateRetryCharge = async (
   tx: Database,
   { subscription, paymentMethodId, plan, now }: ImmediateRetryChargeInput,
 ): Promise<Charge | undefined> => {
-  const periodEnd = subscription.currentPeriodEnd;
-  if (periodEnd === null) throw new Error(NO_PERIOD);
+  const periodEnd = nextPeriodEnd(subscription, plan);
   if (await hasLiveCharge(tx, subscription.subscriptionId, periodEnd)) return undefined;
   const [charge] = await tx
     .insert(chargesTable)
@@ -31,6 +31,7 @@ export const insertImmediateRetryCharge = async (
       subscriptionId: subscription.subscriptionId,
       providerConnectionId: subscription.providerConnectionId,
       paymentMethodId,
+      kind: CHARGE_KIND.IMMEDIATE_RETRY,
       periodEnd,
       attempt: subscription.dunningAttempt + NEXT,
       amountMinor: plan.amountMinor,

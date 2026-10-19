@@ -10,9 +10,14 @@ import { dunningDay, SECOND_RETRY_DAY } from '@tests/utils/dunning-rows';
 import { fakeProviderFactory } from '@tests/utils/fake-provider-factory';
 import {
   FIRST_CHARGE_AT,
+  IMMEDIATE_RETRY_ATTEMPTED_AT,
   RENEWAL_ATTEMPTED_AT,
+  RETRIES_BEFORE_CARD_UPDATE,
   RETRY_ATTEMPTED_AT,
+} from '@tests/utils/pending-charge-shapes';
+import {
   seedPendingFirstCharge,
+  seedPendingImmediateRetry,
   seedPendingRenewal,
   seedPendingRetry,
   type PendingCharge,
@@ -34,6 +39,8 @@ const AN_HOUR_AFTER_RENEWAL = after(RENEWAL_ATTEMPTED_AT, HOUR_MS);
 const TWO_DAYS_AFTER_RENEWAL = after(RENEWAL_ATTEMPTED_AT, TWO_DAYS * DAY_MS);
 const AN_HOUR_AFTER_FIRST_CHARGE = after(FIRST_CHARGE_AT, HOUR_MS);
 const AN_HOUR_AFTER_RETRY = after(RETRY_ATTEMPTED_AT, HOUR_MS);
+const AN_HOUR_AFTER_IMMEDIATE_RETRY = after(IMMEDIATE_RETRY_ATTEMPTED_AT, HOUR_MS);
+const IMMEDIATE_RETRY_ATTEMPT = RETRIES_BEFORE_CARD_UPDATE + 1;
 
 const reconcilerFor = (tx: Database, pending: PendingCharge) => {
   const providers = fakeProviderFactory();
@@ -194,6 +201,46 @@ describe('runReconcile: a pending dunning retry (ADR 0014)', () => {
         status: SUBSCRIPTION_STATUS.PAST_DUE,
         dunningAttempt: 1,
         nextRetryAt: dunningDay(SECOND_RETRY_DAY),
+      });
+    });
+  });
+});
+
+describe('runReconcile: a pending immediate retry after a card update (S1 r14, ADR 0018, H2 in code-review-1)', () => {
+  it('restarts the dunning clock on a failure instead of canceling, as the live path does', async () => {
+    await withRollback(testDb(), async (tx) => {
+      const pending = await seedPendingImmediateRetry(tx);
+      const { provider, reconcile } = reconcilerFor(tx, pending);
+      provider.scriptVerify(VERIFIED_FAILED);
+
+      expect(await reconcile(AN_HOUR_AFTER_IMMEDIATE_RETRY)).toEqual(SETTLED_ONE);
+
+      expect(await subscriptionRow(tx, pending.subscription.subscriptionId)).toMatchObject({
+        status: SUBSCRIPTION_STATUS.PAST_DUE,
+        canceledAt: null,
+        dunningStartedAt: AN_HOUR_AFTER_IMMEDIATE_RETRY,
+        dunningAttempt: IMMEDIATE_RETRY_ATTEMPT,
+        dunningAttemptBase: IMMEDIATE_RETRY_ATTEMPT,
+        nextRetryAt: after(AN_HOUR_AFTER_IMMEDIATE_RETRY, DAY_MS),
+      });
+    });
+  });
+
+  it('rescues on success: active, the new period from the original period end, dunning cleared', async () => {
+    await withRollback(testDb(), async (tx) => {
+      const pending = await seedPendingImmediateRetry(tx);
+      const { provider, reconcile } = reconcilerFor(tx, pending);
+      provider.scriptVerify(VERIFIED_SUCCEEDED);
+
+      await reconcile(AN_HOUR_AFTER_IMMEDIATE_RETRY);
+
+      expect(await subscriptionRow(tx, pending.subscription.subscriptionId)).toMatchObject({
+        status: SUBSCRIPTION_STATUS.ACTIVE,
+        currentPeriodEnd: NEXT_PERIOD_END,
+        dunningAttempt: 0,
+        dunningAttemptBase: 0,
+        dunningStartedAt: null,
+        nextRetryAt: null,
       });
     });
   });

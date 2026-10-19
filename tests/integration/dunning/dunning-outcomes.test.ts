@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { CHARGE_KIND } from '@/lib/charges/charge-kind';
 import { CHARGE_STATUS } from '@/lib/charges/charge-status';
 import type { Database } from '@/lib/db';
 import { CANCEL_REASON } from '@/lib/subscriptions/cancel-reason';
@@ -40,7 +41,7 @@ describe('runDunning: the charge (S1 r10, Spec 1 double-charge guards)', () => {
           paymentMethodToken: cardToken,
           amountMinor: ctx.plan.amountMinor,
           currency: ctx.plan.currency,
-          dedupKey: `${subscription.subscriptionId}:${PERIOD_END.toISOString()}:${SECOND_RETRY}`,
+          dedupKey: `${subscription.subscriptionId}:${NEXT_PERIOD_END.toISOString()}:${SECOND_RETRY}`,
         },
       ]);
     });
@@ -59,7 +60,12 @@ describe('runDunning: a rescue (S1 r10, D7)', () => {
         ...NOT_DUNNING,
       });
       expect(await chargesOf(tx, subscription.subscriptionId)).toEqual([
-        expect.objectContaining({ status: CHARGE_STATUS.SUCCEEDED, periodEnd: PERIOD_END, attempt: SECOND_RETRY }),
+        expect.objectContaining({
+          status: CHARGE_STATUS.SUCCEEDED,
+          kind: CHARGE_KIND.RETRY,
+          periodEnd: NEXT_PERIOD_END,
+          attempt: SECOND_RETRY,
+        }),
       ]);
     });
   });

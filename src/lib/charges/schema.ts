@@ -19,6 +19,8 @@ import { tenantsTable } from '@/lib/tenants/schema';
 import { providerConnectionsTable } from '@/lib/provider-connections/schema';
 import { foreignKey } from '@matcha/infra/domain-drizzle/exports';
 import { RECONCILE_FLAG } from '@/lib/charges/reconcile-flag';
+import { CHARGE_KIND } from '@/lib/charges/charge-kind';
+import { makeDzdBigIdentity } from '@matcha/infra/dzd/dzd-integer';
 
 const FIRST_ATTEMPT = 0;
 
@@ -26,6 +28,8 @@ export const chargeStatusEnum = createDbEnumPair('chargeStatus', CHARGE_STATUS);
 export const chargeStatusPgEnum = chargeStatusEnum.dz;
 export const reconcileFlagEnum = createDbEnumPair('reconcileFlag', RECONCILE_FLAG);
 export const reconcileFlagPgEnum = reconcileFlagEnum.dz;
+export const chargeKindEnum = createDbEnumPair('chargeKind', CHARGE_KIND);
+export const chargeKindPgEnum = chargeKindEnum.dz;
 
 const restrict = { onDelete: REFERENTIAL_ACTION.RESTRICT };
 
@@ -59,6 +63,7 @@ export const chargesEntity = defineEntity(
           'ProviderConnectionId',
         ),
       ),
+    kind: (f) => entityFromDzd(dzdThemeEnum.fromPair(f, chargeKindEnum)),
     periodEnd: (f) => entityFromDzd(dzdThemeTimestamp.custom(f)),
     attempt: (f) => entityFromDzd(makeDzdInteger(f, { minSize: FIRST_ATTEMPT })),
     amountMinor: (f) => entityFromDzd(dzdThemeInt.positive(f)),

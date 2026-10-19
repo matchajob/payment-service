@@ -43,3 +43,7 @@ tx1 for the first charge also activates: it stores the payment method, moves the
 - The transition table gains three events for charge #1: `first_charge_succeeded`, `first_charge_failed` and `already_subscribed`. Row 2's `checkout_completed` no longer emits on its own.
 - All four charge #1 rows are `selfOnly`, because we initiate the charge. Spec 1 says store notifications drive row 2 in external mode. v2 adds its own activation event for that case, which records an observed charge and initiates none, rather than reusing `checkout_completed`.
 - Renewal (slice 8), dunning (slice 10) and the row 14 retry (slice 11) use the same three steps.
+
+## Amendment 2026-10-19 (code-review-1 H1)
+
+`periodEnd` on a charge is the end of the period that charge pays for. Charge #1 is keyed P1. The renewal and every retry for period 2 are keyed P2, and a success sets `currentPeriodEnd = charge.periodEnd`. Before this, charge #1 and the first renewal were both keyed `(sub, P1, 0)`, so the one-live-per-period index and the live-charge check made every renewal a no-op. The dedup-key format and both unique indexes are unchanged. A non-unique `kind` column says which cycle made the charge, so settlement routes on it rather than on timestamps.

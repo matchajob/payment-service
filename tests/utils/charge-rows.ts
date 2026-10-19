@@ -1,4 +1,5 @@
 import type { Database } from '@/lib/db';
+import { CHARGE_KIND } from '@/lib/charges/charge-kind';
 import { CHARGE_STATUS } from '@/lib/charges/charge-status';
 import { chargesTable } from '@/lib/charges/schema';
 import { CURRENCY } from '@/lib/money/currency';
@@ -22,6 +23,7 @@ export const seedChargeOwner = async (db: Database, tenant: TenantFixture = ACME
 export const insertCharge = (db: Database, owner: ChargeOwner, overrides: ChargeOverrides = {}) =>
   db.insert(chargesTable).values({
     ...owner,
+    kind: CHARGE_KIND.FIRST,
     periodEnd: PERIOD_END,
     attempt: 0,
     amountMinor: 4900,

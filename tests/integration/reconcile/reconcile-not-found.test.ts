@@ -7,15 +7,11 @@ import { CANCEL_REASON } from '@/lib/subscriptions/cancel-reason';
 import { SUBSCRIPTION_STATUS } from '@/lib/subscriptions/state-machine/subscription-status';
 import { testDb, withRollback } from '@tests/utils/db';
 import { fakeProviderFactory } from '@tests/utils/fake-provider-factory';
-import {
-  FIRST_CHARGE_AT,
-  RENEWAL_ATTEMPTED_AT,
-  seedPendingFirstCharge,
-  seedPendingRenewal,
-  type PendingCharge,
-} from '@tests/utils/pending-charge-rows';
+import { FIRST_CHARGE_AT, RENEWAL_ATTEMPTED_AT } from '@tests/utils/pending-charge-shapes';
+import { seedPendingFirstCharge, seedPendingRenewal, type PendingCharge } from '@tests/utils/pending-charge-rows';
 import { after, GIVE_UP_MS, MINUTE_MS, NOT_FOUND_GRACE_MS } from '@tests/utils/reconcile-times';
 import { reconcileWith } from '@tests/utils/reconcile-run';
+import { NEXT_PERIOD_END } from '@tests/utils/renewal-rows';
 import { chargesOf, eventsOf, subscriptionRow } from '@tests/utils/renewal-reads';
 import { VERIFIED_NOT_FOUND } from '@tests/utils/verified-charge-fixtures';
 
@@ -44,7 +40,7 @@ describe('runReconcile: a timed-out charge the provider cannot find (ADR 0017)',
 
       expect(provider.calls.verifyCharge).toEqual([
         {
-          dedupKey: `${pending.subscription.subscriptionId}:${RENEWAL_ATTEMPTED_AT.toISOString()}:0`,
+          dedupKey: `${pending.subscription.subscriptionId}:${NEXT_PERIOD_END.toISOString()}:0`,
           providerChargeRef: null,
         },
       ]);

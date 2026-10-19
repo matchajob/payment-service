@@ -6,12 +6,13 @@ import { tenantsTable } from '@/lib/tenants/schema';
 import { seedConnection } from '@tests/utils/connection-rows';
 import { testDb, withRollback } from '@tests/utils/db';
 import { fakeProviderFactory } from '@tests/utils/fake-provider-factory';
-import { RENEWAL_ATTEMPTED_AT, seedPendingRenewal } from '@tests/utils/pending-charge-rows';
+import { RENEWAL_ATTEMPTED_AT } from '@tests/utils/pending-charge-shapes';
+import { seedPendingRenewal } from '@tests/utils/pending-charge-rows';
 import { after, HOUR_MS, IN_FLIGHT_MS, MINUTE_MS } from '@tests/utils/reconcile-times';
 import { reconcileWith } from '@tests/utils/reconcile-run';
 import { RENEWAL_SUCCEEDED } from '@tests/utils/renewal-charge-fixtures';
 import { chargesOf, subscriptionRow } from '@tests/utils/renewal-reads';
-import { NEXT_PERIOD_END, PERIOD_END, seedRenewing } from '@tests/utils/renewal-rows';
+import { NEXT_PERIOD_END, PERIOD_AFTER_NEXT_END, PERIOD_END, seedRenewing } from '@tests/utils/renewal-rows';
 import { renewWith } from '@tests/utils/renewal-run';
 import { cancelPath, postNoBody } from '@tests/utils/subscription-api';
 import { GLOBEX } from '@tests/utils/tenant-fixtures';
@@ -110,7 +111,7 @@ describe('runReconcile: a settled charge unsticks the subscription (ADR 0013, sl
       expect(await renewWith(tx, providers.providerFor)(NEXT_PERIOD_END)).toEqual({ processed: 1, failed: 0 });
       expect(provider.calls.charge).toEqual([
         expect.objectContaining({
-          dedupKey: `${pending.subscription.subscriptionId}:${NEXT_PERIOD_END.toISOString()}:0`,
+          dedupKey: `${pending.subscription.subscriptionId}:${PERIOD_AFTER_NEXT_END.toISOString()}:0`,
         }),
       ]);
     });

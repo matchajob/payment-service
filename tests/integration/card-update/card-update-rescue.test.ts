@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { CHARGE_KIND } from '@/lib/charges/charge-kind';
 import { CHARGE_STATUS } from '@/lib/charges/charge-status';
 import type { Database } from '@/lib/db';
 import { CANCEL_REASON } from '@/lib/subscriptions/cancel-reason';
@@ -42,7 +43,7 @@ describe('card update completed for a past_due subscription: the immediate retry
           paymentMethodToken: tokenOf(sessionRef),
           amountMinor: pastDue.ctx.plan.amountMinor,
           currency: pastDue.ctx.plan.currency,
-          dedupKey: `${pastDue.subscription.subscriptionId}:${PERIOD_END.toISOString()}:${RESCUE_ATTEMPT}`,
+          dedupKey: `${pastDue.subscription.subscriptionId}:${NEXT_PERIOD_END.toISOString()}:${RESCUE_ATTEMPT}`,
         },
       ]);
     });
@@ -69,6 +70,8 @@ describe('card update completed for a past_due subscription: the immediate retry
       expect(await chargesOf(tx, pastDue.subscription.subscriptionId)).toEqual([
         expect.objectContaining({
           status: CHARGE_STATUS.SUCCEEDED,
+          kind: CHARGE_KIND.IMMEDIATE_RETRY,
+          periodEnd: NEXT_PERIOD_END,
           attempt: RESCUE_ATTEMPT,
           paymentMethodId: newCard?.paymentMethodId,
           attemptedAt: RESCUED_AT,

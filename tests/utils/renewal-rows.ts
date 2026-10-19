@@ -13,6 +13,7 @@ type SubscriptionOverrides = NonNullable<Parameters<typeof insertSubscription>[2
 
 export const PERIOD_END = new Date('2026-02-15T10:00:00.000Z');
 export const NEXT_PERIOD_END = new Date('2026-03-15T10:00:00.000Z');
+export const PERIOD_AFTER_NEXT_END = new Date('2026-04-15T10:00:00.000Z');
 export const ANCHOR_DAY = 15;
 
 const EXTERNAL_REF_PREFIX = 'renewing-user-';

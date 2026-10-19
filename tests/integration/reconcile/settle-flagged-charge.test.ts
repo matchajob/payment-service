@@ -8,12 +8,8 @@ import { settleFlaggedCharge } from '@/lib/reconcile/settle-flagged-charge';
 import { OUTBOUND_EVENT_TYPE } from '@/lib/subscriptions/state-machine/outbound-event-types';
 import { SUBSCRIPTION_STATUS } from '@/lib/subscriptions/state-machine/subscription-status';
 import { testDb, withRollback } from '@tests/utils/db';
-import {
-  RENEWAL_ATTEMPTED_AT,
-  seedLostRenewal,
-  seedPendingFirstCharge,
-  seedPendingRenewal,
-} from '@tests/utils/pending-charge-rows';
+import { RENEWAL_ATTEMPTED_AT } from '@tests/utils/pending-charge-shapes';
+import { seedLostRenewal, seedPendingFirstCharge, seedPendingRenewal } from '@tests/utils/pending-charge-rows';
 import { after, GIVE_UP_MS } from '@tests/utils/reconcile-times';
 import { chargesOf, eventsOf, subscriptionRow } from '@tests/utils/renewal-reads';
 import { NEXT_PERIOD_END, PERIOD_END } from '@tests/utils/renewal-rows';

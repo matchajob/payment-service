@@ -4,14 +4,15 @@ import { findDueRetries } from '@/lib/dunning/find-due-retries';
 import { nextRetryAt } from '@/lib/dunning/next-retry-at';
 import { NO_RETRIES_YET } from '@/lib/dunning/start-dunning';
 import { CANCEL_REASON } from '@/lib/subscriptions/cancel-reason';
-import { nextPeriodEnd } from '@/lib/subscriptions/next-period-end';
 import { LIFECYCLE_EVENT } from '@/lib/subscriptions/state-machine/lifecycle-events';
 import { SUBSCRIPTION_STATUS } from '@/lib/subscriptions/state-machine/subscription-status';
+import { CHARGE_KIND } from '@/lib/charges/charge-kind';
 
 const NEXT = 1;
 const STOPPED = { dunningStartedAt: null, nextRetryAt: null };
 
 export const dunningCycle: ChargeCycle = {
+  kind: CHARGE_KIND.RETRY,
   dueEvent: LIFECYCLE_EVENT.RETRY_DUE,
   findDue: findDueRetries,
   isDue: ({ status, nextRetryAt: retryAt }, now) =>
@@ -22,7 +23,7 @@ export const dunningCycle: ChargeCycle = {
       return {
         event: LIFECYCLE_EVENT.RETRY_SUCCEEDED,
         changes: {
-          currentPeriodEnd: nextPeriodEnd(subscription, charge, parties.plan),
+          currentPeriodEnd: charge.periodEnd,
           dunningAttempt: NO_RETRIES_YET,
           dunningAttemptBase: NO_RETRIES_YET,
           ...STOPPED,
