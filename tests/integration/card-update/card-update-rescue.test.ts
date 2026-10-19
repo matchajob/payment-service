@@ -10,12 +10,13 @@ import { NO_RETRIES_YET } from '@/lib/dunning/start-dunning';
 import { cardUpdateFlow } from '@tests/utils/card-update-flow';
 import { testDb, withRollback } from '@tests/utils/db';
 import { DECLINED } from '@tests/utils/declined-charge-fixtures';
-import { dunningDay, FINAL_RETRY_DAY, seedPastDue, SECOND_RETRY_DAY } from '@tests/utils/dunning-rows';
+import { dunningDay, FINAL_RETRY_DAY, SECOND_RETRY_DAY } from '@tests/utils/dunning-days';
+import { seedPastDue } from '@tests/utils/dunning-rows';
 import { dunWith } from '@tests/utils/dunning-run';
 import { paymentMethodsOf } from '@tests/utils/payment-method-reads';
 import { after } from '@tests/utils/reconcile-times';
 import { RENEWAL_SUCCEEDED } from '@tests/utils/renewal-charge-fixtures';
-import { chargesOf, eventsOf, subscriptionRow } from '@tests/utils/renewal-reads';
+import { chargesAfterHistory, chargesOf, eventsOf, subscriptionRow } from '@tests/utils/renewal-reads';
 import { NEXT_PERIOD_END, PERIOD_END } from '@tests/utils/renewal-rows';
 
 const RESCUE_DAY = 5;
@@ -67,7 +68,7 @@ describe('card update completed for a past_due subscription: the immediate retry
         nextRetryAt: null,
       });
       const [, newCard] = await paymentMethodsOf(tx, pastDue.subscription.subscriptionId);
-      expect(await chargesOf(tx, pastDue.subscription.subscriptionId)).toEqual([
+      expect(await chargesAfterHistory(tx, pastDue)).toEqual([
         expect.objectContaining({
           status: CHARGE_STATUS.SUCCEEDED,
           kind: CHARGE_KIND.IMMEDIATE_RETRY,

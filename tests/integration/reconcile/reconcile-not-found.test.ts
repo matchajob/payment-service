@@ -12,7 +12,7 @@ import { seedPendingFirstCharge, seedPendingRenewal, type PendingCharge } from '
 import { after, GIVE_UP_MS, MINUTE_MS, NOT_FOUND_GRACE_MS } from '@tests/utils/reconcile-times';
 import { reconcileWith } from '@tests/utils/reconcile-run';
 import { NEXT_PERIOD_END } from '@tests/utils/renewal-rows';
-import { chargesOf, eventsOf, subscriptionRow } from '@tests/utils/renewal-reads';
+import { chargesAfterHistory, chargesOf, eventsOf, subscriptionRow } from '@tests/utils/renewal-reads';
 import { VERIFIED_NOT_FOUND } from '@tests/utils/verified-charge-fixtures';
 
 const PROVIDER_REF = 'provider-charge-7';
@@ -55,7 +55,7 @@ describe('runReconcile: a timed-out charge the provider cannot find (ADR 0017)',
 
       expect(await reconcile(JUST_INSIDE_GRACE)).toEqual(NOTHING_DONE);
 
-      expect(await chargesOf(tx, pending.subscription.subscriptionId)).toEqual([
+      expect(await chargesAfterHistory(tx, pending)).toEqual([
         expect.objectContaining({ status: CHARGE_STATUS.PENDING, reconcileFlag: null }),
       ]);
       expect(await subscriptionRow(tx, pending.subscription.subscriptionId)).toMatchObject({
@@ -73,7 +73,7 @@ describe('runReconcile: a timed-out charge the provider cannot find (ADR 0017)',
 
       expect(await reconcile(GRACE_OVER)).toEqual({ processed: 1, failed: 0, flagged: 0 });
 
-      expect(await chargesOf(tx, pending.subscription.subscriptionId)).toEqual([
+      expect(await chargesAfterHistory(tx, pending)).toEqual([
         expect.objectContaining({ status: CHARGE_STATUS.FAILED, failureReason: NOT_FOUND_REASON }),
       ]);
       expect(await subscriptionRow(tx, pending.subscription.subscriptionId)).toMatchObject({
@@ -109,7 +109,7 @@ describe('runReconcile: a charge reconcile cannot look up (ADR 0017)', () => {
       expect(await reconcile(GRACE_OVER)).toEqual(FLAGGED_ONE);
 
       expect(provider.calls.verifyCharge).toEqual([]);
-      expect(await chargesOf(tx, pending.subscription.subscriptionId)).toEqual([
+      expect(await chargesAfterHistory(tx, pending)).toEqual([
         expect.objectContaining({
           status: CHARGE_STATUS.PENDING,
           reconcileFlag: RECONCILE_FLAG.NO_REFERENCE_LOOKUP,
@@ -140,7 +140,7 @@ describe('runReconcile: a charge reconcile cannot look up (ADR 0017)', () => {
 
       expect(await reconcile(LONG_AFTER)).toEqual(FLAGGED_ONE);
 
-      expect(await chargesOf(tx, pending.subscription.subscriptionId)).toEqual([
+      expect(await chargesAfterHistory(tx, pending)).toEqual([
         expect.objectContaining({ status: CHARGE_STATUS.PENDING, reconcileFlag: RECONCILE_FLAG.REF_NOT_FOUND }),
       ]);
       expect(await subscriptionRow(tx, pending.subscription.subscriptionId)).toMatchObject({

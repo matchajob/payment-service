@@ -1,4 +1,6 @@
+import { eq } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
+import { CHARGE_KIND } from '@/lib/charges/charge-kind';
 import { chargesTable } from '@/lib/charges/schema';
 import { testDb } from '@tests/utils/db';
 import { fakeProviderFactory } from '@tests/utils/fake-provider-factory';
@@ -29,6 +31,6 @@ describe('runRenewal: concurrency (Spec 1 double-charge guards, ADR 0002 double-
     expect(first.failed + second.failed).toBe(0);
     expect(provider.calls.charge).toHaveLength(DUE_COUNT);
     expect(new Set(provider.calls.charge.map(({ dedupKey }) => dedupKey)).size).toBe(DUE_COUNT);
-    expect(await db.$count(chargesTable)).toBe(DUE_COUNT);
+    expect(await db.$count(chargesTable, eq(chargesTable.kind, CHARGE_KIND.RENEWAL))).toBe(DUE_COUNT);
   });
 });

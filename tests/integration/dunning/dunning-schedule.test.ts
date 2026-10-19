@@ -6,7 +6,7 @@ import { SUBSCRIPTION_STATUS } from '@/lib/subscriptions/state-machine/subscript
 import { tenantsTable } from '@/lib/tenants/schema';
 import { testDb, withRollback } from '@tests/utils/db';
 import { DECLINED } from '@tests/utils/declined-charge-fixtures';
-import { dunningDay, FINAL_RETRY_DAY, FIRST_RETRY_DAY, SECOND_RETRY_DAY } from '@tests/utils/dunning-rows';
+import { dunningDay, FINAL_RETRY_DAY, FIRST_RETRY_DAY, SECOND_RETRY_DAY } from '@tests/utils/dunning-days';
 import { dunWith } from '@tests/utils/dunning-run';
 import { fakeProviderFactory } from '@tests/utils/fake-provider-factory';
 import { subscriptionRow } from '@tests/utils/renewal-reads';

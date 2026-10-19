@@ -1,16 +1,18 @@
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
+import { CHARGE_KIND } from '@/lib/charges/charge-kind';
 import { CHARGE_STATUS } from '@/lib/charges/charge-status';
 import { chargesTable } from '@/lib/charges/schema';
 import { SUBSCRIPTION_STATUS } from '@/lib/subscriptions/state-machine/subscription-status';
 import { tenantsTable } from '@/lib/tenants/schema';
 import { seedConnection } from '@tests/utils/connection-rows';
 import { testDb, withRollback } from '@tests/utils/db';
-import { dunningDay, FIRST_RETRY_DAY, SECOND_RETRY_DAY, seedPastDue } from '@tests/utils/dunning-rows';
+import { dunningDay, FIRST_RETRY_DAY, SECOND_RETRY_DAY } from '@tests/utils/dunning-days';
+import { seedPastDue } from '@tests/utils/dunning-rows';
 import { dunWith } from '@tests/utils/dunning-run';
 import { fakeProviderFactory } from '@tests/utils/fake-provider-factory';
 import { RENEWAL_SUCCEEDED } from '@tests/utils/renewal-charge-fixtures';
-import { chargesOf, eventsOf, subscriptionRow } from '@tests/utils/renewal-reads';
+import { chargesAfterHistory, chargesOf, eventsOf, subscriptionRow } from '@tests/utils/renewal-reads';
 import { GLOBEX } from '@tests/utils/tenant-fixtures';
 
 const RETRY_AT = dunningDay(FIRST_RETRY_DAY);
@@ -22,12 +24,12 @@ describe('runDunning: an unknown outcome is never retried as a new charge (ADR 0
   it('leaves the charge pending, the subscription past_due with its retry unchanged, and no event', async () => {
     await withRollback(testDb(), async (tx) => {
       const providers = fakeProviderFactory();
-      const { ctx, subscription } = await seedPastDue(tx);
+      const { ctx, subscription, history } = await seedPastDue(tx);
       providers.providerOf(ctx.providerConnectionId).failCharges();
 
       expect(await dunWith(tx, providers.providerFor)(RETRY_AT)).toEqual({ processed: 0, failed: 1 });
 
-      expect(await chargesOf(tx, subscription.subscriptionId)).toEqual([
+      expect(await chargesAfterHistory(tx, { subscription, history })).toEqual([
         expect.objectContaining({ status: CHARGE_STATUS.PENDING }),
       ]);
       expect(await subscriptionRow(tx, subscription.subscriptionId)).toMatchObject({
@@ -87,7 +89,10 @@ describe('runDunning: batch limit (ADR 0013, ADR 0014)', () => {
       expect(await dun(RETRY_AT)).toEqual({ processed: SMALL_BATCH, failed: 0 });
       expect(await dun(RETRY_AT)).toEqual({ processed: SMALL_BATCH, failed: 0 });
       expect(await dun(RETRY_AT)).toEqual(NOTHING_DONE);
-      expect(await tx.$count(chargesTable)).toBe(pastDues.length);
+      expect(await tx.$count(chargesTable, eq(chargesTable.kind, CHARGE_KIND.RETRY))).toBe(pastDues.length);
+      pastDues.forEach(({ ctx }) =>
+        expect(providers.providerOf(ctx.providerConnectionId).calls.charge).toHaveLength(1),
+      );
     });
   });
 });

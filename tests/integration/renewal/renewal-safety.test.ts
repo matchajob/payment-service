@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
+import { CHARGE_KIND } from '@/lib/charges/charge-kind';
 import { CHARGE_STATUS } from '@/lib/charges/charge-status';
 import { chargesTable } from '@/lib/charges/schema';
 import type { ProviderFor } from '@/lib/provider-connections/provider-for';
@@ -8,7 +9,7 @@ import { tenantsTable } from '@/lib/tenants/schema';
 import { seedConnection } from '@tests/utils/connection-rows';
 import { testDb, withRollback } from '@tests/utils/db';
 import { fakeProviderFactory } from '@tests/utils/fake-provider-factory';
-import { chargesOf, eventsOf, subscriptionRow } from '@tests/utils/renewal-reads';
+import { chargesAfterHistory, chargesOf, eventsOf, subscriptionRow } from '@tests/utils/renewal-reads';
 import { PERIOD_END, seedRenewing, seedRenewings } from '@tests/utils/renewal-rows';
 import { renewWith } from '@tests/utils/renewal-run';
 import { RENEWAL_SUCCEEDED } from '@tests/utils/renewal-charge-fixtures';
@@ -46,12 +47,12 @@ describe('runRenewal: an unknown outcome is never retried as a new charge (ADR 0
   it('leaves the charge pending, the subscription active, and no event when the provider times out', async () => {
     await withRollback(testDb(), async (tx) => {
       const providers = fakeProviderFactory();
-      const { ctx, subscription } = await seedRenewing(tx);
+      const { ctx, subscription, history } = await seedRenewing(tx);
       providers.providerOf(ctx.providerConnectionId).failCharges();
 
       expect(await renewWith(tx, providers.providerFor)(PERIOD_END)).toEqual({ processed: 0, failed: 1 });
 
-      expect(await chargesOf(tx, subscription.subscriptionId)).toEqual([
+      expect(await chargesAfterHistory(tx, { subscription, history })).toEqual([
         expect.objectContaining({ status: CHARGE_STATUS.PENDING }),
       ]);
       expect(await subscriptionRow(tx, subscription.subscriptionId)).toMatchObject({
@@ -92,11 +93,12 @@ describe('runRenewal: one subscription cannot stop the batch', () => {
 
       expect(await renewWith(tx, kmsDownForBroken)(PERIOD_END)).toEqual({ processed: 1, failed: 1 });
 
-      expect(await chargesOf(tx, broken.subscription.subscriptionId)).toEqual([]);
+      expect(await chargesAfterHistory(tx, broken)).toEqual([]);
+      expect(providers.providerOf(healthy.ctx.providerConnectionId).calls.charge).toHaveLength(1);
       expect(await subscriptionRow(tx, healthy.subscription.subscriptionId)).toMatchObject({
         status: SUBSCRIPTION_STATUS.ACTIVE,
       });
-      expect(await chargesOf(tx, healthy.subscription.subscriptionId)).toEqual([
+      expect(await chargesAfterHistory(tx, healthy)).toEqual([
         expect.objectContaining({ status: CHARGE_STATUS.SUCCEEDED }),
       ]);
     });
@@ -116,7 +118,12 @@ describe('runRenewal: batch limit (ADR 0013)', () => {
       expect(await renew(NEXT_RUN)).toEqual({ processed: BACKLOG - SMALL_BATCH, failed: 0 });
       expect(await renew(NEXT_RUN)).toEqual(NOTHING_DONE);
 
-      const charged = await tx.select({ subscriptionId: chargesTable.subscriptionId }).from(chargesTable);
+      expect(provider.calls.charge).toHaveLength(BACKLOG);
+      expect(new Set(provider.calls.charge.map(({ dedupKey }) => dedupKey)).size).toBe(BACKLOG);
+      const charged = await tx
+        .select({ subscriptionId: chargesTable.subscriptionId })
+        .from(chargesTable)
+        .where(eq(chargesTable.kind, CHARGE_KIND.RENEWAL));
       expect(new Set(charged.map(({ subscriptionId }) => subscriptionId))).toEqual(
         new Set(renewings.map(({ subscription }) => subscription.subscriptionId)),
       );

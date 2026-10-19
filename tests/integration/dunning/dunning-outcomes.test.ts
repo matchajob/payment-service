@@ -7,11 +7,12 @@ import { OUTBOUND_EVENT_TYPE } from '@/lib/subscriptions/state-machine/outbound-
 import { SUBSCRIPTION_STATUS } from '@/lib/subscriptions/state-machine/subscription-status';
 import { testDb, withRollback } from '@tests/utils/db';
 import { DECLINE_REASON, DECLINED } from '@tests/utils/declined-charge-fixtures';
-import { dunningDay, FINAL_RETRY_DAY, FIRST_RETRY_DAY, SECOND_RETRY_DAY, seedPastDue } from '@tests/utils/dunning-rows';
+import { dunningDay, FINAL_RETRY_DAY, FIRST_RETRY_DAY, SECOND_RETRY_DAY } from '@tests/utils/dunning-days';
+import { seedPastDue } from '@tests/utils/dunning-rows';
 import { dunWith } from '@tests/utils/dunning-run';
 import { fakeProviderFactory } from '@tests/utils/fake-provider-factory';
 import { RENEWAL_SUCCEEDED } from '@tests/utils/renewal-charge-fixtures';
-import { chargesOf, eventsOf, subscriptionRow } from '@tests/utils/renewal-reads';
+import { chargesAfterHistory, chargesOf, eventsOf, subscriptionRow } from '@tests/utils/renewal-reads';
 import { NEXT_PERIOD_END, PERIOD_END } from '@tests/utils/renewal-rows';
 
 const RESCUE_DAY = 5;
@@ -51,7 +52,7 @@ describe('runDunning: the charge (S1 r10, Spec 1 double-charge guards)', () => {
 describe('runDunning: a rescue (S1 r10, D7)', () => {
   it('ends the new period one interval after the old end, even when the rescue lands on day 5', async () => {
     await withRollback(testDb(), async (tx) => {
-      const { subscription, provider, dun } = await setup(tx, beforeSecondRetry);
+      const { subscription, provider, dun, history } = await setup(tx, beforeSecondRetry);
       provider.scriptCharge(RENEWAL_SUCCEEDED);
       expect(await dun(dunningDay(RESCUE_DAY))).toEqual({ processed: 1, failed: 0 });
       expect(await subscriptionRow(tx, subscription.subscriptionId)).toMatchObject({
@@ -59,7 +60,7 @@ describe('runDunning: a rescue (S1 r10, D7)', () => {
         currentPeriodEnd: NEXT_PERIOD_END,
         ...NOT_DUNNING,
       });
-      expect(await chargesOf(tx, subscription.subscriptionId)).toEqual([
+      expect(await chargesAfterHistory(tx, { subscription, history })).toEqual([
         expect.objectContaining({
           status: CHARGE_STATUS.SUCCEEDED,
           kind: CHARGE_KIND.RETRY,
@@ -88,7 +89,7 @@ describe('runDunning: a rescue (S1 r10, D7)', () => {
 describe('runDunning: a failed retry that is not the last (ADR 0014)', () => {
   it('stays past_due and schedules the next retry from attempt 0, not from this retry', async () => {
     await withRollback(testDb(), async (tx) => {
-      const { subscription, provider, dun } = await setup(tx);
+      const { subscription, provider, dun, history } = await setup(tx);
       provider.scriptCharge(DECLINED);
       expect(await dun(dunningDay(FIRST_RETRY_DAY))).toEqual({ processed: 1, failed: 0 });
       expect(await subscriptionRow(tx, subscription.subscriptionId)).toMatchObject({
@@ -97,7 +98,7 @@ describe('runDunning: a failed retry that is not the last (ADR 0014)', () => {
         dunningAttempt: FIRST_RETRY,
         nextRetryAt: dunningDay(SECOND_RETRY_DAY),
       });
-      expect(await chargesOf(tx, subscription.subscriptionId)).toEqual([
+      expect(await chargesAfterHistory(tx, { subscription, history })).toEqual([
         expect.objectContaining({ status: CHARGE_STATUS.FAILED, failureReason: DECLINE_REASON, attempt: FIRST_RETRY }),
       ]);
     });

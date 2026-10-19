@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { CHARGE_KIND } from '@/lib/charges/charge-kind';
 import { CHARGE_STATUS } from '@/lib/charges/charge-status';
 import { NOT_FOUND_REASON } from '@/lib/charges/not-found-reason';
 import { RECONCILE_FLAG } from '@/lib/charges/reconcile-flag';
@@ -7,12 +8,15 @@ import { SUBSCRIPTION_STATUS } from '@/lib/subscriptions/state-machine/subscript
 import { DAY_MS } from '@/lib/time/day-ms';
 import { testDb, withRollback } from '@tests/utils/db';
 import { DECLINE_REASON } from '@tests/utils/declined-charge-fixtures';
+import { dunWith } from '@tests/utils/dunning-run';
 import { fakeProviderFactory } from '@tests/utils/fake-provider-factory';
-import { RENEWAL_ATTEMPTED_AT } from '@tests/utils/pending-charge-shapes';
+import { RENEWAL_ATTEMPTED_AT, RETRY_ATTEMPTED_AT } from '@tests/utils/pending-charge-shapes';
 import { seedLostRenewal, type PendingCharge } from '@tests/utils/pending-charge-rows';
 import { after, GIVE_UP_MS } from '@tests/utils/reconcile-times';
 import { reconcileWith } from '@tests/utils/reconcile-run';
-import { chargesOf, eventsOf, subscriptionRow } from '@tests/utils/renewal-reads';
+import { RENEWAL_SUCCEEDED } from '@tests/utils/renewal-charge-fixtures';
+import { chargesAfterHistory, chargesOf, eventsOf, subscriptionRow } from '@tests/utils/renewal-reads';
+import { NEXT_PERIOD_END } from '@tests/utils/renewal-rows';
 import { VERIFIED_NOT_FOUND, VERIFIED_SUCCEEDED } from '@tests/utils/verified-charge-fixtures';
 
 const THREE_DAYS = 3;
@@ -35,7 +39,7 @@ describe('runReconcile: the late-success sweep over lost charges (ADR 0017 decis
 
       expect(await reconcile(THREE_DAYS_LATER)).toEqual({ processed: 0, failed: 0, flagged: 1 });
 
-      expect(await chargesOf(tx, lost.subscription.subscriptionId)).toEqual([
+      expect(await chargesAfterHistory(tx, lost)).toEqual([
         expect.objectContaining({
           status: CHARGE_STATUS.FAILED,
           failureReason: NOT_FOUND_REASON,
@@ -70,9 +74,7 @@ describe('runReconcile: the late-success sweep over lost charges (ADR 0017 decis
 
       expect(await reconcile(THREE_DAYS_LATER)).toEqual(NOTHING_DONE);
 
-      expect(await chargesOf(tx, lost.subscription.subscriptionId)).toEqual([
-        expect.objectContaining({ reconcileFlag: null }),
-      ]);
+      expect(await chargesAfterHistory(tx, lost)).toEqual([expect.objectContaining({ reconcileFlag: null })]);
     });
   });
 
@@ -95,6 +97,41 @@ describe('runReconcile: the late-success sweep over lost charges (ADR 0017 decis
       expect(await reconcile(THREE_DAYS_LATER)).toEqual(NOTHING_DONE);
 
       expect(provider.calls.verifyCharge).toEqual([]);
+    });
+  });
+});
+
+describe('runReconcile: a late success after dunning already collected the period (ADR 0017 decision 6)', () => {
+  it('flags the lost renewal and leaves the rescued subscription, its retry and its events alone', async () => {
+    await withRollback(testDb(), async (tx) => {
+      const lost = await seedLostRenewal(tx);
+      const providers = fakeProviderFactory();
+      const provider = providers.providerOf(lost.ctx.providerConnectionId);
+      provider.scriptCharge(RENEWAL_SUCCEEDED);
+      await dunWith(tx, providers.providerFor)(RETRY_ATTEMPTED_AT);
+      const eventsBefore = await eventsOf(tx, lost.subscription.subscriptionId);
+      provider.scriptVerify(VERIFIED_SUCCEEDED);
+
+      expect(await reconcileWith(tx, providers.providerFor)(THREE_DAYS_LATER)).toEqual({
+        processed: 0,
+        failed: 0,
+        flagged: 1,
+      });
+
+      expect(await chargesAfterHistory(tx, lost)).toEqual([
+        expect.objectContaining({
+          kind: CHARGE_KIND.RENEWAL,
+          status: CHARGE_STATUS.FAILED,
+          reconcileFlag: RECONCILE_FLAG.LATE_SUCCESS,
+        }),
+        expect.objectContaining({ kind: CHARGE_KIND.RETRY, status: CHARGE_STATUS.SUCCEEDED, reconcileFlag: null }),
+      ]);
+      expect(await subscriptionRow(tx, lost.subscription.subscriptionId)).toMatchObject({
+        status: SUBSCRIPTION_STATUS.ACTIVE,
+        currentPeriodEnd: NEXT_PERIOD_END,
+      });
+      expect(await eventsOf(tx, lost.subscription.subscriptionId)).toEqual(eventsBefore);
+      expect(provider.calls.charge).toHaveLength(1);
     });
   });
 });

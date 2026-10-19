@@ -4,7 +4,7 @@ import { cardUpdateFlow } from '@tests/utils/card-update-flow';
 import { testDb, withRollback } from '@tests/utils/db';
 import { paymentMethodsOf, paymentMethodUpdatesOf } from '@tests/utils/payment-method-reads';
 import { RENEWAL_SUCCEEDED } from '@tests/utils/renewal-charge-fixtures';
-import { chargesOf, eventsOf, subscriptionRow } from '@tests/utils/renewal-reads';
+import { chargesAfterHistory, chargesOf, eventsOf, subscriptionRow } from '@tests/utils/renewal-reads';
 import { PERIOD_END, seedRenewing } from '@tests/utils/renewal-rows';
 import { renewWith } from '@tests/utils/renewal-run';
 
@@ -55,7 +55,7 @@ describe('card update completed for an active subscription (S1 r13, ADR 0018)', 
       await flow.complete(await flow.start());
 
       expect(flow.provider.calls.charge).toEqual([]);
-      expect(await chargesOf(tx, active.subscription.subscriptionId)).toEqual([]);
+      expect(await chargesAfterHistory(tx, active)).toEqual([]);
       expect(await eventsOf(tx, active.subscription.subscriptionId)).toEqual([]);
       expect(await subscriptionRow(tx, active.subscription.subscriptionId)).toMatchObject({
         status: SUBSCRIPTION_STATUS.ACTIVE,

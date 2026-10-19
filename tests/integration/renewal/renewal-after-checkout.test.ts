@@ -82,7 +82,17 @@ describe('renewal after a real checkout (S1 r5, H1 in code-review-1)', () => {
 
       expect(await renew(NEXT_PERIOD_END)).toEqual({ processed: 1, failed: 0 });
 
-      expect(provider.calls.charge).toHaveLength(3);
+      expect(provider.calls.charge.map(({ dedupKey }) => dedupKey)).toEqual([
+        `${subscriptionId}:${PERIOD_END.toISOString()}:0`,
+        `${subscriptionId}:${NEXT_PERIOD_END.toISOString()}:0`,
+        `${subscriptionId}:${PERIOD_AFTER_NEXT_END.toISOString()}:0`,
+      ]);
+      expect(provider.processedCharges()).toHaveLength(3);
+      expect((await chargesOf(tx, subscriptionId)).map(({ periodEnd }) => periodEnd)).toEqual([
+        PERIOD_END,
+        NEXT_PERIOD_END,
+        PERIOD_AFTER_NEXT_END,
+      ]);
       expect(await subscriptionRow(tx, subscriptionId)).toMatchObject({ currentPeriodEnd: PERIOD_AFTER_NEXT_END });
     });
   });

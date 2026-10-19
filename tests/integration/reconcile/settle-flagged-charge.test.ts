@@ -11,7 +11,7 @@ import { testDb, withRollback } from '@tests/utils/db';
 import { RENEWAL_ATTEMPTED_AT } from '@tests/utils/pending-charge-shapes';
 import { seedLostRenewal, seedPendingFirstCharge, seedPendingRenewal } from '@tests/utils/pending-charge-rows';
 import { after, GIVE_UP_MS } from '@tests/utils/reconcile-times';
-import { chargesOf, eventsOf, subscriptionRow } from '@tests/utils/renewal-reads';
+import { chargesAfterHistory, chargesOf, eventsOf, subscriptionRow } from '@tests/utils/renewal-reads';
 import { NEXT_PERIOD_END, PERIOD_END } from '@tests/utils/renewal-rows';
 
 const FLAGGED_AT = after(RENEWAL_ATTEMPTED_AT, GIVE_UP_MS);
@@ -25,13 +25,13 @@ const FAILED = { outcome: CHARGE_STATUS.FAILED, providerChargeRef: undefined, re
 describe('settleFlaggedCharge: a human settles what reconcile could not (ADR 0017 decision 7)', () => {
   it('settles a flagged renewal as succeeded through the renewal cycle: the period advances, charge.succeeded', async () => {
     await withRollback(testDb(), async (tx) => {
-      const { subscription, charge } = await seedPendingRenewal(tx, STUCK);
+      const { subscription, charge, history } = await seedPendingRenewal(tx, STUCK);
 
       expect(await settleFlaggedCharge(tx, { chargeId: charge.chargeId, result: SUCCEEDED }, SETTLED_AT)).toBe(
         SETTLE_FLAGGED.SETTLED,
       );
 
-      expect(await chargesOf(tx, subscription.subscriptionId)).toEqual([
+      expect(await chargesAfterHistory(tx, { subscription, history })).toEqual([
         expect.objectContaining({ status: CHARGE_STATUS.SUCCEEDED, providerChargeRef: CONFIRMED_REF }),
       ]);
       expect(await subscriptionRow(tx, subscription.subscriptionId)).toMatchObject({
@@ -45,11 +45,11 @@ describe('settleFlaggedCharge: a human settles what reconcile could not (ADR 001
 
   it('settles a flagged renewal as failed: past_due, with the recorded reason on the charge', async () => {
     await withRollback(testDb(), async (tx) => {
-      const { subscription, charge } = await seedPendingRenewal(tx, STUCK);
+      const { subscription, charge, history } = await seedPendingRenewal(tx, STUCK);
 
       await settleFlaggedCharge(tx, { chargeId: charge.chargeId, result: FAILED }, SETTLED_AT);
 
-      expect(await chargesOf(tx, subscription.subscriptionId)).toEqual([
+      expect(await chargesAfterHistory(tx, { subscription, history })).toEqual([
         expect.objectContaining({ status: CHARGE_STATUS.FAILED, failureReason: RECORDED_REASON }),
       ]);
       expect(await subscriptionRow(tx, subscription.subscriptionId)).toMatchObject({
@@ -77,11 +77,11 @@ describe('settleFlaggedCharge: a human settles what reconcile could not (ADR 001
 
   it('keeps the flag, as the record that a human settled this charge', async () => {
     await withRollback(testDb(), async (tx) => {
-      const { subscription, charge } = await seedPendingRenewal(tx, STUCK);
+      const { subscription, charge, history } = await seedPendingRenewal(tx, STUCK);
 
       await settleFlaggedCharge(tx, { chargeId: charge.chargeId, result: SUCCEEDED }, SETTLED_AT);
 
-      expect(await chargesOf(tx, subscription.subscriptionId)).toEqual([
+      expect(await chargesAfterHistory(tx, { subscription, history })).toEqual([
         expect.objectContaining({ reconcileFlag: RECONCILE_FLAG.STUCK_PENDING, flaggedAt: FLAGGED_AT }),
       ]);
     });
@@ -91,13 +91,13 @@ describe('settleFlaggedCharge: a human settles what reconcile could not (ADR 001
 describe('settleFlaggedCharge: what it refuses (ADR 0017 decision 7)', () => {
   it('refuses a pending charge nobody flagged: reconcile still owns that one', async () => {
     await withRollback(testDb(), async (tx) => {
-      const { subscription, charge } = await seedPendingRenewal(tx);
+      const { subscription, charge, history } = await seedPendingRenewal(tx);
 
       expect(await settleFlaggedCharge(tx, { chargeId: charge.chargeId, result: SUCCEEDED }, SETTLED_AT)).toBe(
         SETTLE_FLAGGED.NOT_SETTLEABLE,
       );
 
-      expect(await chargesOf(tx, subscription.subscriptionId)).toEqual([
+      expect(await chargesAfterHistory(tx, { subscription, history })).toEqual([
         expect.objectContaining({ status: CHARGE_STATUS.PENDING }),
       ]);
     });

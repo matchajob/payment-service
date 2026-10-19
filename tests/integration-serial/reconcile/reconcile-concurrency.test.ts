@@ -1,4 +1,8 @@
+import { eq } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
+import { CHARGE_KIND } from '@/lib/charges/charge-kind';
+import { CHARGE_STATUS } from '@/lib/charges/charge-status';
+import { chargesTable } from '@/lib/charges/schema';
 import { outboxEventsTable } from '@/lib/outbox/schema';
 import { subscriptionsTable } from '@/lib/subscriptions/schema';
 import { testDb } from '@tests/utils/db';
@@ -35,6 +39,17 @@ describe('runReconcile: concurrency (ADR 0002 double-fire, ADR 0017)', () => {
 
     expect(one.processed + two.processed).toBe(PENDING_COUNT);
     expect(one.failed + two.failed).toBe(0);
+    const asked = provider.calls.verifyCharge.map(({ dedupKey }) => dedupKey);
+    expect(new Set(asked).size).toBe(PENDING_COUNT);
+    new Set(asked).forEach((dedupKey) =>
+      expect(asked.filter((key) => key === dedupKey).length).toBeLessThanOrEqual(RUNS),
+    );
+    expect(provider.calls.charge).toEqual([]);
+    const settled = await db
+      .select({ status: chargesTable.status })
+      .from(chargesTable)
+      .where(eq(chargesTable.kind, CHARGE_KIND.RENEWAL));
+    expect(settled).toEqual(Array.from({ length: PENDING_COUNT }, () => ({ status: CHARGE_STATUS.SUCCEEDED })));
     expect(await db.$count(outboxEventsTable)).toBe(PENDING_COUNT);
     const periodEnds = await db.select({ end: subscriptionsTable.currentPeriodEnd }).from(subscriptionsTable);
     expect(periodEnds).toEqual(Array.from({ length: PENDING_COUNT }, () => ({ end: NEXT_PERIOD_END })));

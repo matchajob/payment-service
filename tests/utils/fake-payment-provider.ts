@@ -1,3 +1,4 @@
+import { onTestFinished } from 'vitest';
 import { z } from 'zod';
 import { CHECKOUT_VERIFICATION } from '@/lib/payments/checkout-verification';
 import { WEBHOOK_KIND } from '@/lib/payments/webhook-kind';
@@ -11,6 +12,7 @@ import type {
   VerifiedCharge,
   VerifyChargeRequest,
 } from '@/lib/payments/provider';
+import { fakeChargeLedger, type ProcessedCharge } from '@tests/utils/fake-charge-ledger';
 
 export type FakePaymentProvider = PaymentProvider & {
   calls: {
@@ -20,6 +22,8 @@ export type FakePaymentProvider = PaymentProvider & {
     verifyCharge: VerifyChargeRequest[];
   };
   scriptCharge: (result: ChargeResult) => void;
+  scriptChargeThenTimeOut: (result: ChargeResult) => void;
+  processedCharges: () => ProcessedCharge[];
   scriptVerify: (result: VerifiedCharge) => void;
   failCheckouts: () => void;
   scriptCheckoutNotCompleted: () => void;
@@ -53,11 +57,14 @@ export const FAKE_CHARGE_TIMEOUT = 'fakePaymentProvider: charge scripted to time
 export const FAKE_CHECKOUT_FAILURE = 'fakePaymentProvider: checkout scripted to fail';
 export const FAKE_NO_CHECKOUT = 'fakePaymentProvider: no checkout started';
 export const FAKE_VERIFY_FAILURE = 'fakePaymentProvider: verifyCharge scripted to fail';
+const UNSCRIPTED_CHARGES = 'fakePaymentProvider: charged with no scripted result, dedup keys';
+
+type ChargeScript = { result: ChargeResult; timesOut: boolean };
 
 export const fakePaymentProvider = (): FakePaymentProvider => {
   const calls: FakePaymentProvider['calls'] = { startCheckout: [], verifyCheckout: [], charge: [], verifyCharge: [] };
   const scripted: {
-    charge: ChargeResult[];
+    charge: ChargeScript[];
     verify: VerifiedCharge[];
     checkoutFails: boolean;
     checkoutNotCompleted: boolean;
@@ -72,6 +79,11 @@ export const fakePaymentProvider = (): FakePaymentProvider => {
     verifyThrows: false,
   };
   const sessions: CheckoutSession[] = [];
+  const ledger = fakeChargeLedger();
+  const unscriptedDedupKeys: string[] = [];
+  onTestFinished(() => {
+    if (unscriptedDedupKeys.length > 0) throw new Error(`${UNSCRIPTED_CHARGES} ${unscriptedDedupKeys.join(', ')}`);
+  });
   const capabilities: ProviderCapabilities = {
     selfManagedSchedule: true,
     providerManagedSchedule: false,
@@ -81,17 +93,16 @@ export const fakePaymentProvider = (): FakePaymentProvider => {
     lookupByReference: true,
   };
 
-  const next = <T>(queue: T[], method: string): T => {
-    const result = queue.shift();
-    if (result === undefined) throw new Error(`fakePaymentProvider: no scripted result for ${method}`);
-    return result;
-  };
   return {
     capabilities,
     calls,
     scriptCharge: (result) => {
-      scripted.charge.push(result);
+      scripted.charge.push({ result, timesOut: false });
     },
+    scriptChargeThenTimeOut: (result) => {
+      scripted.charge.push({ result, timesOut: true });
+    },
+    processedCharges: ledger.all,
     scriptVerify: (result) => {
       scripted.verify.push(result);
     },
@@ -135,13 +146,22 @@ export const fakePaymentProvider = (): FakePaymentProvider => {
     },
     charge: async (request) => {
       calls.charge.push(request);
+      const processed = ledger.find(request.dedupKey);
+      if (processed !== undefined) return processed.result;
       if (scripted.chargeThrows) throw new Error(FAKE_CHARGE_TIMEOUT);
-      return next(scripted.charge, 'charge');
+      const script = scripted.charge.shift();
+      if (script === undefined) {
+        unscriptedDedupKeys.push(request.dedupKey);
+        throw new Error(`${UNSCRIPTED_CHARGES} ${request.dedupKey}`);
+      }
+      ledger.record({ request, result: script.result });
+      if (script.timesOut) throw new Error(FAKE_CHARGE_TIMEOUT);
+      return script.result;
     },
     verifyCharge: async (request) => {
       calls.verifyCharge.push(request);
       if (scripted.verifyThrows) throw new Error(FAKE_VERIFY_FAILURE);
-      return next(scripted.verify, 'verifyCharge');
+      return scripted.verify.shift() ?? ledger.verify(request.dedupKey);
     },
   };
 };

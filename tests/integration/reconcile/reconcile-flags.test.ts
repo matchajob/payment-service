@@ -9,7 +9,7 @@ import { RENEWAL_ATTEMPTED_AT } from '@tests/utils/pending-charge-shapes';
 import { seedPendingRenewal } from '@tests/utils/pending-charge-rows';
 import { after, GIVE_UP_MS, HOUR_MS, MINUTE_MS } from '@tests/utils/reconcile-times';
 import { reconcileWith } from '@tests/utils/reconcile-run';
-import { chargesOf, eventsOf, subscriptionRow } from '@tests/utils/renewal-reads';
+import { chargesAfterHistory, chargesOf, eventsOf, subscriptionRow } from '@tests/utils/renewal-reads';
 import {
   VERIFIED_PENDING,
   VERIFIED_SUCCEEDED,
@@ -38,7 +38,7 @@ describe('runReconcile: a charge still pending at the provider (ADR 0017)', () =
       expect(await reconcile(ALMOST_A_WEEK)).toEqual(NOTHING_DONE);
 
       expect(provider.calls.verifyCharge).toHaveLength(2);
-      expect(await chargesOf(tx, pending.subscription.subscriptionId)).toEqual([
+      expect(await chargesAfterHistory(tx, pending)).toEqual([
         expect.objectContaining({ status: CHARGE_STATUS.PENDING, reconcileFlag: null }),
       ]);
     });
@@ -52,7 +52,7 @@ describe('runReconcile: a charge still pending at the provider (ADR 0017)', () =
 
       expect(await reconcileWith(tx, providers.providerFor)(A_WEEK)).toEqual(FLAGGED_ONE);
 
-      expect(await chargesOf(tx, pending.subscription.subscriptionId)).toEqual([
+      expect(await chargesAfterHistory(tx, pending)).toEqual([
         expect.objectContaining({
           status: CHARGE_STATUS.PENDING,
           reconcileFlag: RECONCILE_FLAG.STUCK_PENDING,
@@ -75,7 +75,7 @@ describe('runReconcile: a success that does not match the charge (ADR 0017)', ()
 
       expect(await reconcileWith(tx, providers.providerFor)(AN_HOUR_LATER)).toEqual(FLAGGED_ONE);
 
-      expect(await chargesOf(tx, pending.subscription.subscriptionId)).toEqual([
+      expect(await chargesAfterHistory(tx, pending)).toEqual([
         expect.objectContaining({ status: CHARGE_STATUS.PENDING, reconcileFlag: RECONCILE_FLAG.AMOUNT_MISMATCH }),
       ]);
       expect(await subscriptionRow(tx, pending.subscription.subscriptionId)).toMatchObject({

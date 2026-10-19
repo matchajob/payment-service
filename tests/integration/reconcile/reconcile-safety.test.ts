@@ -11,7 +11,7 @@ import { seedPendingRenewal } from '@tests/utils/pending-charge-rows';
 import { after, HOUR_MS, IN_FLIGHT_MS, MINUTE_MS } from '@tests/utils/reconcile-times';
 import { reconcileWith } from '@tests/utils/reconcile-run';
 import { RENEWAL_SUCCEEDED } from '@tests/utils/renewal-charge-fixtures';
-import { chargesOf, subscriptionRow } from '@tests/utils/renewal-reads';
+import { chargesAfterHistory, chargesOf, subscriptionRow } from '@tests/utils/renewal-reads';
 import { NEXT_PERIOD_END, PERIOD_AFTER_NEXT_END, PERIOD_END, seedRenewing } from '@tests/utils/renewal-rows';
 import { renewWith } from '@tests/utils/renewal-run';
 import { cancelPath, postNoBody } from '@tests/utils/subscription-api';
@@ -65,10 +65,12 @@ describe('runReconcile: a provider error (ADR 0017)', () => {
         flagged: 0,
       });
 
-      expect(await chargesOf(tx, broken.subscription.subscriptionId)).toEqual([
+      expect(providers.providerOf(broken.ctx.providerConnectionId).calls.charge).toEqual([]);
+      expect(providers.providerOf(healthy.ctx.providerConnectionId).calls.charge).toEqual([]);
+      expect(await chargesAfterHistory(tx, broken)).toEqual([
         expect.objectContaining({ status: CHARGE_STATUS.PENDING, reconcileFlag: null }),
       ]);
-      expect(await chargesOf(tx, healthy.subscription.subscriptionId)).toEqual([
+      expect(await chargesAfterHistory(tx, healthy)).toEqual([
         expect.objectContaining({ status: CHARGE_STATUS.SUCCEEDED }),
       ]);
     });
@@ -90,7 +92,7 @@ describe('runReconcile: the pinned connection (ADR 0010 decision 2)', () => {
       await reconcileWith(tx, providers.providerFor)(AN_HOUR_LATER);
 
       expect(providers.providerOf(replacement.providerConnectionId).calls.verifyCharge).toEqual([]);
-      expect(await chargesOf(tx, pending.subscription.subscriptionId)).toEqual([
+      expect(await chargesAfterHistory(tx, pending)).toEqual([
         expect.objectContaining({ status: CHARGE_STATUS.SUCCEEDED }),
       ]);
     });

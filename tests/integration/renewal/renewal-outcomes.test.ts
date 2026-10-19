@@ -9,7 +9,7 @@ import { DAY_MS } from '@/lib/time/day-ms';
 import { testDb, withRollback } from '@tests/utils/db';
 import { DECLINE_REASON, DECLINED } from '@tests/utils/declined-charge-fixtures';
 import { fakeProviderFactory } from '@tests/utils/fake-provider-factory';
-import { chargesOf, eventsOf, subscriptionRow } from '@tests/utils/renewal-reads';
+import { chargesAfterHistory, chargesOf, eventsOf, subscriptionRow } from '@tests/utils/renewal-reads';
 import { NEXT_PERIOD_END, PERIOD_END, seedRenewing } from '@tests/utils/renewal-rows';
 import { renewWith } from '@tests/utils/renewal-run';
 import { RENEWAL_CHARGE_REF, RENEWAL_SUCCEEDED } from '@tests/utils/renewal-charge-fixtures';
@@ -48,14 +48,14 @@ describe('runRenewal: a successful charge (S1 r5, Spec 2)', () => {
 
   it('advances from the old period end, not from now, when the cron runs three days late', async () => {
     await withRollback(testDb(), async (tx) => {
-      const { subscription, provider, renew } = await setup(tx);
+      const { subscription, provider, renew, history } = await setup(tx);
       provider.scriptCharge(RENEWAL_SUCCEEDED);
       await renew(LATE);
       expect(await subscriptionRow(tx, subscription.subscriptionId)).toMatchObject({
         status: SUBSCRIPTION_STATUS.ACTIVE,
         currentPeriodEnd: NEXT_PERIOD_END,
       });
-      expect(await chargesOf(tx, subscription.subscriptionId)).toEqual([
+      expect(await chargesAfterHistory(tx, { subscription, history })).toEqual([
         expect.objectContaining({
           status: CHARGE_STATUS.SUCCEEDED,
           providerChargeRef: RENEWAL_CHARGE_REF,
@@ -116,7 +116,7 @@ describe('runRenewal: a declined charge (S1 r6)', () => {
 
   it('starts the dunning clock at the failed attempt and schedules retry 1 a day later (ADR 0014)', async () => {
     await withRollback(testDb(), async (tx) => {
-      const { subscription, provider, renew } = await setup(tx);
+      const { subscription, provider, renew, history } = await setup(tx);
       provider.scriptCharge(DECLINED);
       await renew(PERIOD_END);
       expect(await subscriptionRow(tx, subscription.subscriptionId)).toMatchObject({
@@ -124,7 +124,7 @@ describe('runRenewal: a declined charge (S1 r6)', () => {
         nextRetryAt: FIRST_RETRY_AT,
         dunningAttempt: 0,
       });
-      expect(await chargesOf(tx, subscription.subscriptionId)).toEqual([
+      expect(await chargesAfterHistory(tx, { subscription, history })).toEqual([
         expect.objectContaining({
           status: CHARGE_STATUS.FAILED,
           failureReason: DECLINE_REASON,
@@ -153,10 +153,10 @@ describe('runRenewal: a declined charge (S1 r6)', () => {
 describe('runRenewal: a subscription set to cancel (S1 r7)', () => {
   it('is canceled without calling the provider or writing a charge, and emits subscription.canceled', async () => {
     await withRollback(testDb(), async (tx) => {
-      const { subscription, provider, renew } = await setup(tx, { cancelAtPeriodEnd: true });
+      const { subscription, provider, renew, history } = await setup(tx, { cancelAtPeriodEnd: true });
       expect(await renew(LATE)).toEqual({ processed: 1, failed: 0 });
       expect(provider.calls.charge).toEqual([]);
-      expect(await chargesOf(tx, subscription.subscriptionId)).toEqual([]);
+      expect(await chargesAfterHistory(tx, { subscription, history })).toEqual([]);
       expect(await subscriptionRow(tx, subscription.subscriptionId)).toMatchObject({
         status: SUBSCRIPTION_STATUS.CANCELED,
         cancelAtPeriodEnd: false,

@@ -6,7 +6,7 @@ import { OUTBOUND_EVENT_TYPE } from '@/lib/subscriptions/state-machine/outbound-
 import { SUBSCRIPTION_STATUS } from '@/lib/subscriptions/state-machine/subscription-status';
 import { DAY_MS } from '@/lib/time/day-ms';
 import { testDb, withRollback } from '@tests/utils/db';
-import { dunningDay, SECOND_RETRY_DAY } from '@tests/utils/dunning-rows';
+import { dunningDay, SECOND_RETRY_DAY } from '@tests/utils/dunning-days';
 import { fakeProviderFactory } from '@tests/utils/fake-provider-factory';
 import {
   FIRST_CHARGE_AT,
@@ -24,7 +24,7 @@ import {
 } from '@tests/utils/pending-charge-rows';
 import { after, HOUR_MS } from '@tests/utils/reconcile-times';
 import { reconcileWith } from '@tests/utils/reconcile-run';
-import { chargesOf, eventsOf, subscriptionRow } from '@tests/utils/renewal-reads';
+import { chargesAfterHistory, chargesOf, eventsOf, subscriptionRow } from '@tests/utils/renewal-reads';
 import { NEXT_PERIOD_END, PERIOD_END } from '@tests/utils/renewal-rows';
 import {
   VERIFIED_CHARGE_REF,
@@ -57,7 +57,7 @@ describe('runReconcile: a pending renewal charge (Spec 4 rule 8, ADR 0017)', () 
 
       expect(await reconcile(AN_HOUR_AFTER_RENEWAL)).toEqual(SETTLED_ONE);
 
-      expect(await chargesOf(tx, pending.subscription.subscriptionId)).toEqual([
+      expect(await chargesAfterHistory(tx, pending)).toEqual([
         expect.objectContaining({ status: CHARGE_STATUS.SUCCEEDED, providerChargeRef: VERIFIED_CHARGE_REF }),
       ]);
       expect(await subscriptionRow(tx, pending.subscription.subscriptionId)).toMatchObject({
@@ -103,7 +103,7 @@ describe('runReconcile: a pending renewal charge (Spec 4 rule 8, ADR 0017)', () 
 
       expect(await reconcile(AN_HOUR_AFTER_RENEWAL)).toEqual(SETTLED_ONE);
 
-      expect(await chargesOf(tx, pending.subscription.subscriptionId)).toEqual([
+      expect(await chargesAfterHistory(tx, pending)).toEqual([
         expect.objectContaining({ status: CHARGE_STATUS.FAILED, failureReason: VERIFIED_DECLINE_REASON }),
       ]);
       expect(await subscriptionRow(tx, pending.subscription.subscriptionId)).toMatchObject({

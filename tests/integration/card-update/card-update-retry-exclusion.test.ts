@@ -3,14 +3,15 @@ import { CHARGE_STATUS } from '@/lib/charges/charge-status';
 import { cardUpdateFlow } from '@tests/utils/card-update-flow';
 import { testDb, withRollback } from '@tests/utils/db';
 import { DECLINED } from '@tests/utils/declined-charge-fixtures';
-import { dunningDay, FINAL_RETRY_DAY, seedPastDue } from '@tests/utils/dunning-rows';
+import { dunningDay, FINAL_RETRY_DAY } from '@tests/utils/dunning-days';
+import { seedPastDue } from '@tests/utils/dunning-rows';
 import { dunWith } from '@tests/utils/dunning-run';
 import { paymentMethodsOf } from '@tests/utils/payment-method-reads';
 import { RETRY_ATTEMPTED_AT } from '@tests/utils/pending-charge-shapes';
 import { seedPendingRetry } from '@tests/utils/pending-charge-rows';
 import { after, HOUR_MS } from '@tests/utils/reconcile-times';
 import { RENEWAL_SUCCEEDED } from '@tests/utils/renewal-charge-fixtures';
-import { chargesOf } from '@tests/utils/renewal-reads';
+import { chargesAfterHistory, chargesOf } from '@tests/utils/renewal-reads';
 
 const RESCUE_DAY = 5;
 const RESCUED_AT = dunningDay(RESCUE_DAY);
@@ -25,7 +26,7 @@ describe('the immediate retry and the scheduled retry cannot both fire (S1 r14, 
       expect((await flow.complete(await flow.start())).status).toBe(200);
 
       expect(flow.provider.calls.charge).toEqual([]);
-      expect(await chargesOf(tx, pending.subscription.subscriptionId)).toEqual([
+      expect(await chargesAfterHistory(tx, pending)).toEqual([
         expect.objectContaining({ chargeId: pending.charge.chargeId, status: CHARGE_STATUS.PENDING }),
       ]);
       expect(await paymentMethodsOf(tx, pending.subscription.subscriptionId)).toHaveLength(2);

@@ -1,10 +1,14 @@
+import { CHARGE_KIND } from '@/lib/charges/charge-kind';
+import { CHARGE_STATUS } from '@/lib/charges/charge-status';
 import { createCustomer, CREATE_CUSTOMER_OUTCOME } from '@/lib/customers/create-customer';
+import type { Charge } from '@/lib/charges/schema';
 import type { Database } from '@/lib/db';
 import type { PaymentMethod } from '@/lib/payments-method/schema';
 import type { Subscription } from '@/lib/subscriptions/schema';
 import { SUBSCRIPTION_STATUS } from '@/lib/subscriptions/state-machine/subscription-status';
 import { seedBillingContext, type BillingContext } from '@tests/utils/billing-context';
 import type { SeededConnection } from '@tests/utils/connection-rows';
+import { insertCycleCharge } from '@tests/utils/cycle-charge-insert';
 import { insertPaymentMethod } from '@tests/utils/payment-method-rows';
 import { insertSubscription } from '@tests/utils/subscription-rows';
 import { ACME, type TenantFixture } from '@tests/utils/tenant-fixtures';
@@ -15,6 +19,8 @@ export const PERIOD_END = new Date('2026-02-15T10:00:00.000Z');
 export const NEXT_PERIOD_END = new Date('2026-03-15T10:00:00.000Z');
 export const PERIOD_AFTER_NEXT_END = new Date('2026-04-15T10:00:00.000Z');
 export const ANCHOR_DAY = 15;
+export const ACTIVATED_AT = new Date('2026-01-15T10:00:00.000Z');
+export const FIRST_CHARGE_REF = 'first-charge-1';
 
 const EXTERNAL_REF_PREFIX = 'renewing-user-';
 const CAPTURE_REF_PREFIX = 'renewal-session-';
@@ -27,9 +33,10 @@ export type Renewing = {
   subscription: Subscription;
   cardToken: string;
   paymentMethodId: PaymentMethod['paymentMethodId'];
+  history: Charge[];
 };
 
-export const addRenewing = async (
+const addWithCard = async (
   db: Database,
   ctx: BillingContext,
   index: number,
@@ -55,8 +62,30 @@ export const addRenewing = async (
     `${CAPTURE_REF_PREFIX}${index}`,
   ).returning();
   if (card === undefined) throw new Error('payment method insert returned no row');
-  return { ctx, subscription, cardToken: card.providerToken, paymentMethodId: card.paymentMethodId };
+  return { ctx, subscription, cardToken: card.providerToken, paymentMethodId: card.paymentMethodId, history: [] };
 };
+
+const paidFirstCharge = async (db: Database, renewing: Renewing): Promise<Renewing> => {
+  const { status, currentPeriodEnd } = renewing.subscription;
+  if (status === SUBSCRIPTION_STATUS.INCOMPLETE || currentPeriodEnd === null) return renewing;
+  const charge = await insertCycleCharge(
+    db,
+    renewing,
+    { kind: CHARGE_KIND.FIRST, periodEnd: currentPeriodEnd, attempt: FIRST, attemptedAt: ACTIVATED_AT },
+    { status: CHARGE_STATUS.SUCCEEDED, providerChargeRef: FIRST_CHARGE_REF },
+  );
+  return { ...renewing, history: [...renewing.history, charge] };
+};
+
+export const addRenewing = async (
+  db: Database,
+  ctx: BillingContext,
+  index: number,
+  overrides: SubscriptionOverrides = {},
+): Promise<Renewing> => paidFirstCharge(db, await addWithCard(db, ctx, index, overrides));
+
+export const seedAwaitingFirstCharge = async (db: Database): Promise<Renewing> =>
+  addWithCard(db, await seedBillingContext(db), FIRST);
 
 export const seedRenewing = async (
   db: Database,
