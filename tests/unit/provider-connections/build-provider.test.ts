@@ -5,15 +5,20 @@ import { PAYMENT_PROVIDER } from '@/lib/payments/payment-provider-name';
 import { buildProviderFrom } from '@/lib/provider-connections/build-provider';
 import { zProviderConnectionRead } from '@/lib/provider-connections/schema';
 import { fakeGrowFetch } from '@tests/utils/fake-grow-fetch';
+import { fakeStripeFetch } from '@tests/utils/fake-stripe-fetch';
 import { GROW_TEST_PLAN_MINOR, GROW_TEST_REFERENCE, GROW_TEST_RETURN_URL } from '@tests/utils/grow-provider-under-test';
 import { RECORDED_CREATE_PROCESS_OK } from '@tests/utils/grow-recorded-replies';
 import { GROW_WIRE_METHOD } from '@tests/utils/grow-wire-methods';
 import { webhookPath } from '@tests/utils/post-webhook';
 import { GROW_CREDENTIALS, GROW_USER_ID } from '@tests/utils/provider-credentials-fixtures';
+import { STRIPE_CREDENTIALS, STRIPE_SECRET_KEY } from '@tests/utils/stripe-credentials-fixtures';
+import { STRIPE_PATH } from '@tests/utils/stripe-paths';
+import { createdSessionReply, customerReply } from '@tests/utils/stripe-session-replies';
 
 const PUBLIC_BASE_URL = 'https://payments.test';
 const GROW_BASE_URL = 'https://sandbox.grow.test/api/light/server/1.0/';
 const PLATFORM_API_KEY = 'platform-api-key';
+const STRIPE_BASE_URL = 'https://api.stripe.test';
 const TIMEOUT_MS = 50;
 const CONNECTION_ID = zProviderConnectionRead.shape.providerConnectionId.parse('3b2f8a52-5f0e-4f7e-9a51-6c2b7e1d0a11');
 const NOT_JSON = 'userId=grow-user-1';
@@ -23,6 +28,7 @@ const built = (credentials: string = GROW_CREDENTIALS, apiKey: string | undefine
   const buildProvider = buildProviderFrom({
     publicBaseUrl: PUBLIC_BASE_URL,
     grow: { baseUrl: GROW_BASE_URL, apiKey, timeoutMs: TIMEOUT_MS },
+    stripe: { baseUrl: STRIPE_BASE_URL, timeoutMs: TIMEOUT_MS },
     fetch: wire.fetch,
   });
   return {
@@ -71,6 +77,41 @@ describe('buildProviderFrom: a Grow connection gets a Grow adapter (WORKPLAN sli
 
   it('refuses credentials Grow cannot use, so createProviderConnection inserts nothing', () => {
     const { build } = built(NOT_JSON);
+    expect(build).toThrow();
+  });
+});
+
+const builtStripe = (credentials: string = STRIPE_CREDENTIALS) => {
+  const wire = fakeStripeFetch();
+  const buildProvider = buildProviderFrom({
+    publicBaseUrl: PUBLIC_BASE_URL,
+    grow: { baseUrl: GROW_BASE_URL, apiKey: undefined, timeoutMs: TIMEOUT_MS },
+    stripe: { baseUrl: STRIPE_BASE_URL, timeoutMs: TIMEOUT_MS },
+    fetch: wire.fetch,
+  });
+  return {
+    wire,
+    build: () => buildProvider({ providerConnectionId: CONNECTION_ID, provider: PAYMENT_PROVIDER.STRIPE, credentials }),
+  };
+};
+
+describe('buildProviderFrom: a Stripe connection gets a Stripe adapter (WORKPLAN slice 22, ADR 0020)', () => {
+  it("builds the Stripe adapter on the configured base URL, authenticated with the connection's own secret key", async () => {
+    const { wire, build } = builtStripe();
+    wire.reply(customerReply());
+    wire.reply(createdSessionReply());
+    await startCheckout(build());
+    expect(wire.requests).toEqual([
+      expect.objectContaining({
+        url: `${STRIPE_BASE_URL}${STRIPE_PATH.CUSTOMERS}`,
+        authorization: `Bearer ${STRIPE_SECRET_KEY}`,
+      }),
+      expect.objectContaining({ url: `${STRIPE_BASE_URL}${STRIPE_PATH.CHECKOUT_SESSIONS}` }),
+    ]);
+  });
+
+  it('refuses credentials Stripe cannot use, so createProviderConnection inserts nothing', () => {
+    const { build } = builtStripe(NOT_JSON);
     expect(build).toThrow();
   });
 });

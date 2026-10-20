@@ -10,6 +10,7 @@ export const ENV = {
   PUBLIC_BASE_URL: 'PUBLIC_BASE_URL',
   GROW_BASE_URL: 'GROW_BASE_URL',
   GROW_API_KEY: 'GROW_API_KEY',
+  STRIPE_BASE_URL: 'STRIPE_BASE_URL',
 } as const;
 
 export type EnvName = (typeof ENV)[keyof typeof ENV];

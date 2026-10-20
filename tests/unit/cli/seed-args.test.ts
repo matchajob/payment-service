@@ -50,7 +50,7 @@ describe('readSeedArgs', () => {
   });
 
   it('rejects an unknown provider', () => {
-    expect(() => readSeedArgs(withFlag('--provider', 'stripe'))).toThrow();
+    expect(() => readSeedArgs(withFlag('--provider', 'paypal'))).toThrow();
   });
 
   it('rejects empty credentials', () => {
