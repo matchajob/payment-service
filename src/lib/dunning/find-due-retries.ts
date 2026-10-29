@@ -1,10 +1,11 @@
-import { and, asc, eq, lte } from 'drizzle-orm';
+import { and, eq, lte } from 'drizzle-orm';
 import type { DueCharge } from '@/lib/charge-cycle/charge-cycle';
 import { noLiveChargeForNextPeriod } from '@/lib/charge-cycle/no-live-charge-for-next-period';
 import type { Database } from '@/lib/db';
 import { subscriptionsTable } from '@/lib/subscriptions/schema';
 import { SCHEDULE_OWNER } from '@/lib/subscriptions/state-machine/schedule-owner';
 import { SUBSCRIPTION_STATUS } from '@/lib/subscriptions/state-machine/subscription-status';
+import { effectiveDueOrder } from '@/lib/effective-due-order';
 
 export const findDueRetries = (db: Database, now: Date, limit: number): Promise<DueCharge[]> =>
   db
@@ -21,5 +22,5 @@ export const findDueRetries = (db: Database, now: Date, limit: number): Promise<
         noLiveChargeForNextPeriod(db),
       ),
     )
-    .orderBy(asc(subscriptionsTable.nextRetryAt))
+    .orderBy(effectiveDueOrder(subscriptionsTable.nextRetryAt, subscriptionsTable.cycleDeferredAt))
     .limit(limit);

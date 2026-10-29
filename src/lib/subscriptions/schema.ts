@@ -67,6 +67,7 @@ export const subscriptionsEntity = defineEntity(
       entityFromDzd(makeDzdInteger(f, { minSize: COUNTER_START, defaultValue: COUNTER_START })),
     dunningStartedAt: (f) => entityFromDzd(dzdThemeTimestamp.custom(f), DZD_NULLABLE),
     nextRetryAt: (f) => entityFromDzd(dzdThemeTimestamp.custom(f), DZD_NULLABLE),
+    cycleDeferredAt: (f) => entityFromDzd(dzdThemeTimestamp.custom(f), DZD_NULLABLE),
     sequence: (f) => entityFromDzd(makeDzdInteger(f, { minSize: COUNTER_START, defaultValue: COUNTER_START })),
     createdAt: (f) => entityFromDzd(dzdThemeTimestamp.defaultNow(f)),
   },

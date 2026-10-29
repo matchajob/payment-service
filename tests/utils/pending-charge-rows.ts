@@ -31,9 +31,13 @@ export const seedPendingRenewal = async (
   tenant?: TenantFixture,
 ): Promise<PendingCharge> => addCharge(db, await seedRenewing(db, {}, tenant), RENEWAL, overrides);
 
-export const seedPendingRenewals = async (db: Database, count: number): Promise<PendingCharge[]> => {
+export const seedPendingRenewals = async (
+  db: Database,
+  count: number,
+  overrides: ChargeOverrides = {},
+): Promise<PendingCharge[]> => {
   const { renewings } = await seedRenewings(db, count);
-  return Promise.all(renewings.map((renewing) => addCharge(db, renewing, RENEWAL, {})));
+  return Promise.all(renewings.map((renewing) => addCharge(db, renewing, RENEWAL, overrides)));
 };
 
 export const seedPendingFirstCharge = async (db: Database, overrides: ChargeOverrides = {}): Promise<PendingCharge> =>
@@ -53,8 +57,12 @@ export const seedPendingImmediateRetry = async (
     overrides,
   );
 
-export const seedLostRenewal = async (db: Database, overrides: ChargeOverrides = {}): Promise<PendingCharge> =>
-  addCharge(db, await seedPastDueSubscription(db), RENEWAL, {
+export const seedLostRenewal = async (
+  db: Database,
+  overrides: ChargeOverrides = {},
+  tenant?: TenantFixture,
+): Promise<PendingCharge> =>
+  addCharge(db, await seedPastDueSubscription(db, {}, tenant), RENEWAL, {
     status: CHARGE_STATUS.FAILED,
     failureReason: NOT_FOUND_REASON,
     ...overrides,

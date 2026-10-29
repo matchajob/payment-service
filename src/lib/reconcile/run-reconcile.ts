@@ -1,5 +1,7 @@
 import type { Charge } from '@/lib/charges/schema';
+import { deferReconcile } from '@/lib/reconcile/defer-reconcile';
 import { findLostCharges } from '@/lib/reconcile/find-lost-charges';
+import { NO_PROGRESS_RESULTS } from '@/lib/reconcile/no-progress-results';
 import { findUnsettledCharges } from '@/lib/reconcile/find-unsettled-charges';
 import { reconcileCharge } from '@/lib/reconcile/reconcile-charge';
 import type { ReconcileDeps } from '@/lib/reconcile/reconcile-deps';
@@ -19,12 +21,12 @@ export const runReconcile = async (deps: RunReconcileDeps, now: Date): Promise<R
   const results: ReconcileResult[] = [];
   const runEach = async (charges: readonly Charge[], step: Step) => {
     for (const charge of charges) {
-      try {
-        results.push(await step(deps, charge, now));
-      } catch (error) {
+      const result = await step(deps, charge, now).catch((error: unknown) => {
         deps.logger.error({ err: error, chargeId: charge.chargeId }, 'reconcile failed');
-        results.push(RECONCILE_RESULT.FAILED);
-      }
+        return RECONCILE_RESULT.FAILED;
+      });
+      if (NO_PROGRESS_RESULTS.includes(result)) await deferReconcile(deps.db, charge.chargeId, now);
+      results.push(result);
     }
   };
   await runEach(unsettled, reconcileCharge);

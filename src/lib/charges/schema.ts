@@ -75,6 +75,7 @@ export const chargesEntity = defineEntity(
     attemptedAt: (f) => entityFromDzd(dzdThemeTimestamp.custom(f)),
     reconcileFlag: (f) => entityFromDzd(dzdThemeEnum.fromPair(f, reconcileFlagEnum), DZD_NULLABLE),
     flaggedAt: (f) => entityFromDzd(dzdThemeTimestamp.custom(f), DZD_NULLABLE),
+    reconcileDeferredAt: (f) => entityFromDzd(dzdThemeTimestamp.custom(f), DZD_NULLABLE),
   },
   {
     extraConstraints: (t) => [

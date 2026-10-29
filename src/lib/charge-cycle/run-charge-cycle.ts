@@ -1,6 +1,7 @@
 import type { Logger } from 'pino';
 import type { ChargeCycle } from '@/lib/charge-cycle/charge-cycle';
 import { chargeOne, type ChargeOneDeps } from '@/lib/charge-cycle/charge-one';
+import { deferCycle } from '@/lib/charge-cycle/defer-cycle';
 import { CYCLE_RESULT, type CycleResult } from '@/lib/charge-cycle/cycle-result';
 import type { CronSummary } from '@/lib/cron/cron-summary';
 
@@ -20,6 +21,7 @@ export const runChargeCycle = async (
       results.push(await chargeOne(cycle, { db, providerFor }, charge, now));
     } catch (error) {
       logger.error({ err: error, subscriptionId: charge.subscriptionId }, 'charge cycle failed');
+      await deferCycle(db, charge.subscriptionId, now);
       results.push(CYCLE_RESULT.FAILED);
     }
   }

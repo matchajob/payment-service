@@ -12,7 +12,7 @@ Reconcile is the only way out, but the port's `verifyCharge(providerChargeRef)` 
 ## Decision
 
 1. **The port verifies by both identifiers.** `verifyCharge({ dedupKey, providerChargeRef })`, where the ref is `null` when we never got one. A new capability `lookupByReference` says whether the provider can find a charge by our dedup key alone. `VerifiedCharge` gains `not_found`, and its `succeeded` branch carries `amountMinor` and `currency`.
-2. **Hourly, not nightly.** Cancel is blocked while a charge is pending, so a nightly run could leave a customer unable to cancel for about 48 hours. The job runs at `0 * * * *` with no Scheduler retry, like renewal and dunning (ADR 0013). At most `RECONCILE_BATCH_LIMIT` charges per run, oldest attempt first, each settled in its own transaction.
+2. **Hourly, not nightly.** Cancel is blocked while a charge is pending, so a nightly run could leave a customer unable to cancel for about 48 hours. The job runs at `0 * * * *` with no Scheduler retry, like renewal and dunning (ADR 0013). At most `RECONCILE_BATCH_LIMIT` charges per run, oldest attempt first, each settled in its own transaction. *Amended 2026-10-20 (code-review-1 H4, N7):* "oldest attempt first" is now `greatest(attempted_at, reconcile_deferred_at)`, stamped on `LEFT` and on a throw. See ADR 0021.
 3. **A charge younger than 15 minutes is not verified.** Its charge call may still be running: the request timeout is 300s (`iac/request-timeout.ts`). Independently, `recordChargeResult` updates only a row that is still `pending`, and a settle that changed nothing applies no transition. A live settle and reconcile can't both advance a period.
 4. **Outcomes:**
 

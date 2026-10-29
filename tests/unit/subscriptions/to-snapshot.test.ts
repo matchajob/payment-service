@@ -27,6 +27,7 @@ const subscription = (overrides: Record<string, unknown> = {}) =>
     dunningAttempt: 0,
     dunningStartedAt: null,
     nextRetryAt: null,
+    cycleDeferredAt: null,
     cancelReason: null,
     sequence: 0,
     createdAt: PERIOD_END,
