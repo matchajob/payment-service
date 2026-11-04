@@ -3,6 +3,8 @@ import type { Charge } from '@/lib/charges/schema';
 import { VERIFY_OUTCOME } from '@/lib/payments/verify-outcome';
 import { providerForConnectionId } from '@/lib/provider-connections/provider-for-connection-id';
 import { flagCharge } from '@/lib/reconcile/flag-charge';
+import { matchesCharge } from '@/lib/reconcile/matches-charge';
+import { recoverLateSuccess } from '@/lib/reconcile/recover-late-success';
 import type { ReconcileDeps } from '@/lib/reconcile/reconcile-deps';
 import { RECONCILE_RESULT, type ReconcileResult } from '@/lib/reconcile/reconcile-result';
 import { verifyRequestFor } from '@/lib/reconcile/verify-request-for';
@@ -18,6 +20,8 @@ export const sweepLostCharge = async (
     verifyRequestFor(charge, await findPaymentMethodToken(db, charge.paymentMethodId)),
   );
   if (verified.outcome !== VERIFY_OUTCOME.SUCCEEDED) return RECONCILE_RESULT.LEFT;
+  if (matchesCharge(charge, verified) && (await recoverLateSuccess(db, charge, verified.providerChargeRef, now)))
+    return RECONCILE_RESULT.SETTLED;
   return (await flagCharge(db, logger, charge, RECONCILE_FLAG.LATE_SUCCESS, now))
     ? RECONCILE_RESULT.FLAGGED
     : RECONCILE_RESULT.LEFT;

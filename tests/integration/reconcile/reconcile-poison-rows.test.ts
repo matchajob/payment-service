@@ -90,10 +90,10 @@ describe('runReconcile: a charge that makes no progress goes to the back of the 
       const reconcile = reconcileWith(tx, providers.providerFor, silentLogger, ONE_PER_RUN);
 
       expect(await reconcile(FIRST_RUN)).toEqual(NOTHING_DONE);
-      expect(await reconcile(SECOND_RUN)).toEqual(FLAGGED_ONE);
+      expect(await reconcile(SECOND_RUN)).toEqual(SETTLED_ONE);
 
       expect(await chargesAfterHistory(tx, unchecked)).toEqual([
-        expect.objectContaining({ reconcileFlag: RECONCILE_FLAG.LATE_SUCCESS }),
+        expect.objectContaining({ status: CHARGE_STATUS.SUCCEEDED }),
       ]);
     });
   });

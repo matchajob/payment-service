@@ -5,6 +5,7 @@ import type { ChargeResult } from '@/lib/payments/provider';
 import { VERIFY_OUTCOME } from '@/lib/payments/verify-outcome';
 import { providerForConnectionId } from '@/lib/provider-connections/provider-for-connection-id';
 import { flagCharge } from '@/lib/reconcile/flag-charge';
+import { matchesCharge } from '@/lib/reconcile/matches-charge';
 import type { ReconcileDeps } from '@/lib/reconcile/reconcile-deps';
 import { RECONCILE_RESULT, type ReconcileResult } from '@/lib/reconcile/reconcile-result';
 import { RECONCILE_WINDOW } from '@/lib/reconcile/reconcile-windows';
@@ -13,9 +14,6 @@ import { verifyRequestFor } from '@/lib/reconcile/verify-request-for';
 import { findPaymentMethodToken } from '@/lib/payments-method/find-payment-method-token';
 
 const LOST: ChargeResult = { outcome: VERIFY_OUTCOME.FAILED, providerChargeRef: undefined, reason: NOT_FOUND_REASON };
-
-const matches = (charge: Charge, verified: Pick<Charge, 'amountMinor' | 'currency'>): boolean =>
-  verified.amountMinor === charge.amountMinor && verified.currency === charge.currency;
 
 export const reconcileCharge = async (
   { db, providerFor, logger }: ReconcileDeps,
@@ -37,7 +35,7 @@ export const reconcileCharge = async (
   const age = now.getTime() - charge.attemptedAt.getTime();
   switch (verified.outcome) {
     case VERIFY_OUTCOME.SUCCEEDED:
-      return matches(charge, verified) ? settle(verified) : flag(RECONCILE_FLAG.AMOUNT_MISMATCH);
+      return matchesCharge(charge, verified) ? settle(verified) : flag(RECONCILE_FLAG.AMOUNT_MISMATCH);
     case VERIFY_OUTCOME.FAILED:
       return settle(verified);
     case VERIFY_OUTCOME.PENDING:
