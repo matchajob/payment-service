@@ -1,6 +1,7 @@
 import { CHARGE_STATUS } from '@/lib/charges/charge-status';
 import { assertGrowSerial } from '@/lib/payments/grow/assert-grow-serial';
 import { assertIls } from '@/lib/payments/grow/assert-ils';
+import { GROW_DECLINE_ERROR } from '@/lib/payments/grow/grow-decline-error';
 import type { GrowContext } from '@/lib/payments/grow/grow-context';
 import { growDataOf } from '@/lib/payments/grow/grow-data-of';
 import { GROW_METHOD } from '@/lib/payments/grow/grow-method';
@@ -13,6 +14,8 @@ import { GROW_FIELD, GROW_WIRE_VALUE } from '@/lib/payments/grow/grow-wire-value
 import type { PaymentProvider } from '@/lib/payments/provider';
 
 const NOT_PAID = 'grow accepted the token charge but did not report it paid';
+const NOT_A_DECLINE = 'grow refused the token charge for a reason that is not a card decline, err.id';
+const DECLINE_IDS: ReadonlySet<number> = new Set(Object.values(GROW_DECLINE_ERROR));
 
 export const growCharge =
   ({ client, credentials }: GrowContext): PaymentProvider['charge'] =>
@@ -30,6 +33,7 @@ export const growCharge =
       [GROW_FIELD.PAYER_PHONE]: card.phone,
       transactionUniqueIdentifier: String(chargeSerial),
     });
+    if (!reply.ok && !DECLINE_IDS.has(reply.errorId)) throw new Error(`${NOT_A_DECLINE} ${reply.errorId}`);
     if (!reply.ok) return { outcome: CHARGE_STATUS.FAILED, providerChargeRef: undefined, reason: reply.message };
     const charged = growDataOf(GROW_METHOD.CREATE_TRANSACTION_WITH_TOKEN, reply, zTokenCharge);
     if (charged.statusCode !== GROW_STATUS_CODE.PAID) throw new Error(NOT_PAID);

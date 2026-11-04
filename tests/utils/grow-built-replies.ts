@@ -49,3 +49,6 @@ export const transactionInfoReply = (statusCode: string, sum: string, status = '
 
 export const tokenTransactionsReply = (...rows: GrowTransactionRow[]): string =>
   ok({ transactions: rows.map(transactionRow) });
+
+export const refusedReply = (id: number, message: string): string =>
+  JSON.stringify({ status: 0, err: { id, message }, data: '' });

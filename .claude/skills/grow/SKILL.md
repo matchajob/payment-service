@@ -105,7 +105,8 @@ Required only for regular `chargeType=1` payments. v1 never uses those, so the a
 | What came back | Class | Adapter does |
 |---|---|---|
 | Envelope, `status 1` | success | map `data` |
-| Envelope, `status 0`, any `err` | refused: Grow answered, nothing was charged | return `failed` with `err.message` as the reason |
+| Envelope, `status 0`, a card `err.id` (103, 140, 451–453) | declined: the card was refused | return `failed` with `err.message` as the reason |
+| Envelope, `status 0`, any other `err.id` | refused for a merchant or request reason (missing field 54, bad amount 707, credentials) | **throw.** A broken setup must never read as a decline (code-review-1 H3). Add a code to `GROW_DECLINE_ERROR` only once the sandbox shows it is about the card |
 | Timeout, network error, non-JSON body, envelope missing | ambiguous | **throw.** The charge stays `pending` and reconcile settles it |
 
 Never retry a token charge automatically. Each new attempt needs a new `transactionUniqueIdentifier`, and only the charge-cycle engine creates attempts.
