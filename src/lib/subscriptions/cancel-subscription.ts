@@ -1,4 +1,4 @@
-import { hasPendingCharge } from '@/lib/charges/has-pending-charge';
+import { hasChargeInFlight } from '@/lib/charges/has-charge-in-flight';
 import type { Database } from '@/lib/db';
 import { applyTransition, type TransitionChanges } from '@/lib/subscriptions/apply-transition';
 import { CANCEL_REASON } from '@/lib/subscriptions/cancel-reason';
@@ -24,7 +24,7 @@ const canceledNow = (now: Date): TransitionChanges => ({
 
 export const cancelSubscription = (db: Database, { tenant, subscriptionId, now }: SubscriptionCommandInput) =>
   withTenantSubscription(db, tenant, subscriptionId, async (tx, subscription, customer): Promise<CommandResult> => {
-    if (await hasPendingCharge(tx, subscriptionId)) return { kind: COMMAND_RESULT.CHARGE_IN_FLIGHT };
+    if (await hasChargeInFlight(tx, subscriptionId)) return { kind: COMMAND_RESULT.CHARGE_IN_FLIGHT };
     const outcome = transition(
       toState(subscription),
       LIFECYCLE_EVENT.CANCEL,

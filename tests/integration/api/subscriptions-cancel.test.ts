@@ -3,16 +3,19 @@ import { describe, expect, it } from 'vitest';
 import { problemSchema } from '@/contract/problem';
 import { subscriptionResponseSchema } from '@/contract/subscription-response';
 import type { Database } from '@/lib/db';
+import { RECONCILE_FLAG } from '@/lib/charges/reconcile-flag';
 import { CANCEL_REASON } from '@/lib/subscriptions/cancel-reason';
 import { OUTBOUND_EVENT_TYPE } from '@/lib/subscriptions/state-machine/outbound-event-types';
 import { REJECTION_REASON } from '@/lib/subscriptions/state-machine/rejection-reason';
 import { SCHEDULE_OWNER } from '@/lib/subscriptions/state-machine/schedule-owner';
 import { SUBSCRIPTION_STATUS } from '@/lib/subscriptions/state-machine/subscription-status';
+import { insertCycleCharge } from '@tests/utils/cycle-charge-insert';
 import { testDb, withRollback } from '@tests/utils/db';
 import { dunningDay, FIRST_RETRY_DAY } from '@tests/utils/dunning-days';
 import { seedPastDue } from '@tests/utils/dunning-rows';
 import { dunWith } from '@tests/utils/dunning-run';
 import { fakeProviderFactory } from '@tests/utils/fake-provider-factory';
+import { RENEWAL, RENEWAL_ATTEMPTED_AT } from '@tests/utils/pending-charge-shapes';
 import { eventsOf, subscriptionRow } from '@tests/utils/renewal-reads';
 import { PERIOD_END, seedRenewing } from '@tests/utils/renewal-rows';
 import { renewWith } from '@tests/utils/renewal-run';
@@ -163,6 +166,29 @@ describe('a cancel while a charge is in flight (slice 9 D3)', () => {
       expect(res.status).toBe(409);
       expect(await subscriptionRow(tx, subscription.subscriptionId)).toMatchObject({
         status: SUBSCRIPTION_STATUS.PAST_DUE,
+      });
+    });
+  });
+});
+
+describe('a cancel once reconcile has handed the charge to a human (code-review-1 M10)', () => {
+  it('goes through, since a flagged charge has no time limit and must not hold the customer hostage', async () => {
+    await withRollback(testDb(), async (tx) => {
+      const renewing = await seedRenewing(tx);
+      await insertCycleCharge(tx, renewing, RENEWAL, {
+        reconcileFlag: RECONCILE_FLAG.STUCK_PENDING,
+        flaggedAt: RENEWAL_ATTEMPTED_AT,
+      });
+
+      const res = await testApp(tx).request(
+        cancelPath(renewing.subscription.subscriptionId),
+        postNoBody(renewing.ctx.apiKey),
+      );
+
+      expect(res.status).toBe(200);
+      expect(await subscriptionRow(tx, renewing.subscription.subscriptionId)).toMatchObject({
+        status: SUBSCRIPTION_STATUS.ACTIVE,
+        cancelAtPeriodEnd: true,
       });
     });
   });
