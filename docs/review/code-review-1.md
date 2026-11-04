@@ -29,11 +29,11 @@ IDs `N1`… are findings that had no number in the sections below.
 | [x] | H4 | **High** | Charging / Reconcile | 100 failing rows block renewal, dunning and reconcile for every tenant | Bug | `ddf879b` |
 | [x] | M6 | **High** | Lifecycle | `active` and `entitled: true` while charge #1 is pending, forever if it's flagged | Bug | `2935de1` |
 | [x] | H2 | Medium | Reconcile | Card-update retry times out, reconcile settles it as a scheduled retry, customer canceled | Bug | `65ceb77` |
-| [x] | M9 | Medium | Reconcile | A `late_success` flag can never be cleared; a late-succeeded charge #1 leaves a payer canceled | Bug | `653a68e` (recovery), `653a68e` (resolve) |
+| [x] | M9 | Medium | Reconcile | A `late_success` flag can never be cleared; a late-succeeded charge #1 leaves a payer canceled | Bug | `653a68e` (recovery), `f574c70` (resolve) |
 | [x] | M10 | Medium | Reconcile / Lifecycle | A flagged charge blocks cancel with no time limit | Gap | `c2a22f5` |
 | [x] | H3 | Medium | Provider port | `ChargeResult` has no error branch, so an adapter could turn a credential failure into a mass decline | Gate | `dcd729a` (Grow: card err.ids only; Stripe already 402 card_error only) |
 | [x] | M25 | Medium | Webhooks | A garbage body makes `parseWebhook` throw: 500, provider retries forever (breaks Spec 4 r6) | Bug | `9267c88`, `54047bf`: both adapters parse garbage to `UNRECOGNIZED` (tested) |
-| [ ] | M1 | Medium | Webhooks | Event marked processed on `NOT_COMPLETED`, so the redelivery is dropped and the signup lost | Bug | |
+| [x] | M1 | Medium | Webhooks | Event marked processed on `NOT_COMPLETED`, so the redelivery is dropped and the signup lost | Bug | M1 commit (ADR 0022) |
 | [ ] | N1 | Medium | Webhooks / Housekeeping | Expiring a checkout doesn't expire it at the provider; a stale tab saves a card with no subscription | Gap | |
 | [x] | M2 | Medium | Idempotency | The hash covers the body only, so the same key across subscriptions replays the wrong response | Bug | `eba7b4e` |
 | [ ] | H5 | Medium | Data model | Nothing in the database stops a plan being repriced; renewals read the live price | Gap | |

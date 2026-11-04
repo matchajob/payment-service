@@ -1,16 +1,19 @@
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import type { Database } from '@/lib/db';
+import { effectiveDueOrder } from '@/lib/effective-due-order';
 import { subscriptionsTable, type Subscription } from '@/lib/subscriptions/schema';
 import { SUBSCRIPTION_STATUS } from '@/lib/subscriptions/state-machine/subscription-status';
 import { tenantsTable } from '@/lib/tenants/schema';
 
-export const findExpiredCheckouts = async (
-  db: Database,
-  now: Date,
-  limit: number,
-): Promise<Subscription['subscriptionId'][]> => {
-  const rows = await db
-    .select({ subscriptionId: subscriptionsTable.subscriptionId })
+export type ExpiredCheckout = Pick<Subscription, 'subscriptionId' | 'providerConnectionId' | 'checkoutSessionRef'>;
+
+export const findExpiredCheckouts = (db: Database, now: Date, limit: number): Promise<ExpiredCheckout[]> =>
+  db
+    .select({
+      subscriptionId: subscriptionsTable.subscriptionId,
+      providerConnectionId: subscriptionsTable.providerConnectionId,
+      checkoutSessionRef: subscriptionsTable.checkoutSessionRef,
+    })
     .from(subscriptionsTable)
     .innerJoin(tenantsTable, eq(tenantsTable.tenantId, subscriptionsTable.tenantId))
     .where(
@@ -19,7 +22,5 @@ export const findExpiredCheckouts = async (
         sql`${subscriptionsTable.createdAt} + make_interval(hours => ${tenantsTable.checkoutTtlHours}) <= ${now.toISOString()}::timestamptz`,
       ),
     )
-    .orderBy(asc(subscriptionsTable.createdAt))
+    .orderBy(effectiveDueOrder(subscriptionsTable.createdAt, subscriptionsTable.cycleDeferredAt))
     .limit(limit);
-  return rows.map(({ subscriptionId }) => subscriptionId);
-};

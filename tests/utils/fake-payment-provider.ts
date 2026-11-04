@@ -27,6 +27,8 @@ export type FakePaymentProvider = PaymentProvider & {
   scriptVerify: (result: VerifiedCharge) => void;
   failCheckouts: () => void;
   scriptCheckoutNotCompleted: () => void;
+  scriptCheckoutCompleted: () => void;
+  failCheckoutVerifies: () => void;
   failCharges: () => void;
   failVerifies: () => void;
   withoutReferenceLookup: () => void;
@@ -57,6 +59,7 @@ export const FAKE_CHARGE_TIMEOUT = 'fakePaymentProvider: charge scripted to time
 export const FAKE_CHECKOUT_FAILURE = 'fakePaymentProvider: checkout scripted to fail';
 export const FAKE_NO_CHECKOUT = 'fakePaymentProvider: no checkout started';
 export const FAKE_VERIFY_FAILURE = 'fakePaymentProvider: verifyCharge scripted to fail';
+export const FAKE_CHECKOUT_VERIFY_FAILURE = 'fakePaymentProvider: verifyCheckout scripted to fail';
 const UNSCRIPTED_CHARGES = 'fakePaymentProvider: charged with no scripted result, dedup keys';
 
 type ChargeScript = { result: ChargeResult; timesOut: boolean };
@@ -68,6 +71,7 @@ export const fakePaymentProvider = (): FakePaymentProvider => {
     verify: VerifiedCharge[];
     checkoutFails: boolean;
     checkoutNotCompleted: boolean;
+    checkoutVerifyThrows: boolean;
     chargeThrows: boolean;
     verifyThrows: boolean;
   } = {
@@ -75,6 +79,7 @@ export const fakePaymentProvider = (): FakePaymentProvider => {
     verify: [],
     checkoutFails: false,
     checkoutNotCompleted: false,
+    checkoutVerifyThrows: false,
     chargeThrows: false,
     verifyThrows: false,
   };
@@ -112,6 +117,12 @@ export const fakePaymentProvider = (): FakePaymentProvider => {
     scriptCheckoutNotCompleted: () => {
       scripted.checkoutNotCompleted = true;
     },
+    scriptCheckoutCompleted: () => {
+      scripted.checkoutNotCompleted = false;
+    },
+    failCheckoutVerifies: () => {
+      scripted.checkoutVerifyThrows = true;
+    },
     failCharges: () => {
       scripted.chargeThrows = true;
     },
@@ -123,6 +134,7 @@ export const fakePaymentProvider = (): FakePaymentProvider => {
     },
     verifyCheckout: async (sessionRef) => {
       calls.verifyCheckout.push(sessionRef);
+      if (scripted.checkoutVerifyThrows) throw new Error(FAKE_CHECKOUT_VERIFY_FAILURE);
       if (scripted.checkoutNotCompleted) return { outcome: CHECKOUT_VERIFICATION.NOT_COMPLETED };
       return { outcome: CHECKOUT_VERIFICATION.CARD_SAVED, paymentMethodToken: `token-${sessionRef}` };
     },

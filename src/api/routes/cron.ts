@@ -27,7 +27,12 @@ export const cronRoutes = ({ clock, providerFor, logger }: CronRouteDeps) =>
       c.json(await runDunning({ db: c.get('db'), providerFor, batchLimit: DUNNING_BATCH_LIMIT, logger }, clock.now())),
     )
     .post('/housekeeping', async (c) =>
-      c.json(await runHousekeeping({ db: c.get('db'), batchLimit: HOUSEKEEPING_BATCH_LIMIT, logger }, clock.now())),
+      c.json(
+        await runHousekeeping(
+          { db: c.get('db'), providerFor, batchLimit: HOUSEKEEPING_BATCH_LIMIT, logger },
+          clock.now(),
+        ),
+      ),
     )
     .post('/reconcile', async (c) =>
       c.json(

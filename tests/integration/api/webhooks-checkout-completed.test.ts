@@ -294,6 +294,24 @@ describe('checkout completed webhook (S1 r2, ADR 0007, ADR 0008)', () => {
       });
     });
 
+    it('leaves the webhook unprocessed while the provider cannot confirm the save, so a redelivery activates (code-review-1 M1)', async () => {
+      await withRollback(testDb(), async (tx) => {
+        const { provider, subscriptionId, complete } = await setup(tx);
+        provider.scriptCheckoutNotCompleted();
+        await complete();
+        expect(await tx.select().from(webhookEventsTable)).toEqual([expect.objectContaining({ processedAt: null })]);
+
+        provider.scriptCheckoutCompleted();
+        provider.scriptCharge(SUCCEEDED);
+        expect((await complete()).status).toBe(200);
+
+        expect(await subscriptionRow(tx, subscriptionId)).toMatchObject({ status: SUBSCRIPTION_STATUS.ACTIVE });
+        expect(await tx.select().from(webhookEventsTable)).toEqual([
+          expect.objectContaining({ processedAt: TEST_NOW }),
+        ]);
+      });
+    });
+
     it('is a no-op for a canceled subscription (row 16, the canceled firewall)', async () => {
       await withRollback(testDb(), async (tx) => {
         const { provider, subscriptionId, complete } = await setup(tx);

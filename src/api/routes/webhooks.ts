@@ -4,6 +4,7 @@ import { HTTP_STATUS } from '@/api/http-status';
 import { problemResponse } from '@/api/problem-response';
 import type { Clock } from '@/lib/clock';
 import { WEBHOOK_KIND } from '@/lib/payments/webhook-kind';
+import { CHECKOUT_COMPLETION } from '@/lib/subscriptions/checkout-completion';
 import { findProviderConnection } from '@/lib/provider-connections/find-provider-connection';
 import type { ProviderFor } from '@/lib/provider-connections/provider-for';
 import { zProviderConnectionRead } from '@/lib/provider-connections/schema';
@@ -33,16 +34,18 @@ export const webhooksRoutes = (providerFor: ProviderFor, clock: Clock) =>
 
     const provider = await providerFor(connection);
     const parsed = provider.parseWebhook(event.rawBody);
-    if (parsed.kind === WEBHOOK_KIND.CHECKOUT_COMPLETED) {
-      await handleCheckoutCompleted(
-        { db, provider, clock },
-        {
-          providerConnectionId: connection.providerConnectionId,
-          reference: parsed.reference,
-          sessionRef: parsed.sessionRef,
-        },
-      );
-    }
+    const completion =
+      parsed.kind === WEBHOOK_KIND.CHECKOUT_COMPLETED
+        ? await handleCheckoutCompleted(
+            { db, provider, clock },
+            {
+              providerConnectionId: connection.providerConnectionId,
+              reference: parsed.reference,
+              sessionRef: parsed.sessionRef,
+            },
+          )
+        : CHECKOUT_COMPLETION.HANDLED;
+    if (completion === CHECKOUT_COMPLETION.NOT_COMPLETED) return c.body(null, HTTP_STATUS.OK);
     await markWebhookProcessed(db, event.webhookEventId, clock.now());
     return c.body(null, HTTP_STATUS.OK);
   });

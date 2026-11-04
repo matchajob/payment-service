@@ -9,6 +9,7 @@ import type { ProviderConnection } from '@/lib/provider-connections/schema';
 import { activateCheckout } from '@/lib/subscriptions/activate-checkout';
 import { ACTIVATION } from '@/lib/subscriptions/activation';
 import { cancelAlreadySubscribed } from '@/lib/subscriptions/cancel-already-subscribed';
+import { CHECKOUT_COMPLETION, type CheckoutCompletion } from '@/lib/subscriptions/checkout-completion';
 import { findSubscriptionOnConnection } from '@/lib/subscriptions/find-subscription-on-connection';
 import { zSubscriptionRead } from '@/lib/subscriptions/schema';
 import { settleFirstCharge } from '@/lib/subscriptions/settle-first-charge';
@@ -28,15 +29,15 @@ export type CompleteCheckoutInput = {
 export const completeCheckout = async (
   { db, provider, clock }: CompleteCheckoutDeps,
   { providerConnectionId, reference, sessionRef }: CompleteCheckoutInput,
-): Promise<void> => {
+): Promise<CheckoutCompletion> => {
   const subscriptionId = zSubscriptionRead.shape.subscriptionId.safeParse(reference);
-  if (!subscriptionId.success) return;
+  if (!subscriptionId.success) return CHECKOUT_COMPLETION.HANDLED;
   const subscription = await findSubscriptionOnConnection(db, providerConnectionId, subscriptionId.data);
-  if (subscription?.status !== SUBSCRIPTION_STATUS.INCOMPLETE) return;
-  if (subscription.checkoutSessionRef !== sessionRef) return;
+  if (subscription?.status !== SUBSCRIPTION_STATUS.INCOMPLETE) return CHECKOUT_COMPLETION.HANDLED;
+  if (subscription.checkoutSessionRef !== sessionRef) return CHECKOUT_COMPLETION.HANDLED;
 
   const verified = await provider.verifyCheckout(sessionRef);
-  if (verified.outcome === CHECKOUT_VERIFICATION.NOT_COMPLETED) return;
+  if (verified.outcome === CHECKOUT_VERIFICATION.NOT_COMPLETED) return CHECKOUT_COMPLETION.NOT_COMPLETED;
 
   const tenant = await findTenant(db, subscription.tenantId);
   const customer = await findCustomer(db, subscription.tenantId, subscription.customerId);
@@ -59,11 +60,12 @@ export const completeCheckout = async (
       customer,
       now: clock.now(),
     });
-    return;
+    return CHECKOUT_COMPLETION.HANDLED;
   }
-  if (activation.kind === ACTIVATION.RACED) return;
+  if (activation.kind === ACTIVATION.RACED) return CHECKOUT_COMPLETION.HANDLED;
 
   const { charge } = activation;
   const result = await provider.charge(chargeRequestFor(charge, verified.paymentMethodToken));
   await settleFirstCharge(db, { charge, result, tenant, customer, now: clock.now() });
+  return CHECKOUT_COMPLETION.HANDLED;
 };

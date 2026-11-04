@@ -9,6 +9,7 @@ import type { PaymentMethodUpdate } from '@/lib/payment-method-updates/schema';
 import { CHECKOUT_VERIFICATION } from '@/lib/payments/checkout-verification';
 import type { PaymentProvider } from '@/lib/payments/provider';
 import { chargeRequestFor } from '@/lib/charges/charge-request-for';
+import { CHECKOUT_COMPLETION, type CheckoutCompletion } from '@/lib/subscriptions/checkout-completion';
 
 export type CompletePaymentMethodUpdateDeps = { db: Database; provider: PaymentProvider; clock: Clock };
 
@@ -16,19 +17,20 @@ export const completePaymentMethodUpdate = async (
   { db, provider, clock }: CompletePaymentMethodUpdateDeps,
   update: PaymentMethodUpdate,
   reference: string,
-): Promise<void> => {
-  if (update.completedAt !== null || update.subscriptionId !== reference) return;
+): Promise<CheckoutCompletion> => {
+  if (update.completedAt !== null || update.subscriptionId !== reference) return CHECKOUT_COMPLETION.HANDLED;
   const verified = await provider.verifyCheckout(update.sessionRef);
-  if (verified.outcome === CHECKOUT_VERIFICATION.NOT_COMPLETED) return;
+  if (verified.outcome === CHECKOUT_VERIFICATION.NOT_COMPLETED) return CHECKOUT_COMPLETION.NOT_COMPLETED;
 
   const replaced = await replacePaymentMethod(db, {
     update,
     paymentMethodToken: verified.paymentMethodToken,
     now: clock.now(),
   });
-  if (replaced.kind !== REPLACEMENT.RETRY) return;
+  if (replaced.kind !== REPLACEMENT.RETRY) return CHECKOUT_COMPLETION.HANDLED;
 
   const { charge, parties } = replaced;
   const result = await provider.charge(chargeRequestFor(charge, verified.paymentMethodToken));
   await settleCycleCharge(immediateRetryDecide, db, { charge, result, parties, now: clock.now() });
+  return CHECKOUT_COMPLETION.HANDLED;
 };
