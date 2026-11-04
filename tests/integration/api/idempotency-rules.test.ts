@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { problemSchema } from '@/contract/problem';
-import { sha256Hex } from '@/lib/crypto/sha256-hex';
 import { customersTable } from '@/lib/customers/schema';
 import type { Database } from '@/lib/db';
+import { requestHash } from '@/lib/idempotency/request-hash';
 import { RESERVATION_TTL_MS } from '@/lib/idempotency/reservation-ttl';
 import { idempotencyKeysTable, zIdempotencyKeyRead } from '@/lib/idempotency/schema';
 import type { Tenant } from '@/lib/tenants/schema';
@@ -20,7 +20,7 @@ const reserveDirectly = async (db: Database, tenantId: Tenant['tenantId'], key: 
   await db.insert(idempotencyKeysTable).values({
     tenantId,
     key: zIdempotencyKeyRead.shape.key.parse(key),
-    requestHash: sha256Hex(JSON.stringify(BODY)),
+    requestHash: requestHash({ method: 'POST', path: CUSTOMERS_PATH, body: JSON.stringify(BODY) }),
     reservedAt,
     responseBody: null,
   });

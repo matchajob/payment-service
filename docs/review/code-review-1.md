@@ -32,7 +32,7 @@ IDs `N1`… are findings that had no number in the sections below.
 | [ ] | M9 | Medium | Reconcile | A `late_success` flag can never be cleared; a late-succeeded charge #1 leaves a payer canceled | Bug | |
 | [ ] | M10 | Medium | Reconcile / Lifecycle | A flagged charge blocks cancel with no time limit | Gap | |
 | [ ] | H3 | Medium | Provider port | `ChargeResult` has no error branch, so an adapter could turn a credential failure into a mass decline | Gate | |
-| [ ] | M25 | Medium | Webhooks | A garbage body makes `parseWebhook` throw: 500, provider retries forever (breaks Spec 4 r6) | Bug | |
+| [x] | M25 | Medium | Webhooks | A garbage body makes `parseWebhook` throw: 500, provider retries forever (breaks Spec 4 r6) | Bug | `9267c88`, `54047bf`: both adapters parse garbage to `UNRECOGNIZED` (tested) |
 | [ ] | M1 | Medium | Webhooks | Event marked processed on `NOT_COMPLETED`, so the redelivery is dropped and the signup lost | Bug | |
 | [ ] | N1 | Medium | Webhooks / Housekeeping | Expiring a checkout doesn't expire it at the provider; a stale tab saves a card with no subscription | Gap | |
 | [ ] | M2 | Medium | Idempotency | The hash covers the body only, so the same key across subscriptions replays the wrong response | Bug | |
@@ -360,6 +360,18 @@ Note on H3: `ChargeResult` is read as a binary in `record-charge-result`, `settl
 9. **Provider checkout-session expiry vs `checkoutTtlHours`.**
 10. **Tenant API-key rotation and revocation:** there is no tool or flag today.
 11. **SDK default idempotency keys:** generate per call (today), or require the caller to pass one.
+
+### Decided 2026-11-02
+
+- **M2:** the request hash covers method, path and body. Tenant scoping was already there (`(tenantId, key)` unique).
+- **M6 (5):** `entitled` is false until charge #1 succeeds; status stays `active`.
+- **H3 (3):** Grow treats only known card `err.id`s (103, 140, 451–453) as a decline. Any other `status 0` throws, so the charge stays pending for reconcile.
+- **M1 + N1 (9):** NOT_COMPLETED leaves the webhook unprocessed. Housekeeping calls `verifyCheckout` before expiring a checkout and completes it if the card was saved. `CheckoutRequest` gains `expiresAt` for providers that honour it (Stripe `expires_at`).
+- **H5 + N2 (4):** a BEFORE UPDATE trigger rejects changes to a plan's amount, currency or interval. Seed gains an `add-plan` command for an existing tenant.
+- **M9 (7):** a late success on a renewal or dunning charge applies as a recovery. On charge #1 of a canceled subscription, canceled stays terminal; the operator refunds at the provider and clears the flag with a reason via the settle CLI.
+- **M10 (8):** only an unflagged pending charge blocks cancel. Once flagged, cancel goes through, and a later succeeded settlement is handled as in M9.
+- **N12:** per-tenant IANA `timeZone`; the anchor day and billing hour are computed in it.
+- **M13:** composite `(tenant_id, id)` foreign keys (no decision needed).
 
 ## Ten highest-value missing tests
 
