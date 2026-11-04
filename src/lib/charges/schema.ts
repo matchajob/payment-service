@@ -76,6 +76,8 @@ export const chargesEntity = defineEntity(
     reconcileFlag: (f) => entityFromDzd(dzdThemeEnum.fromPair(f, reconcileFlagEnum), DZD_NULLABLE),
     flaggedAt: (f) => entityFromDzd(dzdThemeTimestamp.custom(f), DZD_NULLABLE),
     reconcileDeferredAt: (f) => entityFromDzd(dzdThemeTimestamp.custom(f), DZD_NULLABLE),
+    flagResolvedAt: (f) => entityFromDzd(dzdThemeTimestamp.custom(f), DZD_NULLABLE),
+    flagResolution: (f) => entityFromDzd(dzdThemeStr.nonEmpty.errorMessage(f), DZD_NULLABLE),
   },
   {
     extraConstraints: (t) => [
@@ -88,6 +90,11 @@ export const chargesEntity = defineEntity(
         sql`(${t.status} = ${sqlLiteral(CHARGE_STATUS.FAILED)}) = (${t.failureReason} is not null)`,
       ),
       check('charges_reconcile_flag_iff_flagged_at', sql`(${t.reconcileFlag} is null) = (${t.flaggedAt} is null)`),
+      check(
+        'charges_flag_resolution_iff_resolved_at',
+        sql`(${t.flagResolution} is null) = (${t.flagResolvedAt} is null)`,
+      ),
+      check('charges_resolved_only_when_flagged', sql`${t.flagResolvedAt} is null or ${t.reconcileFlag} is not null`),
       unique('charges_one_per_attempt').on(t.subscriptionId, t.periodEnd, t.attempt),
       unique('charges_charge_serial_unique').on(t.chargeSerial),
       uniqueIndex('charges_one_live_per_period')

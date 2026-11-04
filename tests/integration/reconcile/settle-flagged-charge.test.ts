@@ -6,10 +6,17 @@ import { zChargeRead } from '@/lib/charges/schema';
 import { SETTLE_FLAGGED } from '@/lib/reconcile/settle-flagged-outcome';
 import { settleFlaggedCharge } from '@/lib/reconcile/settle-flagged-charge';
 import { OUTBOUND_EVENT_TYPE } from '@/lib/subscriptions/state-machine/outbound-event-types';
+import { cancelSubscription } from '@/lib/subscriptions/cancel-subscription';
 import { SUBSCRIPTION_STATUS } from '@/lib/subscriptions/state-machine/subscription-status';
+import { findTenant } from '@/lib/tenants/find-tenant';
 import { testDb, withRollback } from '@tests/utils/db';
 import { RENEWAL_ATTEMPTED_AT } from '@tests/utils/pending-charge-shapes';
-import { seedLostRenewal, seedPendingFirstCharge, seedPendingRenewal } from '@tests/utils/pending-charge-rows';
+import {
+  seedLostRenewal,
+  seedPendingFirstCharge,
+  seedPendingRenewal,
+  seedPendingRetry,
+} from '@tests/utils/pending-charge-rows';
 import { after, GIVE_UP_MS } from '@tests/utils/reconcile-times';
 import { chargesAfterHistory, chargesOf, eventsOf, subscriptionRow } from '@tests/utils/renewal-reads';
 import { NEXT_PERIOD_END, PERIOD_END } from '@tests/utils/renewal-rows';
@@ -84,6 +91,28 @@ describe('settleFlaggedCharge: a human settles what reconcile could not (ADR 001
       expect(await chargesAfterHistory(tx, { subscription, history })).toEqual([
         expect.objectContaining({ reconcileFlag: RECONCILE_FLAG.STUCK_PENDING, flaggedAt: FLAGGED_AT }),
       ]);
+    });
+  });
+});
+
+describe('settleFlaggedCharge: a success that arrives after the customer canceled (code-review-1 M9, M10)', () => {
+  it('records the success and says a refund is needed, since a canceled subscription cannot take it', async () => {
+    await withRollback(testDb(), async (tx) => {
+      const { ctx, subscription, charge, history } = await seedPendingRetry(tx, STUCK);
+      const tenant = await findTenant(tx, ctx.tenantId);
+      if (tenant === undefined) throw new Error('tenant missing');
+      await cancelSubscription(tx, { tenant, subscriptionId: subscription.subscriptionId, now: FLAGGED_AT });
+
+      expect(await settleFlaggedCharge(tx, { chargeId: charge.chargeId, result: SUCCEEDED }, SETTLED_AT)).toBe(
+        SETTLE_FLAGGED.SETTLED_NEEDS_REFUND,
+      );
+
+      expect(await chargesAfterHistory(tx, { subscription, history })).toEqual([
+        expect.objectContaining({ status: CHARGE_STATUS.SUCCEEDED, flagResolvedAt: null }),
+      ]);
+      expect(await subscriptionRow(tx, subscription.subscriptionId)).toMatchObject({
+        status: SUBSCRIPTION_STATUS.CANCELED,
+      });
     });
   });
 });
