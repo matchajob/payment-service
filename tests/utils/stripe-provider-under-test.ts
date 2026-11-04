@@ -12,6 +12,7 @@ import {
   customerReply,
   STRIPE_PAYMENT_METHOD_ID,
 } from '@tests/utils/stripe-session-replies';
+import { CHECKOUT_WINDOW } from '@tests/utils/checkout-window-fixtures';
 
 export const STRIPE_TEST_BASE_URL = 'https://api.stripe.test';
 export const STRIPE_TEST_TIMEOUT_MS = 50;
@@ -37,6 +38,7 @@ export const startedStripeSession = async ({ stripe, wire }: StripeUnderTest) =>
     amountMinor: STRIPE_TEST_PLAN_MINOR,
     currency: CURRENCY.ILS,
     returnUrl: STRIPE_TEST_RETURN_URL,
+    ...CHECKOUT_WINDOW,
   });
 };
 

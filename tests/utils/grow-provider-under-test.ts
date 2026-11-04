@@ -4,6 +4,7 @@ import { CHECKOUT_MODE } from '@/lib/payments/checkout-mode';
 import { CHECKOUT_VERIFICATION } from '@/lib/payments/checkout-verification';
 import { growProvider } from '@/lib/payments/grow/grow-provider';
 import type { PaymentProvider } from '@/lib/payments/provider';
+import { CHECKOUT_WINDOW } from '@tests/utils/checkout-window-fixtures';
 import { fakeGrowFetch, type FakeGrowFetch } from '@tests/utils/fake-grow-fetch';
 import { cardSavedReply, SAVED_CARD_TOKEN } from '@tests/utils/grow-built-replies';
 import { GROW_CREDENTIALS } from '@tests/utils/provider-credentials-fixtures';
@@ -37,6 +38,7 @@ export const startedSessionRef = async ({ grow, wire }: GrowUnderTest, reply = R
     amountMinor: GROW_TEST_PLAN_MINOR,
     currency: CURRENCY.ILS,
     returnUrl: GROW_TEST_RETURN_URL,
+    ...CHECKOUT_WINDOW,
   });
   return providerSessionRef;
 };

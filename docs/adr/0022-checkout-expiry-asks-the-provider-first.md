@@ -2,7 +2,7 @@
 
 **Status:** Accepted, 2026-11-04
 **Amends:** Spec 4 rule 6 (when a webhook counts as processed), Spec 1 r3 (checkout expiry), ADR 0021 decision 2 (housekeeping joins the deferred queues).
-**Fixes:** code-review-1 M1.
+**Fixes:** code-review-1 M1 and N1.
 
 ## Context
 
@@ -18,10 +18,11 @@ Answering 5xx so the provider redelivers was rejected. Grow's production review 
 1. `completeCheckout` and `completePaymentMethodUpdate` return `handled` or `not_completed`. The webhook route marks the event processed only when the result is `handled`. It still answers 200 either way, and a redelivery is interpreted again because `processedAt` is null.
 2. Before expiring a checkout that has a provider session, housekeeping runs `completeCheckout` against the provider. If the card was saved, the subscription activates and charge #1 is taken, exactly as the webhook would have done it. If not, the subscription is expired as before. A checkout with no session ref expires directly.
 3. When asking the provider throws, the subscription stays `incomplete`. Housekeeping stamps `cycle_deferred_at` and sorts by `greatest(created_at, cycle_deferred_at)`, so an unreachable provider can't starve the batch (ADR 0021). An incomplete subscription has no renewal or dunning, so sharing the column with those queues is safe.
+4. **The provider's session expires with ours where the provider allows it (N1).** `CheckoutRequest` carries `requestedAt` and `expiresAt`, which is `requestedAt` plus the tenant's `checkoutTtlHours`. Both new subscriptions and card updates send it. Stripe sends it as `expires_at`, clamped to between 30 minutes and 23 hours after `requestedAt`. Stripe refuses anything over 24 hours from its own clock, and the hour of margin absorbs clock skew. Grow's `createPaymentProcess` documents no session lifetime, so the Grow adapter ignores both fields. For Grow, decisions 1–3 are the only guard.
 
 ## Consequences
 
 - Housekeeping can now move money: it may take charge #1. It goes through the same activation, dedup key and one-live index as the webhook, so a webhook and housekeeping racing on the same checkout still charge once (`RACED`).
 - A provider that stays down keeps its checkouts `incomplete` past the TTL. They expire on the first run that can ask.
-- A card saved after housekeeping's `NOT_COMPLETED` answer and before the expiry commits is still left saved with no subscription. No money moves. Making the provider's own session expire (N1) narrows that window.
+- A card saved after housekeeping's `NOT_COMPLETED` answer and before the expiry commits is still left saved with no subscription. No money moves. Decision 4 narrows that window to zero on Stripe for TTLs up to 23 hours; on Grow it stays open.
 - Webhook events that never confirm stay unprocessed. They are harmless rows; housekeeping is the backstop that settles their subscriptions.

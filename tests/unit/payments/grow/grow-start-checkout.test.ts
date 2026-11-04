@@ -18,6 +18,7 @@ import {
 } from '@tests/utils/grow-recorded-replies';
 import { GROW_PAGE_CODE, GROW_USER_ID } from '@tests/utils/provider-credentials-fixtures';
 import { GROW_WIRE_METHOD } from '@tests/utils/grow-wire-methods';
+import { CHECKOUT_WINDOW } from '@tests/utils/checkout-window-fixtures';
 
 const CREATE_TOKEN_CHARGE_TYPE = '3';
 const SAVE_CARD_TOKEN = '1';
@@ -29,6 +30,7 @@ const capture: CheckoutRequest = {
   amountMinor: GROW_TEST_PLAN_MINOR,
   currency: CURRENCY.ILS,
   returnUrl: GROW_TEST_RETURN_URL,
+  ...CHECKOUT_WINDOW,
 };
 
 describe('growProvider.startCheckout: a card-only save (ADR 0007, grow skill createPaymentProcess)', () => {

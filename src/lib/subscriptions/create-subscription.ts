@@ -3,6 +3,7 @@ import type { Database } from '@/lib/db';
 import { findCustomer } from '@/lib/customers/find-customer';
 import type { Customer } from '@/lib/customers/schema';
 import { CHECKOUT_MODE } from '@/lib/payments/checkout-mode';
+import { checkoutWindow } from '@/lib/payments/checkout-window';
 import { findPlan } from '@/lib/plans/find-plan';
 import type { Plan } from '@/lib/plans/schema';
 import { CREATE_SUBSCRIPTION_OUTCOME } from '@/lib/subscriptions/create-subscription-outcome';
@@ -22,6 +23,7 @@ export type CreateSubscriptionInput = {
   customerId: Customer['customerId'];
   planId: Plan['planId'];
   returnUrl: string;
+  now: Date;
 };
 
 export type CreateSubscriptionResult =
@@ -31,7 +33,7 @@ export type CreateSubscriptionResult =
 
 export const createSubscription = async (
   { db, providerFor }: CreateSubscriptionDeps,
-  { tenant, customerId, planId, returnUrl }: CreateSubscriptionInput,
+  { tenant, customerId, planId, returnUrl, now }: CreateSubscriptionInput,
 ): Promise<CreateSubscriptionResult> => {
   const customer = await findCustomer(db, tenant.tenantId, customerId);
   if (customer === undefined) return { outcome: CREATE_SUBSCRIPTION_OUTCOME.CUSTOMER_NOT_FOUND };
@@ -49,6 +51,7 @@ export const createSubscription = async (
     amountMinor: plan.amountMinor,
     currency: plan.currency,
     returnUrl,
+    ...checkoutWindow(now, tenant.checkoutTtlHours),
   });
 
   const [subscription] = await db

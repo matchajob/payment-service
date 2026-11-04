@@ -33,8 +33,8 @@ IDs `N1`… are findings that had no number in the sections below.
 | [x] | M10 | Medium | Reconcile / Lifecycle | A flagged charge blocks cancel with no time limit | Gap | `c2a22f5` |
 | [x] | H3 | Medium | Provider port | `ChargeResult` has no error branch, so an adapter could turn a credential failure into a mass decline | Gate | `dcd729a` (Grow: card err.ids only; Stripe already 402 card_error only) |
 | [x] | M25 | Medium | Webhooks | A garbage body makes `parseWebhook` throw: 500, provider retries forever (breaks Spec 4 r6) | Bug | `9267c88`, `54047bf`: both adapters parse garbage to `UNRECOGNIZED` (tested) |
-| [x] | M1 | Medium | Webhooks | Event marked processed on `NOT_COMPLETED`, so the redelivery is dropped and the signup lost | Bug | M1 commit (ADR 0022) |
-| [ ] | N1 | Medium | Webhooks / Housekeeping | Expiring a checkout doesn't expire it at the provider; a stale tab saves a card with no subscription | Gap | |
+| [x] | M1 | Medium | Webhooks | Event marked processed on `NOT_COMPLETED`, so the redelivery is dropped and the signup lost | Bug | `4dd488d` (ADR 0022) |
+| [x] | N1 | Medium | Webhooks / Housekeeping | Expiring a checkout doesn't expire it at the provider; a stale tab saves a card with no subscription | Gap | N1 commit (ADR 0022 d4; Grow has no session TTL) |
 | [x] | M2 | Medium | Idempotency | The hash covers the body only, so the same key across subscriptions replays the wrong response | Bug | `eba7b4e` |
 | [ ] | H5 | Medium | Data model | Nothing in the database stops a plan being repriced; renewals read the live price | Gap | |
 | [ ] | M13 | Medium | Data model | Tenant integrity not enforced: foreign keys use the id only, and a charge can point at another subscription's card | Gap | |

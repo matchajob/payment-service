@@ -19,6 +19,8 @@ export type CheckoutRequest = {
   amountMinor: number;
   currency: Currency;
   returnUrl: string;
+  requestedAt: Date;
+  expiresAt: Date;
 };
 export type CheckoutSession = { checkoutUrl: string; providerSessionRef: string };
 

@@ -1,5 +1,6 @@
 import type { Database } from '@/lib/db';
 import { CHECKOUT_MODE } from '@/lib/payments/checkout-mode';
+import { checkoutWindow } from '@/lib/payments/checkout-window';
 import { paymentMethodUpdatesTable } from '@/lib/payment-method-updates/schema';
 import { START_CARD_UPDATE } from '@/lib/payment-method-updates/start-card-update-outcome';
 import { findPlan } from '@/lib/plans/find-plan';
@@ -51,6 +52,7 @@ export const startPaymentMethodUpdate = async (
     amountMinor: plan.amountMinor,
     currency: plan.currency,
     returnUrl,
+    ...checkoutWindow(now, tenant.checkoutTtlHours),
   });
   await db.insert(paymentMethodUpdatesTable).values({
     tenantId: tenant.tenantId,

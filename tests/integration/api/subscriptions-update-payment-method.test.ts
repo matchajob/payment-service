@@ -20,6 +20,8 @@ import { chargesAfterHistory, chargesOf, eventsOf, subscriptionRow } from '@test
 import { seedRenewing } from '@tests/utils/renewal-rows';
 import { updatePaymentMethodPath } from '@tests/utils/subscription-api';
 import { GLOBEX } from '@tests/utils/tenant-fixtures';
+import { TENANT_POLICY_DEFAULTS } from '@/lib/tenants/tenant-policy-defaults';
+import { HOUR_MS } from '@tests/utils/reconcile-times';
 
 const UPDATED_AT = new Date('2026-02-01T10:00:00.000Z');
 const NOT_A_WEB_URL = 'ftp://tenant.test/billing/card-updated';
@@ -53,6 +55,8 @@ describe('POST /v1/subscriptions/:id/update-payment-method (S1 r13, ADR 0018)', 
           amountMinor: active.ctx.plan.amountMinor,
           currency: active.ctx.plan.currency,
           returnUrl: CARD_UPDATE_RETURN_URL,
+          requestedAt: UPDATED_AT,
+          expiresAt: new Date(UPDATED_AT.getTime() + TENANT_POLICY_DEFAULTS.checkoutTtlHours * HOUR_MS),
         },
       ]);
     });

@@ -14,6 +14,7 @@ import { GROW_CREDENTIALS, GROW_USER_ID } from '@tests/utils/provider-credential
 import { STRIPE_CREDENTIALS, STRIPE_SECRET_KEY } from '@tests/utils/stripe-credentials-fixtures';
 import { STRIPE_PATH } from '@tests/utils/stripe-paths';
 import { createdSessionReply, customerReply } from '@tests/utils/stripe-session-replies';
+import { CHECKOUT_WINDOW } from '@tests/utils/checkout-window-fixtures';
 
 const PUBLIC_BASE_URL = 'https://payments.test';
 const GROW_BASE_URL = 'https://sandbox.grow.test/api/light/server/1.0/';
@@ -44,6 +45,7 @@ const startCheckout = async (provider: ReturnType<ReturnType<typeof built>['buil
     amountMinor: GROW_TEST_PLAN_MINOR,
     currency: CURRENCY.ILS,
     returnUrl: GROW_TEST_RETURN_URL,
+    ...CHECKOUT_WINDOW,
   });
 
 describe('buildProviderFrom: a Grow connection gets a Grow adapter (WORKPLAN slice 13, ADR 0010 decision 3)', () => {

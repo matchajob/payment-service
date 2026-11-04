@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CURRENCY } from '@/lib/money/currency';
 import { CHECKOUT_MODE } from '@/lib/payments/checkout-mode';
 import type { CheckoutRequest } from '@/lib/payments/provider';
+import { STRIPE_FIELD } from '@/lib/payments/stripe/stripe-wire-values';
 import { STRIPE_SECRET_KEY } from '@tests/utils/stripe-credentials-fixtures';
 import { STRIPE_PATH } from '@tests/utils/stripe-paths';
 import { invalidRequestReply } from '@tests/utils/stripe-payment-intent-replies';
@@ -18,8 +19,14 @@ import {
   STRIPE_CUSTOMER_ID,
   STRIPE_SESSION_ID,
 } from '@tests/utils/stripe-session-replies';
+import { CHECKOUT_WINDOW, unixSeconds } from '@tests/utils/checkout-window-fixtures';
+import { HOUR_MS, MINUTE_MS } from '@tests/utils/reconcile-times';
 
 const HTTP_BAD_REQUEST = 400;
+const LONGEST_STRIPE_SESSION_HOURS = 23;
+const SHORTEST_STRIPE_SESSION_MINUTES = 30;
+const TWO_DAYS_HOURS = 48;
+const TEN_MINUTES = 10;
 
 const capture: CheckoutRequest = {
   mode: CHECKOUT_MODE.CAPTURE,
@@ -27,6 +34,7 @@ const capture: CheckoutRequest = {
   amountMinor: STRIPE_TEST_PLAN_MINOR,
   currency: CURRENCY.ILS,
   returnUrl: STRIPE_TEST_RETURN_URL,
+  ...CHECKOUT_WINDOW,
 };
 const charge: CheckoutRequest = { ...capture, mode: CHECKOUT_MODE.CHARGE, currency: CURRENCY.USD };
 
@@ -63,6 +71,7 @@ describe('stripeProvider.startCheckout: a card-only save (ADR 0007, ADR 0020 dec
           client_reference_id: STRIPE_TEST_REFERENCE,
           success_url: STRIPE_TEST_RETURN_URL,
           cancel_url: STRIPE_TEST_RETURN_URL,
+          expires_at: unixSeconds(CHECKOUT_WINDOW.expiresAt),
         },
       }),
     );
@@ -112,8 +121,33 @@ describe('stripeProvider.startCheckout: a charging checkout (ADR 0020 decision 3
           client_reference_id: STRIPE_TEST_REFERENCE,
           success_url: STRIPE_TEST_RETURN_URL,
           cancel_url: STRIPE_TEST_RETURN_URL,
+          expires_at: unixSeconds(CHECKOUT_WINDOW.expiresAt),
         },
       }),
     ]);
+  });
+});
+
+describe("stripeProvider.startCheckout: the session expires with our checkout, within Stripe's limits (code-review-1 N1)", () => {
+  const expiresAtSent = async (expiresAt: Date) => {
+    const { stripe, wire } = stripeUnderTest();
+    wire.reply(customerReply());
+    wire.reply(createdSessionReply());
+    await stripe.startCheckout({ ...capture, expiresAt });
+    return wire.requests[1]?.fields[STRIPE_FIELD.EXPIRES_AT];
+  };
+
+  it('caps a checkout TTL longer than a Stripe session can live, leaving an hour for clock skew', async () => {
+    const twoDays = new Date(CHECKOUT_WINDOW.requestedAt.getTime() + TWO_DAYS_HOURS * HOUR_MS);
+    expect(await expiresAtSent(twoDays)).toBe(
+      unixSeconds(new Date(CHECKOUT_WINDOW.requestedAt.getTime() + LONGEST_STRIPE_SESSION_HOURS * HOUR_MS)),
+    );
+  });
+
+  it('raises a TTL shorter than Stripe accepts to its 30 minute floor', async () => {
+    const tenMinutes = new Date(CHECKOUT_WINDOW.requestedAt.getTime() + TEN_MINUTES * MINUTE_MS);
+    expect(await expiresAtSent(tenMinutes)).toBe(
+      unixSeconds(new Date(CHECKOUT_WINDOW.requestedAt.getTime() + SHORTEST_STRIPE_SESSION_MINUTES * MINUTE_MS)),
+    );
   });
 });

@@ -4,13 +4,15 @@ import type { StripeContext } from '@/lib/payments/stripe/stripe-context';
 import { zCreatedSession, zStripeObjectId } from '@/lib/payments/stripe/stripe-created';
 import { toStripeCurrency } from '@/lib/payments/stripe/stripe-currency';
 import { stripeDataOf } from '@/lib/payments/stripe/stripe-data-of';
+import { stripeSessionExpiry } from '@/lib/payments/stripe/stripe-session-expiry';
 import { STRIPE_FIELD, STRIPE_PATH, STRIPE_WIRE_VALUE } from '@/lib/payments/stripe/stripe-wire-values';
 import type { StripeFields } from '@/infra/stripe/stripe-client';
 
-const returnFields = ({ reference, returnUrl }: CheckoutRequest): StripeFields => ({
-  [STRIPE_FIELD.CLIENT_REFERENCE_ID]: reference,
-  [STRIPE_FIELD.SUCCESS_URL]: returnUrl,
-  [STRIPE_FIELD.CANCEL_URL]: returnUrl,
+const returnFields = (request: CheckoutRequest): StripeFields => ({
+  [STRIPE_FIELD.CLIENT_REFERENCE_ID]: request.reference,
+  [STRIPE_FIELD.SUCCESS_URL]: request.returnUrl,
+  [STRIPE_FIELD.CANCEL_URL]: request.returnUrl,
+  [STRIPE_FIELD.EXPIRES_AT]: stripeSessionExpiry(request),
 });
 
 const setupFields = async ({ client }: StripeContext, request: CheckoutRequest): Promise<StripeFields> => {

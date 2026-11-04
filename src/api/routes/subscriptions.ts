@@ -39,7 +39,7 @@ export const subscriptionsRoutes = (providerFor: ProviderFor, clock: Clock) =>
       if (!body.success) return problemResponse(c, HTTP_STATUS.BAD_REQUEST, body.error.message);
       const result = await createSubscription(
         { db: c.get('db'), providerFor },
-        { tenant: c.get('tenant'), ...body.data },
+        { tenant: c.get('tenant'), ...body.data, now: clock.now() },
       );
       if (result.outcome === CREATE_SUBSCRIPTION_OUTCOME.CUSTOMER_NOT_FOUND) {
         return problemResponse(c, HTTP_STATUS.NOT_FOUND, `customer ${body.data.customerId} not found`);

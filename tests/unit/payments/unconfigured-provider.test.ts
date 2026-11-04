@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CHECKOUT_MODE } from '@/lib/payments/checkout-mode';
 import { CURRENCY } from '@/lib/money/currency';
 import { unconfiguredProvider } from '@/lib/payments/unconfigured-provider';
+import { CHECKOUT_WINDOW } from '@tests/utils/checkout-window-fixtures';
 
 const NOT_CONFIGURED = /no payment provider is configured/;
 
@@ -18,6 +19,7 @@ describe('unconfiguredProvider', () => {
         amountMinor: 4900,
         currency: CURRENCY.ILS,
         returnUrl: 'https://tenant.test/return',
+        ...CHECKOUT_WINDOW,
       }),
     ).rejects.toThrow(NOT_CONFIGURED);
     await expect(

@@ -13,8 +13,10 @@ import { FAKE_CHECKOUT_URL, fakePaymentProvider } from '@tests/utils/fake-paymen
 import { everyConnection } from '@tests/utils/fake-provider-factory';
 import { SUBSCRIPTIONS_PATH } from '@tests/utils/paths';
 import { postJson } from '@tests/utils/post-json';
-import { testApp } from '@tests/utils/test-app';
+import { TEST_NOW, testApp } from '@tests/utils/test-app';
 import { GLOBEX } from '@tests/utils/tenant-fixtures';
+import { TENANT_POLICY_DEFAULTS } from '@/lib/tenants/tenant-policy-defaults';
+import { HOUR_MS } from '@tests/utils/reconcile-times';
 
 const RETURN_URL = 'https://tenant.test/billing/return';
 const MALFORMED_JSON = '{"customerId":';
@@ -63,7 +65,7 @@ describe('POST /v1/subscriptions', () => {
     });
   });
 
-  it("asks the provider to save the card for the plan's price, referenced by our subscription id (ADR 0007)", async () => {
+  it("asks the provider to save the card for the plan's price, referenced by our subscription id, expiring with the checkout TTL (ADR 0007, code-review-1 N1)", async () => {
     await withRollback(testDb(), async (tx) => {
       const ctx = await seedBillingContext(tx);
       const provider = fakePaymentProvider();
@@ -80,6 +82,8 @@ describe('POST /v1/subscriptions', () => {
           amountMinor: ctx.plan.amountMinor,
           currency: ctx.plan.currency,
           returnUrl: RETURN_URL,
+          requestedAt: TEST_NOW,
+          expiresAt: new Date(TEST_NOW.getTime() + TENANT_POLICY_DEFAULTS.checkoutTtlHours * HOUR_MS),
         },
       ]);
     });

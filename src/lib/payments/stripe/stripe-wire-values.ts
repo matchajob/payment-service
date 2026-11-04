@@ -30,6 +30,7 @@ export const STRIPE_FIELD = {
   CLIENT_REFERENCE_ID: 'client_reference_id',
   SUCCESS_URL: 'success_url',
   CANCEL_URL: 'cancel_url',
+  EXPIRES_AT: 'expires_at',
   SETUP_FUTURE_USAGE: 'payment_intent_data[setup_future_usage]',
   LINE_ITEM_QUANTITY: 'line_items[0][quantity]',
   LINE_ITEM_CURRENCY: 'line_items[0][price_data][currency]',
