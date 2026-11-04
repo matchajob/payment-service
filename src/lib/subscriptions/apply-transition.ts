@@ -1,4 +1,5 @@
 import { eq } from 'drizzle-orm';
+import { hasSucceededCharge } from '@/lib/charges/has-succeeded-charge';
 import type { Customer } from '@/lib/customers/schema';
 import type { Database } from '@/lib/db';
 import { outboxEventsTable } from '@/lib/outbox/schema';
@@ -49,7 +50,7 @@ export const applyTransition = async (
     .returning();
   if (updated === undefined) throw new Error('subscription missing during transition');
   if (emits.length > 0) {
-    const snapshot = toSnapshot(updated, customer, tenant);
+    const snapshot = toSnapshot(updated, customer, tenant, await hasSucceededCharge(tx, updated.subscriptionId));
     await tx.insert(outboxEventsTable).values(
       emits.map((eventType, index) => ({
         tenantId: updated.tenantId,

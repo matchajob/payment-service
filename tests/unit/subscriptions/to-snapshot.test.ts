@@ -9,6 +9,8 @@ import { toSnapshot } from '@/lib/subscriptions/to-snapshot';
 
 const EXTERNAL_REF = 'user-42';
 const PERIOD_END = new Date('2026-02-15T10:00:00.000Z');
+const PAID = true;
+const UNPAID = false;
 
 const subscription = (overrides: Record<string, unknown> = {}) =>
   zSubscriptionRead.parse({
@@ -37,7 +39,7 @@ const subscription = (overrides: Record<string, unknown> = {}) =>
 describe('toSnapshot (Spec 5 rule 3, D12)', () => {
   it('carries everything a receiver needs without calling back', () => {
     const row = subscription();
-    expect(toSnapshot(row, { externalRef: EXTERNAL_REF }, { graceEntitlement: true })).toEqual({
+    expect(toSnapshot(row, { externalRef: EXTERNAL_REF }, { graceEntitlement: true }, PAID)).toEqual({
       subscriptionId: row.subscriptionId,
       customerId: row.customerId,
       customerExternalRef: EXTERNAL_REF,
@@ -57,7 +59,7 @@ describe('toSnapshot (Spec 5 rule 3, D12)', () => {
       canceledAt: PERIOD_END,
       cancelReason: CANCEL_REASON.PAYMENT_FAILURE,
     });
-    expect(toSnapshot(canceled, { externalRef: EXTERNAL_REF }, { graceEntitlement: true })).toMatchObject({
+    expect(toSnapshot(canceled, { externalRef: EXTERNAL_REF }, { graceEntitlement: true }, PAID)).toMatchObject({
       cancelReason: CANCEL_REASON.PAYMENT_FAILURE,
       canceledAt: PERIOD_END.toISOString(),
     });
@@ -65,16 +67,27 @@ describe('toSnapshot (Spec 5 rule 3, D12)', () => {
 
   it('computes entitlement from the tenant grace policy, never leaving it to the receiver', () => {
     const pastDue = subscription({ status: SUBSCRIPTION_STATUS.PAST_DUE });
-    expect(toSnapshot(pastDue, { externalRef: EXTERNAL_REF }, { graceEntitlement: false }).entitled).toBe(false);
+    expect(toSnapshot(pastDue, { externalRef: EXTERNAL_REF }, { graceEntitlement: false }, PAID).entitled).toBe(false);
+  });
+
+  it('withholds entitlement from an active subscription whose charge #1 has not succeeded (code-review-1 M6)', () => {
+    expect(toSnapshot(subscription(), { externalRef: EXTERNAL_REF }, { graceEntitlement: true }, UNPAID)).toMatchObject(
+      {
+        status: SUBSCRIPTION_STATUS.ACTIVE,
+        entitled: false,
+      },
+    );
   });
 
   it('gives a null period end as null', () => {
     const fresh = subscription({ status: SUBSCRIPTION_STATUS.CANCELED, currentPeriodEnd: null });
-    expect(toSnapshot(fresh, { externalRef: EXTERNAL_REF }, { graceEntitlement: true }).currentPeriodEnd).toBeNull();
+    expect(
+      toSnapshot(fresh, { externalRef: EXTERNAL_REF }, { graceEntitlement: true }, PAID).currentPeriodEnd,
+    ).toBeNull();
   });
 
   it('always produces a body the published contract accepts', () => {
-    const snapshot = toSnapshot(subscription(), { externalRef: EXTERNAL_REF }, { graceEntitlement: true });
+    const snapshot = toSnapshot(subscription(), { externalRef: EXTERNAL_REF }, { graceEntitlement: true }, PAID);
     expect(subscriptionSnapshotSchema.parse(snapshot)).toEqual(snapshot);
   });
 });
