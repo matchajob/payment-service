@@ -37,7 +37,7 @@ IDs `N1`… are findings that had no number in the sections below.
 | [x] | N1 | Medium | Webhooks / Housekeeping | Expiring a checkout doesn't expire it at the provider; a stale tab saves a card with no subscription | Gap | `9309edd` (ADR 0022 d4; Grow has no session TTL) |
 | [x] | M2 | Medium | Idempotency | The hash covers the body only, so the same key across subscriptions replays the wrong response | Bug | `eba7b4e` |
 | [x] | H5 | Medium | Data model | Nothing in the database stops a plan being repriced; renewals read the live price | Gap | `4d461c1`: DZD `isImmutable` (app level, not DB) |
-| [x] | M13 | Medium | Data model | Tenant integrity not enforced: foreign keys use the id only, and a charge can point at another subscription's card | Gap | M13 commit: composite tenant FKs in DZD; replaced-card case not FK-able |
+| [x] | M13 | Medium | Data model | Tenant integrity not enforced: foreign keys use the id only, and a charge can point at another subscription's card | Gap | `b046eae`: composite tenant FKs in DZD; replaced-card case not FK-able |
 | [ ] | M14 | Medium | Data model | No append-only audit trail; the settle CLI leaves no actor or reason | Gap | |
 | [ ] | M15 | Medium | Data model | Hot queries have no index (renewal due, expired checkouts, lost and pending charges) | Gap | |
 | [ ] | H7 | Medium | Events | Charge events carry no amount, attempt, reason or next retry date | Gap | |
@@ -70,7 +70,7 @@ IDs `N1`… are findings that had no number in the sections below.
 | [ ] | N9 | Low | Lifecycle | First-charge decline emits no `subscription.canceled` (PRD Q7) | Gap | |
 | [ ] | N10 | Low | Lifecycle | Cancel on a canceled subscription returns `charge_in_flight` instead of 409 | Bug | |
 | [ ] | N11 | Low | Lifecycle | Resume skips the `store_managed` check | Bug (v2) | |
-| [ ] | N12 | Low | Time | Anniversary computed in UTC, not Israel time; billing hour shifts at DST | Gap | |
+| [x] | N12 | Low | Time | Anniversary computed in UTC, not Israel time; billing hour shifts at DST | Gap | N12 commit (ADR 0023): per-tenant IANA zone |
 | [ ] | M16 | Low | Data model | Partial-index predicates are allow-lists | Gap | |
 | [ ] | N13 | Low | Data model | `canceled_at` not tied to status; schedule JSON has no CHECK; plaintext `webhook_secret`; int4 amounts | Gap | |
 | [ ] | N14 | Low | API / Contract | Handlers validate with lib schemas, not contract; contract lint is a denylist; USD accepted in v1 | Gap | |

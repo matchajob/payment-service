@@ -7,6 +7,7 @@ import { TENANT_POLICY_DEFAULTS } from '@/lib/tenants/tenant-policy-defaults';
 export type CreateTenantInput = {
   slug: string;
   webhookUrl: string;
+  timeZone: Tenant['timeZone'];
   organizationId: Tenant['organizationId'];
   providerConnectionId: Tenant['providerConnectionId'];
 };

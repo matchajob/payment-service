@@ -55,7 +55,7 @@ export const activateCheckout = async (db: Database, input: ActivateCheckoutInpu
         .returning();
       if (card === undefined) throw new Error('payment method insert returned no row');
 
-      const { periodEnd, anchorDay } = startPeriod(input.now, input.plan.interval);
+      const { periodEnd, anchorDay } = startPeriod(input.now, input.plan.interval, input.tenant.timeZone);
       await applyTransition(tx, {
         subscription,
         outcome,

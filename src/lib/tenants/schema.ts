@@ -11,6 +11,7 @@ import { foreignKey, unique } from '@matcha/infra/domain-drizzle/exports';
 import { organizationsTable } from '@/lib/organizations/schema';
 import { providerConnectionsTable } from '@/lib/provider-connections/schema';
 import { REFERENTIAL_ACTION } from '@/lib/referential-action';
+import { makeDzdTimeZone } from '@/lib/tenants/dzd-time-zone';
 
 const restrict = { onDelete: REFERENTIAL_ACTION.RESTRICT };
 const MIN_CHECKOUT_TTL_HOURS = 1;
@@ -37,6 +38,7 @@ export const tenantsEntity = defineEntity(
         ),
       ),
     slug: (f) => entityFromDzd(dzdThemeStr.nonEmpty.title(f)),
+    timeZone: (f) => entityFromDzd(makeDzdTimeZone(f)),
     apiKeyHash: (f) => entityFromDzd(dzdThemeStr.hash(f)),
     webhookUrl: (f) => entityFromDzd(dzdThemeStr.nonEmpty.address(f)),
     webhookSecret: (f) => entityFromDzd(dzdThemeStr.nonEmpty.token(f)),
@@ -65,3 +67,4 @@ export const tenantsTable = tenantsEntity.table;
 export type Tenant = typeof tenantsTable.$inferSelect;
 
 export const zTenantCreate = tenantsEntity.create;
+export const zTenantRead = tenantsEntity.read;

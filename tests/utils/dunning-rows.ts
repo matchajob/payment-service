@@ -8,6 +8,7 @@ import { DUNNING_STARTED_AT, dunningDay, FIRST_RETRY_DAY } from '@tests/utils/du
 import { RENEWAL, retryShape } from '@tests/utils/pending-charge-shapes';
 import { seedRenewing, seedRenewings, type Renewing } from '@tests/utils/renewal-rows';
 import type { TenantFixture } from '@tests/utils/tenant-fixtures';
+import { findTenant } from '@/lib/tenants/find-tenant';
 
 type Overrides = Parameters<typeof seedRenewing>[1];
 
@@ -34,7 +35,9 @@ const failedRetries = (pastDue: Renewing, periodEnd: Date) =>
   }));
 
 const withFailedAttempts = async (db: Database, pastDue: Renewing): Promise<Renewing> => {
-  const periodEnd = nextPeriodEnd(pastDue.subscription, pastDue.ctx.plan);
+  const tenant = await findTenant(db, pastDue.ctx.tenantId);
+  if (tenant === undefined) throw new Error('past-due tenant missing');
+  const periodEnd = nextPeriodEnd(pastDue.subscription, pastDue.ctx.plan, tenant);
   const attemptedAt = pastDue.subscription.currentPeriodEnd ?? RENEWAL.attemptedAt;
   const renewal = await insertCycleCharge(db, pastDue, { ...RENEWAL, periodEnd, attemptedAt }, DECLINED);
   const retries = await Promise.all(

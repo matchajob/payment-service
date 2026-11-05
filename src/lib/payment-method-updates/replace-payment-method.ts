@@ -80,6 +80,7 @@ export const replacePaymentMethod = (
       subscription,
       paymentMethodId: card.paymentMethodId,
       plan: parties.plan,
+      tenant: parties.tenant,
       now,
     });
     if (charge === undefined) return { kind: REPLACEMENT.REPLACED };

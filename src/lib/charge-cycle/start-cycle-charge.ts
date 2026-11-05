@@ -39,7 +39,7 @@ export const startCycleCharge = (
     const plan = await findPlan(tx, subscription.tenantId, subscription.planId);
     if (tenant === undefined || customer === undefined || plan === undefined) throw new Error(MISSING_PARENTS);
 
-    const periodEnd = nextPeriodEnd(subscription, plan);
+    const periodEnd = nextPeriodEnd(subscription, plan, tenant);
     if (await hasLiveCharge(tx, subscriptionId, periodEnd)) return { kind: CYCLE_START.SKIPPED };
 
     const outcome = transition(toState(subscription), cycle.dueEvent, transitionContextFor(subscription, tenant));

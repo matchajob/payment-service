@@ -7,6 +7,7 @@ import type { Plan } from '@/lib/plans/schema';
 import type { Subscription } from '@/lib/subscriptions/schema';
 import { nextPeriodEnd } from '@/lib/subscriptions/next-period-end';
 import { CHARGE_KIND } from '@/lib/charges/charge-kind';
+import type { Tenant } from '@/lib/tenants/schema';
 
 const NEXT = 1;
 const NO_ROW = 'charge insert returned no row';
@@ -15,14 +16,15 @@ export type ImmediateRetryChargeInput = {
   subscription: Subscription;
   paymentMethodId: PaymentMethod['paymentMethodId'];
   plan: Plan;
+  tenant: Pick<Tenant, 'timeZone'>;
   now: Date;
 };
 
 export const insertImmediateRetryCharge = async (
   tx: Database,
-  { subscription, paymentMethodId, plan, now }: ImmediateRetryChargeInput,
+  { subscription, paymentMethodId, plan, tenant, now }: ImmediateRetryChargeInput,
 ): Promise<Charge | undefined> => {
-  const periodEnd = nextPeriodEnd(subscription, plan);
+  const periodEnd = nextPeriodEnd(subscription, plan, tenant);
   if (await hasLiveCharge(tx, subscription.subscriptionId, periodEnd)) return undefined;
   const [charge] = await tx
     .insert(chargesTable)

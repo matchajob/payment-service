@@ -3,6 +3,8 @@ import { readSeedArgs } from '@/cli/seed-args';
 import { PAYMENT_PROVIDER } from '@/lib/payments/payment-provider-name';
 import { GROW_CREDENTIALS } from '@tests/utils/provider-credentials-fixtures';
 
+const JERUSALEM = 'Asia/Jerusalem';
+
 const VALID = [
   '--organization-name',
   'Acme Ltd',
@@ -14,6 +16,8 @@ const VALID = [
   'acme',
   '--webhook-url',
   'https://acme.test/webhooks',
+  '--time-zone',
+  JERUSALEM,
   '--plan-name',
   'Pro monthly',
   '--amount-minor',
@@ -40,14 +44,17 @@ describe('readSeedArgs', () => {
     expect(readSeedArgs(VALID)).toEqual({
       organization: { name: 'Acme Ltd' },
       connection: { provider: PAYMENT_PROVIDER.GROW, credentials: GROW_CREDENTIALS },
-      tenant: { slug: 'acme', webhookUrl: 'https://acme.test/webhooks' },
+      tenant: { slug: 'acme', webhookUrl: 'https://acme.test/webhooks', timeZone: JERUSALEM },
       plan: { name: 'Pro monthly', amountMinor: 4900, currency: 'ILS', interval: 'month' },
     });
   });
 
-  it.each(['--slug', '--organization-name', '--provider', '--credentials'])('rejects a missing %s', (flag) => {
-    expect(() => readSeedArgs(withoutFlag(flag))).toThrow();
-  });
+  it.each(['--slug', '--organization-name', '--provider', '--credentials', '--time-zone'])(
+    'rejects a missing %s',
+    (flag) => {
+      expect(() => readSeedArgs(withoutFlag(flag))).toThrow();
+    },
+  );
 
   it('rejects an unknown provider', () => {
     expect(() => readSeedArgs(withFlag('--provider', 'paypal'))).toThrow();
@@ -59,6 +66,10 @@ describe('readSeedArgs', () => {
 
   it('rejects a non-numeric amount', () => {
     expect(() => readSeedArgs(withFlag('--amount-minor', 'abc'))).toThrow();
+  });
+
+  it('rejects a time zone that is not an IANA name, which billing dates are computed in (code-review-1 N12)', () => {
+    expect(() => readSeedArgs(withFlag('--time-zone', 'Mars/Olympus'))).toThrow();
   });
 
   it('rejects an unknown currency', () => {

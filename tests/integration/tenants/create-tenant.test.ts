@@ -5,6 +5,8 @@ import { seedConnection } from '@tests/utils/connection-rows';
 import { testDb, withRollback } from '@tests/utils/db';
 import { ACME } from '@tests/utils/tenant-fixtures';
 
+const JERUSALEM = 'Asia/Jerusalem';
+
 describe('createTenant', () => {
   it('gives a new tenant the ratified policy defaults', async () => {
     await withRollback(testDb(), async (tx) => {
@@ -31,6 +33,13 @@ describe('createTenant', () => {
       const connection = await seedConnection(tx);
       const { tenant } = await createTenant(tx, { ...ACME, ...connection });
       expect(tenant).toMatchObject(connection);
+    });
+  });
+
+  it('stores the time zone its billing dates are computed in (code-review-1 N12)', async () => {
+    await withRollback(testDb(), async (tx) => {
+      const { tenant } = await createTenant(tx, { ...ACME, timeZone: JERUSALEM, ...(await seedConnection(tx)) });
+      expect(tenant.timeZone).toBe(JERUSALEM);
     });
   });
 
