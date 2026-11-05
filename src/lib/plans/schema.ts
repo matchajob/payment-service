@@ -15,6 +15,8 @@ export const billingIntervalEnum = createDbEnumPair('billingInterval', BILLING_I
 
 export const billingIntervalPgEnum = billingIntervalEnum.dz;
 
+const IMMUTABLE = { isImmutable: true } as const;
+
 export const plansEntity = defineEntity('plans', {
   planId: (f) => entityFromDzd(dzdThemeUuid.primaryKey(f, 'PlanId')),
   tenantId: (f) =>
@@ -26,9 +28,9 @@ export const plansEntity = defineEntity('plans', {
       ),
     ),
   name: (f) => entityFromDzd(dzdThemeStr.nonEmpty.title(f)),
-  amountMinor: (f) => entityFromDzd(dzdThemeInt.positive(f)),
-  currency: (f) => entityFromDzd(dzdThemeEnum.fromPair(f, currencyEnum)),
-  interval: (f) => entityFromDzd(dzdThemeEnum.fromPair(f, billingIntervalEnum)),
+  amountMinor: (f) => entityFromDzd(dzdThemeInt.positive(f), IMMUTABLE),
+  currency: (f) => entityFromDzd(dzdThemeEnum.fromPair(f, currencyEnum), IMMUTABLE),
+  interval: (f) => entityFromDzd(dzdThemeEnum.fromPair(f, billingIntervalEnum), IMMUTABLE),
   createdAt: (f) => entityFromDzd(dzdThemeTimestamp.defaultNow(f)),
 });
 
@@ -38,3 +40,4 @@ export type Plan = typeof plansTable.$inferSelect;
 export type NewPlan = typeof plansTable.$inferInsert;
 
 export const zPlanCreate = plansEntity.create;
+export const zPlanUpdate = plansEntity.update;

@@ -34,9 +34,9 @@ IDs `N1`… are findings that had no number in the sections below.
 | [x] | H3 | Medium | Provider port | `ChargeResult` has no error branch, so an adapter could turn a credential failure into a mass decline | Gate | `dcd729a` (Grow: card err.ids only; Stripe already 402 card_error only) |
 | [x] | M25 | Medium | Webhooks | A garbage body makes `parseWebhook` throw: 500, provider retries forever (breaks Spec 4 r6) | Bug | `9267c88`, `54047bf`: both adapters parse garbage to `UNRECOGNIZED` (tested) |
 | [x] | M1 | Medium | Webhooks | Event marked processed on `NOT_COMPLETED`, so the redelivery is dropped and the signup lost | Bug | `4dd488d` (ADR 0022) |
-| [x] | N1 | Medium | Webhooks / Housekeeping | Expiring a checkout doesn't expire it at the provider; a stale tab saves a card with no subscription | Gap | N1 commit (ADR 0022 d4; Grow has no session TTL) |
+| [x] | N1 | Medium | Webhooks / Housekeeping | Expiring a checkout doesn't expire it at the provider; a stale tab saves a card with no subscription | Gap | `9309edd` (ADR 0022 d4; Grow has no session TTL) |
 | [x] | M2 | Medium | Idempotency | The hash covers the body only, so the same key across subscriptions replays the wrong response | Bug | `eba7b4e` |
-| [ ] | H5 | Medium | Data model | Nothing in the database stops a plan being repriced; renewals read the live price | Gap | |
+| [x] | H5 | Medium | Data model | Nothing in the database stops a plan being repriced; renewals read the live price | Gap | H5/N2 commit: DZD `isImmutable` (app level, not DB) |
 | [ ] | M13 | Medium | Data model | Tenant integrity not enforced: foreign keys use the id only, and a charge can point at another subscription's card | Gap | |
 | [ ] | M14 | Medium | Data model | No append-only audit trail; the settle CLI leaves no actor or reason | Gap | |
 | [ ] | M15 | Medium | Data model | Hot queries have no index (renewal due, expired checkouts, lost and pending charges) | Gap | |
@@ -50,7 +50,7 @@ IDs `N1`… are findings that had no number in the sections below.
 | [ ] | M22 | Medium | Ops | No SIGTERM drain or pool close | Gap | |
 | [ ] | M23 | Medium | Ops | Dead letters, ignored webhooks and ignored card updates aren't logged (breaks D13 and Spec 1) | Bug | |
 | [ ] | M24 | Medium | Ops / CLI | Settle CLI doesn't verify the ref or amount, and has no confirm or operator; redrive has no cap | Gap | |
-| [ ] | N2 | Medium | Ops / CLI | Seed has no way to add a plan, which pushes operators towards `UPDATE plans` | Gap | |
+| [x] | N2 | Medium | Ops / CLI | Seed has no way to add a plan, which pushes operators towards `UPDATE plans` | Gap | H5/N2 commit: `pnpm plans:add` |
 | [ ] | N3 | Medium | Security | Seed prints the API key to stdout and takes provider credentials as arguments | Bug | |
 | [ ] | N4 | Medium | CI | No CI for the app: tests, typecheck and lint never run on push | Gap | |
 | [x] | M27 | Medium | Tests | Seeders build states the real flow never produces (no charge #1, no failed charges) | Bug | `48de2e6` |
@@ -367,7 +367,7 @@ Note on H3: `ChargeResult` is read as a binary in `record-charge-result`, `settl
 - **M6 (5):** `entitled` is false until charge #1 succeeds; status stays `active`.
 - **H3 (3):** Grow treats only known card `err.id`s (103, 140, 451–453) as a decline. Any other `status 0` throws, so the charge stays pending for reconcile.
 - **M1 + N1 (9):** NOT_COMPLETED leaves the webhook unprocessed. Housekeeping calls `verifyCheckout` before expiring a checkout and completes it if the card was saved. `CheckoutRequest` gains `expiresAt` for providers that honour it (Stripe `expires_at`).
-- **H5 + N2 (4):** a BEFORE UPDATE trigger rejects changes to a plan's amount, currency or interval. Seed gains an `add-plan` command for an existing tenant.
+- **H5 + N2 (4):** plan `amountMinor`, `currency` and `interval` are declared `isImmutable` in the DZD entity (revised 2026-11-05: no hand-written trigger), so `zPlanUpdate` refuses them. A raw SQL `UPDATE plans` is not blocked. `pnpm plans:add` adds a plan to an existing tenant, so operators never need that UPDATE.
 - **M9 (7):** a late success on a renewal or dunning charge applies as a recovery. On charge #1 of a canceled subscription, canceled stays terminal; the operator refunds at the provider and clears the flag with a reason via the settle CLI.
 - **M10 (8):** only an unflagged pending charge blocks cancel. Once flagged, cancel goes through, and a later succeeded settlement is handled as in M9.
 - **N12:** per-tenant IANA `timeZone`; the anchor day and billing hour are computed in it.
