@@ -70,7 +70,7 @@ IDs `N1`… are findings that had no number in the sections below.
 | [ ] | N9 | Low | Lifecycle | First-charge decline emits no `subscription.canceled` (PRD Q7) | Gap | |
 | [ ] | N10 | Low | Lifecycle | Cancel on a canceled subscription returns `charge_in_flight` instead of 409 | Bug | |
 | [ ] | N11 | Low | Lifecycle | Resume skips the `store_managed` check | Bug (v2) | |
-| [x] | N12 | Low | Time | Anniversary computed in UTC, not Israel time; billing hour shifts at DST | Gap | N12 commit (ADR 0023): per-tenant IANA zone |
+| [x] | N12 | Low | Time | Anniversary computed in UTC, not Israel time; billing hour shifts at DST | Gap | `fe89e04` (ADR 0023): per-tenant IANA zone |
 | [ ] | M16 | Low | Data model | Partial-index predicates are allow-lists | Gap | |
 | [ ] | N13 | Low | Data model | `canceled_at` not tied to status; schedule JSON has no CHECK; plaintext `webhook_secret`; int4 amounts | Gap | |
 | [ ] | N14 | Low | API / Contract | Handlers validate with lib schemas, not contract; contract lint is a denylist; USD accepted in v1 | Gap | |
