@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { check, index, uniqueIndex, unique } from '@matcha/infra/domain-drizzle/exports';
+import { check, foreignKey, index, uniqueIndex, unique } from '@matcha/infra/domain-drizzle/exports';
 import { defineEntity } from '@matcha/infra/domain-ef/define-entity';
 import { entityFromDzd } from '@matcha/infra/domain-ef/entity-from-dzd';
 import { dzdThemeBool } from '@matcha/infra/dzd/dzd-boolean';
@@ -105,6 +105,17 @@ export const subscriptionsEntity = defineEntity(
           sql`${t.status} in (${sqlLiteral(SUBSCRIPTION_STATUS.ACTIVE)}, ${sqlLiteral(SUBSCRIPTION_STATUS.PAST_DUE)})`,
         ),
       unique('subscriptions_connection_pin').on(t.subscriptionId, t.providerConnectionId),
+      unique('subscriptions_tenant_pin').on(t.tenantId, t.subscriptionId),
+      foreignKey({
+        name: 'subscriptions_customer_same_tenant',
+        columns: [t.tenantId, t.customerId],
+        foreignColumns: [customersTable.tenantId, customersTable.customerId],
+      }).onDelete(REFERENTIAL_ACTION.RESTRICT),
+      foreignKey({
+        name: 'subscriptions_plan_same_tenant',
+        columns: [t.tenantId, t.planId],
+        foreignColumns: [plansTable.tenantId, plansTable.planId],
+      }).onDelete(REFERENTIAL_ACTION.RESTRICT),
     ],
   },
 );

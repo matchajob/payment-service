@@ -101,6 +101,16 @@ export const chargesEntity = defineEntity(
         .on(t.subscriptionId, t.periodEnd)
         .where(sql`${t.status} in (${sqlLiteral(CHARGE_STATUS.PENDING)}, ${sqlLiteral(CHARGE_STATUS.SUCCEEDED)})`),
       foreignKey({
+        name: 'charges_subscription_same_tenant',
+        columns: [t.tenantId, t.subscriptionId],
+        foreignColumns: [subscriptionsTable.tenantId, subscriptionsTable.subscriptionId],
+      }).onDelete(REFERENTIAL_ACTION.RESTRICT),
+      foreignKey({
+        name: 'charges_card_of_subscription',
+        columns: [t.subscriptionId, t.paymentMethodId],
+        foreignColumns: [paymentMethodsTable.subscriptionId, paymentMethodsTable.paymentMethodId],
+      }).onDelete(REFERENTIAL_ACTION.RESTRICT),
+      foreignKey({
         name: 'charges_subscription_connection',
         columns: [t.subscriptionId, t.providerConnectionId],
         foreignColumns: [subscriptionsTable.subscriptionId, subscriptionsTable.providerConnectionId],

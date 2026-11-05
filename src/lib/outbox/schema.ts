@@ -12,7 +12,7 @@ import { subscriptionsTable } from '@/lib/subscriptions/schema';
 import { OUTBOUND_EVENT_TYPE } from '@/lib/subscriptions/state-machine/outbound-event-types';
 import { tenantsTable } from '@/lib/tenants/schema';
 import { sql } from 'drizzle-orm';
-import { check, index, unique } from '@matcha/infra/domain-drizzle/exports';
+import { check, foreignKey, index, unique } from '@matcha/infra/domain-drizzle/exports';
 import { DZD_NULLABLE } from '@matcha/infra/dzd/dzd-config';
 import { dzdThemeStr } from '@matcha/infra/dzd/dzd-string';
 import { DELIVERY_STATUS } from '@/lib/outbox/delivery-status';
@@ -55,6 +55,11 @@ export const outboxEventsEntity = defineEntity(
   {
     extraConstraints: (t) => [
       unique('outbox_events_one_per_sequence').on(t.subscriptionId, t.sequence),
+      foreignKey({
+        name: 'outbox_events_subscription_same_tenant',
+        columns: [t.tenantId, t.subscriptionId],
+        foreignColumns: [subscriptionsTable.tenantId, subscriptionsTable.subscriptionId],
+      }).onDelete(REFERENTIAL_ACTION.RESTRICT),
       check(
         'outbox_events_delivered_at_iff_delivered',
         sql`(${t.deliveryStatus} = ${sqlLiteral(DELIVERY_STATUS.DELIVERED)}) = (${t.deliveredAt} is not null)`,

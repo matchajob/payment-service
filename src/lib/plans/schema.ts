@@ -1,3 +1,4 @@
+import { unique } from '@matcha/infra/domain-drizzle/exports';
 import { defineEntity } from '@matcha/infra/domain-ef/define-entity';
 import { entityFromDzd } from '@matcha/infra/domain-ef/entity-from-dzd';
 import { dzdThemeEnum } from '@matcha/infra/dzd/dzd-enum';
@@ -17,22 +18,28 @@ export const billingIntervalPgEnum = billingIntervalEnum.dz;
 
 const IMMUTABLE = { isImmutable: true } as const;
 
-export const plansEntity = defineEntity('plans', {
-  planId: (f) => entityFromDzd(dzdThemeUuid.primaryKey(f, 'PlanId')),
-  tenantId: (f) =>
-    entityFromDzd(
-      dzdThemeUuid.requiredRef(
-        f,
-        { ref: () => tenantsTable.tenantId, actions: { onDelete: REFERENTIAL_ACTION.RESTRICT } },
-        'TenantId',
+export const plansEntity = defineEntity(
+  'plans',
+  {
+    planId: (f) => entityFromDzd(dzdThemeUuid.primaryKey(f, 'PlanId')),
+    tenantId: (f) =>
+      entityFromDzd(
+        dzdThemeUuid.requiredRef(
+          f,
+          { ref: () => tenantsTable.tenantId, actions: { onDelete: REFERENTIAL_ACTION.RESTRICT } },
+          'TenantId',
+        ),
       ),
-    ),
-  name: (f) => entityFromDzd(dzdThemeStr.nonEmpty.title(f)),
-  amountMinor: (f) => entityFromDzd(dzdThemeInt.positive(f), IMMUTABLE),
-  currency: (f) => entityFromDzd(dzdThemeEnum.fromPair(f, currencyEnum), IMMUTABLE),
-  interval: (f) => entityFromDzd(dzdThemeEnum.fromPair(f, billingIntervalEnum), IMMUTABLE),
-  createdAt: (f) => entityFromDzd(dzdThemeTimestamp.defaultNow(f)),
-});
+    name: (f) => entityFromDzd(dzdThemeStr.nonEmpty.title(f)),
+    amountMinor: (f) => entityFromDzd(dzdThemeInt.positive(f), IMMUTABLE),
+    currency: (f) => entityFromDzd(dzdThemeEnum.fromPair(f, currencyEnum), IMMUTABLE),
+    interval: (f) => entityFromDzd(dzdThemeEnum.fromPair(f, billingIntervalEnum), IMMUTABLE),
+    createdAt: (f) => entityFromDzd(dzdThemeTimestamp.defaultNow(f)),
+  },
+  {
+    extraConstraints: (t) => [unique('plans_tenant_pin').on(t.tenantId, t.planId)],
+  },
+);
 
 export const plansTable = plansEntity.table;
 

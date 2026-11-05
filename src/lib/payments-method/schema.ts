@@ -46,6 +46,12 @@ export const paymentMethodsEntity = defineEntity(
       unique('payment_methods_one_per_capture').on(t.tenantId, t.captureRef),
       uniqueIndex('payment_methods_one_current_per_subscription').on(t.subscriptionId).where(isNull(t.replacedAt)),
       unique('payment_methods_connection_pin').on(t.paymentMethodId, t.providerConnectionId),
+      unique('payment_methods_subscription_pin').on(t.subscriptionId, t.paymentMethodId),
+      foreignKey({
+        name: 'payment_methods_subscription_same_tenant',
+        columns: [t.tenantId, t.subscriptionId],
+        foreignColumns: [subscriptionsTable.tenantId, subscriptionsTable.subscriptionId],
+      }).onDelete(REFERENTIAL_ACTION.RESTRICT),
       foreignKey({
         name: 'payment_methods_subscription_connection',
         columns: [t.subscriptionId, t.providerConnectionId],

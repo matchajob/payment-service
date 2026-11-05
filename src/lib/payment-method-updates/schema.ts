@@ -42,6 +42,11 @@ export const paymentMethodUpdatesEntity = defineEntity(
     extraConstraints: (t) => [
       unique('payment_method_updates_one_per_session').on(t.providerConnectionId, t.sessionRef),
       foreignKey({
+        name: 'payment_method_updates_subscription_same_tenant',
+        columns: [t.tenantId, t.subscriptionId],
+        foreignColumns: [subscriptionsTable.tenantId, subscriptionsTable.subscriptionId],
+      }).onDelete(REFERENTIAL_ACTION.RESTRICT),
+      foreignKey({
         name: 'payment_method_updates_subscription_connection',
         columns: [t.subscriptionId, t.providerConnectionId],
         foreignColumns: [subscriptionsTable.subscriptionId, subscriptionsTable.providerConnectionId],

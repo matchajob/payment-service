@@ -23,7 +23,10 @@ export const customersEntity = defineEntity(
     createdAt: (f) => entityFromDzd(dzdThemeTimestamp.defaultNow(f)),
   },
   {
-    extraConstraints: (t) => [unique('customers_tenant_external_ref_unique').on(t.tenantId, t.externalRef)],
+    extraConstraints: (t) => [
+      unique('customers_tenant_external_ref_unique').on(t.tenantId, t.externalRef),
+      unique('customers_tenant_pin').on(t.tenantId, t.customerId),
+    ],
   },
 );
 
