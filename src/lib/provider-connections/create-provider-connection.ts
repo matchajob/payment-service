@@ -27,7 +27,7 @@ export const createProviderConnection = async (
 ): Promise<ProviderConnectionView> => {
   const providerConnectionId = zProviderConnectionRead.shape.providerConnectionId.parse(randomUUID());
   assertProviderSupported(buildProvider({ providerConnectionId, provider, credentials }));
-  const sealedCredentials = await cipher.seal(credentials);
+  const sealedCredentials = await cipher.seal(credentials, providerConnectionId);
   const [connection] = await db
     .insert(providerConnectionsTable)
     .values({ providerConnectionId, organizationId, provider, sealedCredentials })

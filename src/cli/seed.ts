@@ -1,5 +1,6 @@
 import pino from 'pino';
 import { readSeedArgs } from '@/cli/seed-args';
+import { systemClock } from '@/lib/clock';
 import { createDb } from '@/lib/db';
 import { createPlan } from '@/lib/plans/create-plan';
 import { createTenant } from '@/lib/tenants/create-tenant';
@@ -19,6 +20,8 @@ const db = createDb(readRequiredEnv(ENV.DATABASE_URL));
 const cipher = selectCredentialCipher({
   kmsKeyName: process.env[ENV.PROVIDER_CREDENTIALS_KMS_KEY],
   localKey: process.env[ENV.PROVIDER_CREDENTIALS_LOCAL_KEY],
+  fetch,
+  clock: systemClock,
 });
 
 const seeded = await db.transaction(async (tx) => {

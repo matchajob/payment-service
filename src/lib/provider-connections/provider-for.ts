@@ -15,4 +15,8 @@ export type ProviderFor = (connection: ProviderConnection) => Promise<PaymentPro
 export const providerForConnections =
   (cipher: CredentialCipher, buildProvider: BuildProvider): ProviderFor =>
   async ({ providerConnectionId, provider, sealedCredentials }) =>
-    buildProvider({ providerConnectionId, provider, credentials: await cipher.open(sealedCredentials) });
+    buildProvider({
+      providerConnectionId,
+      provider,
+      credentials: await cipher.open(sealedCredentials, providerConnectionId),
+    });

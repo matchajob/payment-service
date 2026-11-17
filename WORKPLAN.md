@@ -176,10 +176,10 @@ Blocked by: 0.6, 19.
 
 Spec: ADR 0010 amendments 4 and 8.
 
-- [ ] Envelope `CredentialCipher` on the `provider-credentials` key: a fresh data key per seal, wrapped by Cloud KMS, with the format version in the sealed string.
-- [ ] Old rows still open after the key rotates (90 days). KMS keeps old versions for decrypt; test that the sealed string doesn't pin a version.
-- [ ] Decide whether `seal` binds the sealed blob to its `providerConnectionId` as associated data. Without it, someone who can write to the database can copy one organization's sealed credentials onto another organization's connection row, and charges go through the wrong merchant account.
-- [ ] `selectCredentialCipher` returns it where `PROVIDER_CREDENTIALS_KMS_KEY` is set.
+- [x] KMS `CredentialCipher` on the `provider-credentials` key. Direct KMS encryption, not envelope (ADR 0024): credentials are small and every seal and open is one KMS call either way. Format version in the sealed string (`kms-v1.`).
+- [x] Old rows still open after the key rotates (90 days). Neither the sealed string nor the call names a key version; tested against a fake KMS that rotates.
+- [x] `seal` and `open` bind the blob to its `providerConnectionId` as associated data (decided 2026-11-17, ADR 0024). A blob copied onto another connection's row doesn't open.
+- [x] `selectCredentialCipher` returns it where `PROVIDER_CREDENTIALS_KMS_KEY` is set.
 
 Delivers: credentials stored in production are sealed under a key that never leaves KMS.
 

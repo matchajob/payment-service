@@ -1,4 +1,4 @@
 export type CredentialCipher = {
-  seal: (plaintext: string) => Promise<string>;
-  open: (sealed: string) => Promise<string>;
+  seal: (plaintext: string, connectionId: string) => Promise<string>;
+  open: (sealed: string, connectionId: string) => Promise<string>;
 };

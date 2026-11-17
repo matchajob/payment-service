@@ -6,6 +6,7 @@ import {
 } from '@/lib/provider-connections/local-credential-cipher';
 import { GROW_CREDENTIALS, GROW_PAGE_CODE } from '@tests/utils/provider-credentials-fixtures';
 import { SEALED_TEST_CREDENTIALS } from '@tests/utils/connection-rows';
+import { CONNECTION_ID, OTHER_CONNECTION_ID } from '@tests/utils/connection-ids';
 
 const KEY_BYTES = 32;
 const SHORT_KEY_BYTES = 16;
@@ -29,42 +30,49 @@ const flipFirstChar = (part: string) => `${part.startsWith('A') ? 'B' : 'A'}${pa
 describe('localCredentialCipher (ADR 0010 amendment 4, option A)', () => {
   it('opens what it sealed', async () => {
     const cipher = localCredentialCipher(KEY);
-    expect(await cipher.open(await cipher.seal(GROW_CREDENTIALS))).toBe(GROW_CREDENTIALS);
+    expect(await cipher.open(await cipher.seal(GROW_CREDENTIALS, CONNECTION_ID), CONNECTION_ID)).toBe(GROW_CREDENTIALS);
   });
 
   it('never stores the plaintext, and seals the same input differently each time', async () => {
     const cipher = localCredentialCipher(KEY);
-    const first = await cipher.seal(GROW_CREDENTIALS);
-    const second = await cipher.seal(GROW_CREDENTIALS);
+    const first = await cipher.seal(GROW_CREDENTIALS, CONNECTION_ID);
+    const second = await cipher.seal(GROW_CREDENTIALS, CONNECTION_ID);
     expect(first).not.toContain(GROW_PAGE_CODE);
     expect(first).not.toBe(second);
   });
 
   it('refuses to open with a different key', async () => {
-    const sealed = await localCredentialCipher(KEY).seal(GROW_CREDENTIALS);
-    await expect(localCredentialCipher(OTHER_KEY).open(sealed)).rejects.toThrow();
+    const sealed = await localCredentialCipher(KEY).seal(GROW_CREDENTIALS, CONNECTION_ID);
+    await expect(localCredentialCipher(OTHER_KEY).open(sealed, CONNECTION_ID)).rejects.toThrow();
+  });
+
+  it("refuses to open credentials copied onto another connection's row", async () => {
+    const cipher = localCredentialCipher(KEY);
+    const sealed = await cipher.seal(GROW_CREDENTIALS, CONNECTION_ID);
+    await expect(cipher.open(sealed, OTHER_CONNECTION_ID)).rejects.toThrow();
   });
 
   it('refuses a tampered ciphertext', async () => {
     const cipher = localCredentialCipher(KEY);
-    const sealed = await cipher.seal(GROW_CREDENTIALS);
+    const sealed = await cipher.seal(GROW_CREDENTIALS, CONNECTION_ID);
     const lastPart = sealed.split(SEPARATOR).length - 1;
-    await expect(cipher.open(withPart(sealed, lastPart, flipFirstChar))).rejects.toThrow();
+    await expect(cipher.open(withPart(sealed, lastPart, flipFirstChar), CONNECTION_ID)).rejects.toThrow();
   });
 
   it('refuses a truncated authentication tag, which GCM would otherwise accept', async () => {
     const cipher = localCredentialCipher(KEY);
-    const sealed = await cipher.seal(GROW_CREDENTIALS);
+    const sealed = await cipher.seal(GROW_CREDENTIALS, CONNECTION_ID);
     const truncated = withPart(sealed, TAG_PART, (tag) => tag.slice(0, TRUNCATED_TAG_LENGTH));
-    await expect(cipher.open(truncated)).rejects.toThrow();
+    await expect(cipher.open(truncated, CONNECTION_ID)).rejects.toThrow();
   });
 
   it.each([
     ['a value from another cipher', SEALED_TEST_CREDENTIALS],
     ['an empty string', ''],
-    ['too many parts', 'local-v1.a.b.c.d'],
+    ['too many parts', 'local-v2.a.b.c.d'],
+    ['a value sealed before connections were bound (local-v1)', 'local-v1.a.b.c'],
   ])('refuses %s', async (_, sealed) => {
-    await expect(localCredentialCipher(KEY).open(sealed)).rejects.toThrow(NOT_LOCALLY_SEALED);
+    await expect(localCredentialCipher(KEY).open(sealed, CONNECTION_ID)).rejects.toThrow(NOT_LOCALLY_SEALED);
   });
 
   it('refuses a key that is not 32 bytes', () => {

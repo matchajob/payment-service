@@ -19,14 +19,14 @@ const newConnection = async (db: Database) => {
 };
 
 describe('createProviderConnection (ADR 0010 decision 3, amendments 2 and 3)', () => {
-  it('stores the credentials sealed, never in plain text', async () => {
+  it("stores the credentials sealed to the new connection's own id, never in plain text", async () => {
     await withRollback(testDb(), async (tx) => {
       const cipher = fakeCredentialCipher();
       const { buildProvider } = fakeProviderFactory();
       await createProviderConnection(tx, { cipher, buildProvider }, await newConnection(tx));
       const [row] = await tx.select().from(providerConnectionsTable);
       expect(row?.sealedCredentials).not.toContain(GROW_PAGE_CODE);
-      expect(await cipher.open(row?.sealedCredentials ?? '')).toBe(GROW_CREDENTIALS);
+      expect(await cipher.open(row?.sealedCredentials ?? '', row?.providerConnectionId ?? '')).toBe(GROW_CREDENTIALS);
     });
   });
 

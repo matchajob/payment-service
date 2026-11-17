@@ -8,7 +8,7 @@ const TAG_BYTES = 16;
 const KEY_ENCODING = 'base64';
 const PART_ENCODING = 'base64url';
 const TEXT_ENCODING = 'utf8';
-const FORMAT = 'local-v1';
+const FORMAT = 'local-v2';
 const SEPARATOR = '.';
 const PART_COUNT = 4;
 
@@ -19,14 +19,15 @@ export const localCredentialCipher = (base64Key: string): CredentialCipher => {
   const key = Buffer.from(base64Key, KEY_ENCODING);
   if (key.length !== KEY_BYTES) throw new Error(WRONG_KEY_LENGTH);
   return {
-    seal: async (plaintext) => {
+    seal: async (plaintext, connectionId) => {
       const iv = randomBytes(IV_BYTES);
       const cipher = createCipheriv(ALGORITHM, key, iv, { authTagLength: TAG_BYTES });
+      cipher.setAAD(Buffer.from(connectionId, TEXT_ENCODING));
       const ciphertext = Buffer.concat([cipher.update(plaintext, TEXT_ENCODING), cipher.final()]);
       const parts = [iv, cipher.getAuthTag(), ciphertext].map((part) => part.toString(PART_ENCODING));
       return [FORMAT, ...parts].join(SEPARATOR);
     },
-    open: async (sealed) => {
+    open: async (sealed, connectionId) => {
       const parts = sealed.split(SEPARATOR);
       const [format, iv, tag, ciphertext] = parts;
       if (
@@ -38,6 +39,7 @@ export const localCredentialCipher = (base64Key: string): CredentialCipher => {
       )
         throw new Error(NOT_LOCALLY_SEALED);
       const decipher = createDecipheriv(ALGORITHM, key, Buffer.from(iv, PART_ENCODING), { authTagLength: TAG_BYTES });
+      decipher.setAAD(Buffer.from(connectionId, TEXT_ENCODING));
       decipher.setAuthTag(Buffer.from(tag, PART_ENCODING));
       return Buffer.concat([decipher.update(Buffer.from(ciphertext, PART_ENCODING)), decipher.final()]).toString(
         TEXT_ENCODING,

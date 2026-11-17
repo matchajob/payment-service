@@ -26,6 +26,8 @@ const verifyCronToken = googleIdTokenVerifier({
 const cipher = selectCredentialCipher({
   kmsKeyName: process.env[ENV.PROVIDER_CREDENTIALS_KMS_KEY],
   localKey: process.env[ENV.PROVIDER_CREDENTIALS_LOCAL_KEY],
+  fetch,
+  clock: systemClock,
 });
 const providerFor = providerForConnections(cipher, buildProviderFrom(readProviderConfig()));
 
