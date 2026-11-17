@@ -1,6 +1,7 @@
 import { serve } from '@hono/node-server';
 import pino from 'pino';
 import { createApp } from '@/api/app';
+import { gracefulShutdown } from '@/api/graceful-shutdown';
 import { googleIdTokenKeys } from '@/infra/google-oidc/google-id-token-keys';
 import { googleIdTokenVerifier } from '@/infra/google-oidc/google-id-token-verifier';
 import { createDb } from '@/lib/db';
@@ -14,6 +15,9 @@ import { readProviderConfig } from '@/lib/provider-connections/read-provider-con
 
 const DEFAULT_PORT = 8080;
 const DEFAULT_LOG_LEVEL = 'info';
+const SHUTDOWN_SIGNALS = ['SIGTERM', 'SIGINT'] as const;
+const EXIT_OK = 0;
+const EXIT_FAILED = 1;
 
 const logger = pino({ level: process.env[ENV.LOG_LEVEL] ?? DEFAULT_LOG_LEVEL });
 const port = Number(process.env[ENV.PORT] ?? DEFAULT_PORT);
@@ -31,6 +35,20 @@ const cipher = selectCredentialCipher({
 });
 const providerFor = providerForConnections(cipher, buildProviderFrom(readProviderConfig()));
 
-serve({ fetch: createApp({ logger, db, clock: systemClock, verifyCronToken, providerFor }).fetch, port }, () =>
-  logger.info({ port }, 'listening'),
+const server = serve(
+  { fetch: createApp({ logger, db, clock: systemClock, verifyCronToken, providerFor }).fetch, port },
+  () => logger.info({ port }, 'listening'),
+);
+const shutdown = gracefulShutdown({ server, closeDb: () => db.$client.end(), logger });
+
+SHUTDOWN_SIGNALS.forEach((signal) =>
+  process.once(signal, () =>
+    shutdown().then(
+      () => process.exit(EXIT_OK),
+      (error: unknown) => {
+        logger.error({ err: error, signal }, 'shutdown failed');
+        process.exit(EXIT_FAILED);
+      },
+    ),
+  ),
 );
