@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { defineEntity } from '@matcha/infra/domain-ef/define-entity';
+import { DZD_NULLABLE } from '@matcha/infra/dzd/dzd-config';
 import { entityFromDzd } from '@matcha/infra/domain-ef/entity-from-dzd';
 import { dzdThemeBool } from '@matcha/infra/dzd/dzd-boolean';
 import { makeDzdInteger } from '@matcha/infra/dzd/dzd-integer';
@@ -8,6 +9,7 @@ import { dzdThemeStr } from '@matcha/infra/dzd/dzd-string';
 import { dzdThemeTimestamp } from '@matcha/infra/dzd/dzd-timestamp';
 import { dzdThemeUuid } from '@matcha/infra/dzd/dzd-uuid';
 import { foreignKey, unique } from '@matcha/infra/domain-drizzle/exports';
+import { invoicingConnectionsTable } from '@/lib/invoicing-connections/schema';
 import { organizationsTable } from '@/lib/organizations/schema';
 import { providerConnectionsTable } from '@/lib/provider-connections/schema';
 import { REFERENTIAL_ACTION } from '@/lib/referential-action';
@@ -37,6 +39,15 @@ export const tenantsEntity = defineEntity(
           'ProviderConnectionId',
         ),
       ),
+    invoicingConnectionId: (f) =>
+      entityFromDzd(
+        dzdThemeUuid.optionalRef(
+          f,
+          { ref: () => invoicingConnectionsTable.invoicingConnectionId, actions: restrict },
+          'InvoicingConnectionId',
+        ),
+        DZD_NULLABLE,
+      ),
     slug: (f) => entityFromDzd(dzdThemeStr.nonEmpty.title(f)),
     timeZone: (f) => entityFromDzd(makeDzdTimeZone(f)),
     apiKeyHash: (f) => entityFromDzd(dzdThemeStr.hash(f)),
@@ -56,6 +67,11 @@ export const tenantsEntity = defineEntity(
         foreignColumns: [providerConnectionsTable.organizationId, providerConnectionsTable.providerConnectionId],
       }).onDelete(REFERENTIAL_ACTION.RESTRICT),
 
+      foreignKey({
+        name: 'tenants_invoicing_connection_same_organization',
+        columns: [t.organizationId, t.invoicingConnectionId],
+        foreignColumns: [invoicingConnectionsTable.organizationId, invoicingConnectionsTable.invoicingConnectionId],
+      }).onDelete(REFERENTIAL_ACTION.RESTRICT),
       unique('tenants_slug_unique').on(t.slug),
       unique('tenants_api_key_hash_unique').on(t.apiKeyHash),
     ],

@@ -1,0 +1,2180 @@
+{
+  "id": "00205d4e-27fb-4806-95dd-040e6fcafd29",
+  "prevId": "4a7b19f0-0b9e-4b75-87d7-4bf9b9aff8fa",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.charges": {
+      "name": "charges",
+      "schema": "",
+      "columns": {
+        "charge_id": {
+          "name": "charge_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "charge_serial": {
+          "name": "charge_serial",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "charges_charge_serial_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "9223372036854775807",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subscription_id": {
+          "name": "subscription_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "payment_method_id": {
+          "name": "payment_method_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider_connection_id": {
+          "name": "provider_connection_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "charge_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "period_end": {
+          "name": "period_end",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "attempt": {
+          "name": "attempt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount_minor": {
+          "name": "amount_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "currency": {
+          "name": "currency",
+          "type": "currency",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "charge_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider_charge_ref": {
+          "name": "provider_charge_ref",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "failure_reason": {
+          "name": "failure_reason",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "attempted_at": {
+          "name": "attempted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reconcile_flag": {
+          "name": "reconcile_flag",
+          "type": "reconcile_flag",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "flagged_at": {
+          "name": "flagged_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reconcile_deferred_at": {
+          "name": "reconcile_deferred_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "flag_resolved_at": {
+          "name": "flag_resolved_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "flag_resolution": {
+          "name": "flag_resolution",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "charges_one_live_per_period": {
+          "name": "charges_one_live_per_period",
+          "columns": [
+            {
+              "expression": "subscription_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "period_end",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"charges\".\"status\" in ('pending', 'succeeded')",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "charges__fk__tenant_id": {
+          "name": "charges__fk__tenant_id",
+          "tableFrom": "charges",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "tenant_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "charges__fk__subscription_id": {
+          "name": "charges__fk__subscription_id",
+          "tableFrom": "charges",
+          "tableTo": "subscriptions",
+          "columnsFrom": [
+            "subscription_id"
+          ],
+          "columnsTo": [
+            "subscription_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "charges__fk__payment_method_id": {
+          "name": "charges__fk__payment_method_id",
+          "tableFrom": "charges",
+          "tableTo": "payment_methods",
+          "columnsFrom": [
+            "payment_method_id"
+          ],
+          "columnsTo": [
+            "payment_method_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "charges__fk__provider_connection_id": {
+          "name": "charges__fk__provider_connection_id",
+          "tableFrom": "charges",
+          "tableTo": "provider_connections",
+          "columnsFrom": [
+            "provider_connection_id"
+          ],
+          "columnsTo": [
+            "provider_connection_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "charges_subscription_same_tenant": {
+          "name": "charges_subscription_same_tenant",
+          "tableFrom": "charges",
+          "tableTo": "subscriptions",
+          "columnsFrom": [
+            "tenant_id",
+            "subscription_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "subscription_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "charges_card_of_subscription": {
+          "name": "charges_card_of_subscription",
+          "tableFrom": "charges",
+          "tableTo": "payment_methods",
+          "columnsFrom": [
+            "subscription_id",
+            "payment_method_id"
+          ],
+          "columnsTo": [
+            "subscription_id",
+            "payment_method_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "charges_subscription_connection": {
+          "name": "charges_subscription_connection",
+          "tableFrom": "charges",
+          "tableTo": "subscriptions",
+          "columnsFrom": [
+            "subscription_id",
+            "provider_connection_id"
+          ],
+          "columnsTo": [
+            "subscription_id",
+            "provider_connection_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "charges_payment_method_connection": {
+          "name": "charges_payment_method_connection",
+          "tableFrom": "charges",
+          "tableTo": "payment_methods",
+          "columnsFrom": [
+            "payment_method_id",
+            "provider_connection_id"
+          ],
+          "columnsTo": [
+            "payment_method_id",
+            "provider_connection_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "charges__pk__charge_id": {
+          "name": "charges__pk__charge_id",
+          "columns": [
+            "charge_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "charges_one_per_attempt": {
+          "name": "charges_one_per_attempt",
+          "nullsNotDistinct": false,
+          "columns": [
+            "subscription_id",
+            "period_end",
+            "attempt"
+          ]
+        },
+        "charges_charge_serial_unique": {
+          "name": "charges_charge_serial_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "charge_serial"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "charges__chk__attempt": {
+          "name": "charges__chk__attempt",
+          "value": "\"attempt\" >= 0"
+        },
+        "charges__chk__amount_minor": {
+          "name": "charges__chk__amount_minor",
+          "value": "\"amount_minor\" >= 1"
+        },
+        "charges__chk__provider_charge_ref": {
+          "name": "charges__chk__provider_charge_ref",
+          "value": "length(\"provider_charge_ref\") >= 1"
+        },
+        "charges__chk__failure_reason": {
+          "name": "charges__chk__failure_reason",
+          "value": "length(\"failure_reason\") >= 1"
+        },
+        "charges__chk__flag_resolution": {
+          "name": "charges__chk__flag_resolution",
+          "value": "length(\"flag_resolution\") >= 1"
+        },
+        "charges_succeeded_has_provider_ref": {
+          "name": "charges_succeeded_has_provider_ref",
+          "value": "\"charges\".\"status\" <> 'succeeded' or \"charges\".\"provider_charge_ref\" is not null"
+        },
+        "charges_failure_reason_iff_failed": {
+          "name": "charges_failure_reason_iff_failed",
+          "value": "(\"charges\".\"status\" = 'failed') = (\"charges\".\"failure_reason\" is not null)"
+        },
+        "charges_reconcile_flag_iff_flagged_at": {
+          "name": "charges_reconcile_flag_iff_flagged_at",
+          "value": "(\"charges\".\"reconcile_flag\" is null) = (\"charges\".\"flagged_at\" is null)"
+        },
+        "charges_flag_resolution_iff_resolved_at": {
+          "name": "charges_flag_resolution_iff_resolved_at",
+          "value": "(\"charges\".\"flag_resolution\" is null) = (\"charges\".\"flag_resolved_at\" is null)"
+        },
+        "charges_resolved_only_when_flagged": {
+          "name": "charges_resolved_only_when_flagged",
+          "value": "\"charges\".\"flag_resolved_at\" is null or \"charges\".\"reconcile_flag\" is not null"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.customers": {
+      "name": "customers",
+      "schema": "",
+      "columns": {
+        "customer_id": {
+          "name": "customer_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "external_ref": {
+          "name": "external_ref",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(254)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tax_id": {
+          "name": "tax_id",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "customers__fk__tenant_id": {
+          "name": "customers__fk__tenant_id",
+          "tableFrom": "customers",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "tenant_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "customers__pk__customer_id": {
+          "name": "customers__pk__customer_id",
+          "columns": [
+            "customer_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "customers_tenant_external_ref_unique": {
+          "name": "customers_tenant_external_ref_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "external_ref"
+          ]
+        },
+        "customers_tenant_pin": {
+          "name": "customers_tenant_pin",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "customer_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "customers__chk__external_ref": {
+          "name": "customers__chk__external_ref",
+          "value": "length(\"external_ref\") >= 1"
+        },
+        "customers__chk__name": {
+          "name": "customers__chk__name",
+          "value": "length(\"name\") >= 1"
+        },
+        "customers__chk__email": {
+          "name": "customers__chk__email",
+          "value": "length(\"email\") >= 1"
+        },
+        "customers__chk__tax_id": {
+          "name": "customers__chk__tax_id",
+          "value": "length(\"tax_id\") >= 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.idempotency_keys": {
+      "name": "idempotency_keys",
+      "schema": "",
+      "columns": {
+        "idempotency_key_id": {
+          "name": "idempotency_key_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "key": {
+          "name": "key",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "request_hash": {
+          "name": "request_hash",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reserved_at": {
+          "name": "reserved_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "response_status": {
+          "name": "response_status",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "response_content_type": {
+          "name": "response_content_type",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "response_body": {
+          "name": "response_body",
+          "type": "varchar(5000000)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "''"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "idempotency_keys__fk__tenant_id": {
+          "name": "idempotency_keys__fk__tenant_id",
+          "tableFrom": "idempotency_keys",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "tenant_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "idempotency_keys__pk__idempotency_key_id": {
+          "name": "idempotency_keys__pk__idempotency_key_id",
+          "columns": [
+            "idempotency_key_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "idempotency_keys_tenant_key_unique": {
+          "name": "idempotency_keys_tenant_key_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "key"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "idempotency_keys__chk__request_hash": {
+          "name": "idempotency_keys__chk__request_hash",
+          "value": "length(\"request_hash\") = 64"
+        },
+        "idempotency_keys__chk__response_status": {
+          "name": "idempotency_keys__chk__response_status",
+          "value": "\"response_status\" >= 100 AND \"response_status\" <= 599"
+        },
+        "idempotency_keys__chk__response_content_type": {
+          "name": "idempotency_keys__chk__response_content_type",
+          "value": "length(\"response_content_type\") >= 1"
+        },
+        "idempotency_keys_completion_is_whole": {
+          "name": "idempotency_keys_completion_is_whole",
+          "value": "(\"idempotency_keys\".\"completed_at\" is null) = (\"idempotency_keys\".\"response_status\" is null)\n          and (\"idempotency_keys\".\"completed_at\" is null) = (\"idempotency_keys\".\"response_content_type\" is null)\n          and (\"idempotency_keys\".\"completed_at\" is null) = (\"idempotency_keys\".\"response_body\" is null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.invoicing_connections": {
+      "name": "invoicing_connections",
+      "schema": "",
+      "columns": {
+        "invoicing_connection_id": {
+          "name": "invoicing_connection_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "service": {
+          "name": "service",
+          "type": "invoicing_service",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sealed_credentials": {
+          "name": "sealed_credentials",
+          "type": "varchar(5000000)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "invoicing_connections__fk__organization_id": {
+          "name": "invoicing_connections__fk__organization_id",
+          "tableFrom": "invoicing_connections",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "organization_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "invoicing_connections__pk__invoicing_connection_id": {
+          "name": "invoicing_connections__pk__invoicing_connection_id",
+          "columns": [
+            "invoicing_connection_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "invoicing_connections_organization_connection": {
+          "name": "invoicing_connections_organization_connection",
+          "nullsNotDistinct": false,
+          "columns": [
+            "organization_id",
+            "invoicing_connection_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "invoicing_connections__chk__sealed_credentials": {
+          "name": "invoicing_connections__chk__sealed_credentials",
+          "value": "length(\"sealed_credentials\") >= 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.organizations": {
+      "name": "organizations",
+      "schema": "",
+      "columns": {
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "organizations__pk__organization_id": {
+          "name": "organizations__pk__organization_id",
+          "columns": [
+            "organization_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "organizations__chk__name": {
+          "name": "organizations__chk__name",
+          "value": "length(\"name\") >= 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.outbox_events": {
+      "name": "outbox_events",
+      "schema": "",
+      "columns": {
+        "outbox_event_id": {
+          "name": "outbox_event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subscription_id": {
+          "name": "subscription_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event_type": {
+          "name": "event_type",
+          "type": "outbound_event_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sequence": {
+          "name": "sequence",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "snapshot": {
+          "name": "snapshot",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "occurred_at": {
+          "name": "occurred_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "delivery_status": {
+          "name": "delivery_status",
+          "type": "delivery_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "next_attempt_at": {
+          "name": "next_attempt_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "delivered_at": {
+          "name": "delivered_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_error": {
+          "name": "last_error",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "outbox_events_due": {
+          "name": "outbox_events_due",
+          "columns": [
+            {
+              "expression": "next_attempt_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"outbox_events\".\"delivery_status\" = 'pending'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "outbox_events__fk__tenant_id": {
+          "name": "outbox_events__fk__tenant_id",
+          "tableFrom": "outbox_events",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "tenant_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "outbox_events__fk__subscription_id": {
+          "name": "outbox_events__fk__subscription_id",
+          "tableFrom": "outbox_events",
+          "tableTo": "subscriptions",
+          "columnsFrom": [
+            "subscription_id"
+          ],
+          "columnsTo": [
+            "subscription_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "outbox_events_subscription_same_tenant": {
+          "name": "outbox_events_subscription_same_tenant",
+          "tableFrom": "outbox_events",
+          "tableTo": "subscriptions",
+          "columnsFrom": [
+            "tenant_id",
+            "subscription_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "subscription_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "outbox_events__pk__outbox_event_id": {
+          "name": "outbox_events__pk__outbox_event_id",
+          "columns": [
+            "outbox_event_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "outbox_events_one_per_sequence": {
+          "name": "outbox_events_one_per_sequence",
+          "nullsNotDistinct": false,
+          "columns": [
+            "subscription_id",
+            "sequence"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "outbox_events__chk__sequence": {
+          "name": "outbox_events__chk__sequence",
+          "value": "\"sequence\" >= 1"
+        },
+        "outbox_events__chk__attempts": {
+          "name": "outbox_events__chk__attempts",
+          "value": "\"attempts\" >= 0"
+        },
+        "outbox_events__chk__last_error": {
+          "name": "outbox_events__chk__last_error",
+          "value": "length(\"last_error\") >= 1"
+        },
+        "outbox_events_delivered_at_iff_delivered": {
+          "name": "outbox_events_delivered_at_iff_delivered",
+          "value": "(\"outbox_events\".\"delivery_status\" = 'delivered') = (\"outbox_events\".\"delivered_at\" is not null)"
+        },
+        "outbox_events_dead_has_last_error": {
+          "name": "outbox_events_dead_has_last_error",
+          "value": "\"outbox_events\".\"delivery_status\" <> 'dead' or \"outbox_events\".\"last_error\" is not null"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.payment_method_updates": {
+      "name": "payment_method_updates",
+      "schema": "",
+      "columns": {
+        "payment_method_update_id": {
+          "name": "payment_method_update_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subscription_id": {
+          "name": "subscription_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider_connection_id": {
+          "name": "provider_connection_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "session_ref": {
+          "name": "session_ref",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "requested_at": {
+          "name": "requested_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "payment_method_updates__fk__tenant_id": {
+          "name": "payment_method_updates__fk__tenant_id",
+          "tableFrom": "payment_method_updates",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "tenant_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "payment_method_updates__fk__subscription_id": {
+          "name": "payment_method_updates__fk__subscription_id",
+          "tableFrom": "payment_method_updates",
+          "tableTo": "subscriptions",
+          "columnsFrom": [
+            "subscription_id"
+          ],
+          "columnsTo": [
+            "subscription_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "payment_method_updates__fk__provider_connection_id": {
+          "name": "payment_method_updates__fk__provider_connection_id",
+          "tableFrom": "payment_method_updates",
+          "tableTo": "provider_connections",
+          "columnsFrom": [
+            "provider_connection_id"
+          ],
+          "columnsTo": [
+            "provider_connection_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "payment_method_updates_subscription_same_tenant": {
+          "name": "payment_method_updates_subscription_same_tenant",
+          "tableFrom": "payment_method_updates",
+          "tableTo": "subscriptions",
+          "columnsFrom": [
+            "tenant_id",
+            "subscription_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "subscription_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "payment_method_updates_subscription_connection": {
+          "name": "payment_method_updates_subscription_connection",
+          "tableFrom": "payment_method_updates",
+          "tableTo": "subscriptions",
+          "columnsFrom": [
+            "subscription_id",
+            "provider_connection_id"
+          ],
+          "columnsTo": [
+            "subscription_id",
+            "provider_connection_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "payment_method_updates__pk__payment_method_update_id": {
+          "name": "payment_method_updates__pk__payment_method_update_id",
+          "columns": [
+            "payment_method_update_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "payment_method_updates_one_per_session": {
+          "name": "payment_method_updates_one_per_session",
+          "nullsNotDistinct": false,
+          "columns": [
+            "provider_connection_id",
+            "session_ref"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "payment_method_updates__chk__session_ref": {
+          "name": "payment_method_updates__chk__session_ref",
+          "value": "length(\"session_ref\") >= 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.payment_methods": {
+      "name": "payment_methods",
+      "schema": "",
+      "columns": {
+        "payment_method_id": {
+          "name": "payment_method_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subscription_id": {
+          "name": "subscription_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider_connection_id": {
+          "name": "provider_connection_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider_token": {
+          "name": "provider_token",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "capture_ref": {
+          "name": "capture_ref",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "replaced_at": {
+          "name": "replaced_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "payment_methods_one_current_per_subscription": {
+          "name": "payment_methods_one_current_per_subscription",
+          "columns": [
+            {
+              "expression": "subscription_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"payment_methods\".\"replaced_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "payment_methods__fk__tenant_id": {
+          "name": "payment_methods__fk__tenant_id",
+          "tableFrom": "payment_methods",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "tenant_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "payment_methods__fk__subscription_id": {
+          "name": "payment_methods__fk__subscription_id",
+          "tableFrom": "payment_methods",
+          "tableTo": "subscriptions",
+          "columnsFrom": [
+            "subscription_id"
+          ],
+          "columnsTo": [
+            "subscription_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "payment_methods__fk__provider_connection_id": {
+          "name": "payment_methods__fk__provider_connection_id",
+          "tableFrom": "payment_methods",
+          "tableTo": "provider_connections",
+          "columnsFrom": [
+            "provider_connection_id"
+          ],
+          "columnsTo": [
+            "provider_connection_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "payment_methods_subscription_same_tenant": {
+          "name": "payment_methods_subscription_same_tenant",
+          "tableFrom": "payment_methods",
+          "tableTo": "subscriptions",
+          "columnsFrom": [
+            "tenant_id",
+            "subscription_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "subscription_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "payment_methods_subscription_connection": {
+          "name": "payment_methods_subscription_connection",
+          "tableFrom": "payment_methods",
+          "tableTo": "subscriptions",
+          "columnsFrom": [
+            "subscription_id",
+            "provider_connection_id"
+          ],
+          "columnsTo": [
+            "subscription_id",
+            "provider_connection_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "payment_methods__pk__payment_method_id": {
+          "name": "payment_methods__pk__payment_method_id",
+          "columns": [
+            "payment_method_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "payment_methods_one_per_capture": {
+          "name": "payment_methods_one_per_capture",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "capture_ref"
+          ]
+        },
+        "payment_methods_connection_pin": {
+          "name": "payment_methods_connection_pin",
+          "nullsNotDistinct": false,
+          "columns": [
+            "payment_method_id",
+            "provider_connection_id"
+          ]
+        },
+        "payment_methods_subscription_pin": {
+          "name": "payment_methods_subscription_pin",
+          "nullsNotDistinct": false,
+          "columns": [
+            "subscription_id",
+            "payment_method_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "payment_methods__chk__provider_token": {
+          "name": "payment_methods__chk__provider_token",
+          "value": "length(\"provider_token\") >= 1"
+        },
+        "payment_methods__chk__capture_ref": {
+          "name": "payment_methods__chk__capture_ref",
+          "value": "length(\"capture_ref\") >= 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.plans": {
+      "name": "plans",
+      "schema": "",
+      "columns": {
+        "plan_id": {
+          "name": "plan_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount_minor": {
+          "name": "amount_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "currency": {
+          "name": "currency",
+          "type": "currency",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "interval": {
+          "name": "interval",
+          "type": "billing_interval",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "plans__fk__tenant_id": {
+          "name": "plans__fk__tenant_id",
+          "tableFrom": "plans",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "tenant_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "plans__pk__plan_id": {
+          "name": "plans__pk__plan_id",
+          "columns": [
+            "plan_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "plans_tenant_pin": {
+          "name": "plans_tenant_pin",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "plan_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "plans__chk__name": {
+          "name": "plans__chk__name",
+          "value": "length(\"name\") >= 1"
+        },
+        "plans__chk__amount_minor": {
+          "name": "plans__chk__amount_minor",
+          "value": "\"amount_minor\" >= 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.provider_connections": {
+      "name": "provider_connections",
+      "schema": "",
+      "columns": {
+        "provider_connection_id": {
+          "name": "provider_connection_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider": {
+          "name": "provider",
+          "type": "payment_provider",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sealed_credentials": {
+          "name": "sealed_credentials",
+          "type": "varchar(5000000)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "provider_connections__fk__organization_id": {
+          "name": "provider_connections__fk__organization_id",
+          "tableFrom": "provider_connections",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "organization_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "provider_connections__pk__provider_connection_id": {
+          "name": "provider_connections__pk__provider_connection_id",
+          "columns": [
+            "provider_connection_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "provider_connections_organization_connection": {
+          "name": "provider_connections_organization_connection",
+          "nullsNotDistinct": false,
+          "columns": [
+            "organization_id",
+            "provider_connection_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "provider_connections__chk__sealed_credentials": {
+          "name": "provider_connections__chk__sealed_credentials",
+          "value": "length(\"sealed_credentials\") >= 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.subscriptions": {
+      "name": "subscriptions",
+      "schema": "",
+      "columns": {
+        "subscription_id": {
+          "name": "subscription_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "plan_id": {
+          "name": "plan_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider_connection_id": {
+          "name": "provider_connection_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "subscription_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "schedule_owner": {
+          "name": "schedule_owner",
+          "type": "schedule_owner",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "checkout_session_ref": {
+          "name": "checkout_session_ref",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "current_period_end": {
+          "name": "current_period_end",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "anchor_day": {
+          "name": "anchor_day",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cancel_at_period_end": {
+          "name": "cancel_at_period_end",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "canceled_at": {
+          "name": "canceled_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cancel_reason": {
+          "name": "cancel_reason",
+          "type": "cancel_reason",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "dunning_attempt": {
+          "name": "dunning_attempt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "dunning_attempt_base": {
+          "name": "dunning_attempt_base",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "dunning_started_at": {
+          "name": "dunning_started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "next_retry_at": {
+          "name": "next_retry_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cycle_deferred_at": {
+          "name": "cycle_deferred_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sequence": {
+          "name": "sequence",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "subscriptions_next_retry_at": {
+          "name": "subscriptions_next_retry_at",
+          "columns": [
+            {
+              "expression": "next_retry_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "subscriptions_one_live_per_customer": {
+          "name": "subscriptions_one_live_per_customer",
+          "columns": [
+            {
+              "expression": "customer_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"subscriptions\".\"status\" in ('active', 'past_due')",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "subscriptions__fk__tenant_id": {
+          "name": "subscriptions__fk__tenant_id",
+          "tableFrom": "subscriptions",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "tenant_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "subscriptions__fk__customer_id": {
+          "name": "subscriptions__fk__customer_id",
+          "tableFrom": "subscriptions",
+          "tableTo": "customers",
+          "columnsFrom": [
+            "customer_id"
+          ],
+          "columnsTo": [
+            "customer_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "subscriptions__fk__plan_id": {
+          "name": "subscriptions__fk__plan_id",
+          "tableFrom": "subscriptions",
+          "tableTo": "plans",
+          "columnsFrom": [
+            "plan_id"
+          ],
+          "columnsTo": [
+            "plan_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "subscriptions__fk__provider_connection_id": {
+          "name": "subscriptions__fk__provider_connection_id",
+          "tableFrom": "subscriptions",
+          "tableTo": "provider_connections",
+          "columnsFrom": [
+            "provider_connection_id"
+          ],
+          "columnsTo": [
+            "provider_connection_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "subscriptions_customer_same_tenant": {
+          "name": "subscriptions_customer_same_tenant",
+          "tableFrom": "subscriptions",
+          "tableTo": "customers",
+          "columnsFrom": [
+            "tenant_id",
+            "customer_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "customer_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "subscriptions_plan_same_tenant": {
+          "name": "subscriptions_plan_same_tenant",
+          "tableFrom": "subscriptions",
+          "tableTo": "plans",
+          "columnsFrom": [
+            "tenant_id",
+            "plan_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "plan_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "subscriptions__pk__subscription_id": {
+          "name": "subscriptions__pk__subscription_id",
+          "columns": [
+            "subscription_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "subscriptions_connection_pin": {
+          "name": "subscriptions_connection_pin",
+          "nullsNotDistinct": false,
+          "columns": [
+            "subscription_id",
+            "provider_connection_id"
+          ]
+        },
+        "subscriptions_tenant_pin": {
+          "name": "subscriptions_tenant_pin",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "subscription_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "subscriptions__chk__checkout_session_ref": {
+          "name": "subscriptions__chk__checkout_session_ref",
+          "value": "length(\"checkout_session_ref\") >= 1"
+        },
+        "subscriptions__chk__anchor_day": {
+          "name": "subscriptions__chk__anchor_day",
+          "value": "\"anchor_day\" >= 1 AND \"anchor_day\" <= 31"
+        },
+        "subscriptions__chk__dunning_attempt": {
+          "name": "subscriptions__chk__dunning_attempt",
+          "value": "\"dunning_attempt\" >= 0"
+        },
+        "subscriptions__chk__dunning_attempt_base": {
+          "name": "subscriptions__chk__dunning_attempt_base",
+          "value": "\"dunning_attempt_base\" >= 0"
+        },
+        "subscriptions__chk__sequence": {
+          "name": "subscriptions__chk__sequence",
+          "value": "\"sequence\" >= 0"
+        },
+        "subscriptions_cancel_flag_only_on_active": {
+          "name": "subscriptions_cancel_flag_only_on_active",
+          "value": "\"subscriptions\".\"cancel_at_period_end\" = false or \"subscriptions\".\"status\" = 'active'"
+        },
+        "subscriptions_incomplete_has_no_period": {
+          "name": "subscriptions_incomplete_has_no_period",
+          "value": "\"subscriptions\".\"status\" <> 'incomplete' or \"subscriptions\".\"current_period_end\" is null"
+        },
+        "subscriptions_live_has_period": {
+          "name": "subscriptions_live_has_period",
+          "value": "\"subscriptions\".\"status\" not in ('active', 'past_due') or \"subscriptions\".\"current_period_end\" is not null"
+        },
+        "subscriptions_retry_iff_past_due": {
+          "name": "subscriptions_retry_iff_past_due",
+          "value": "(\"subscriptions\".\"status\" = 'past_due') = (\"subscriptions\".\"next_retry_at\" is not null)"
+        },
+        "subscriptions_dunning_clock_with_retry": {
+          "name": "subscriptions_dunning_clock_with_retry",
+          "value": "(\"subscriptions\".\"next_retry_at\" is null) = (\"subscriptions\".\"dunning_started_at\" is null)"
+        },
+        "subscriptions_dunning_base_within_attempts": {
+          "name": "subscriptions_dunning_base_within_attempts",
+          "value": "\"subscriptions\".\"dunning_attempt_base\" <= \"subscriptions\".\"dunning_attempt\""
+        },
+        "subscriptions_cancel_reason_iff_canceled": {
+          "name": "subscriptions_cancel_reason_iff_canceled",
+          "value": "(\"subscriptions\".\"status\" = 'canceled') = (\"subscriptions\".\"cancel_reason\" is not null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.tenants": {
+      "name": "tenants",
+      "schema": "",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider_connection_id": {
+          "name": "provider_connection_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "invoicing_connection_id": {
+          "name": "invoicing_connection_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "slug": {
+          "name": "slug",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "time_zone": {
+          "name": "time_zone",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'UTC'"
+        },
+        "api_key_hash": {
+          "name": "api_key_hash",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "webhook_url": {
+          "name": "webhook_url",
+          "type": "varchar(256)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "webhook_secret": {
+          "name": "webhook_secret",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "checkout_ttl_hours": {
+          "name": "checkout_ttl_hours",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "resume_allowed": {
+          "name": "resume_allowed",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "grace_entitlement": {
+          "name": "grace_entitlement",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "dunning_schedule_days": {
+          "name": "dunning_schedule_days",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "tenants__fk__organization_id": {
+          "name": "tenants__fk__organization_id",
+          "tableFrom": "tenants",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "organization_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "tenants__fk__provider_connection_id": {
+          "name": "tenants__fk__provider_connection_id",
+          "tableFrom": "tenants",
+          "tableTo": "provider_connections",
+          "columnsFrom": [
+            "provider_connection_id"
+          ],
+          "columnsTo": [
+            "provider_connection_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "tenants__fk__invoicing_connection_id": {
+          "name": "tenants__fk__invoicing_connection_id",
+          "tableFrom": "tenants",
+          "tableTo": "invoicing_connections",
+          "columnsFrom": [
+            "invoicing_connection_id"
+          ],
+          "columnsTo": [
+            "invoicing_connection_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "tenants_connection_same_organization": {
+          "name": "tenants_connection_same_organization",
+          "tableFrom": "tenants",
+          "tableTo": "provider_connections",
+          "columnsFrom": [
+            "organization_id",
+            "provider_connection_id"
+          ],
+          "columnsTo": [
+            "organization_id",
+            "provider_connection_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "tenants_invoicing_connection_same_organization": {
+          "name": "tenants_invoicing_connection_same_organization",
+          "tableFrom": "tenants",
+          "tableTo": "invoicing_connections",
+          "columnsFrom": [
+            "organization_id",
+            "invoicing_connection_id"
+          ],
+          "columnsTo": [
+            "organization_id",
+            "invoicing_connection_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "tenants__pk__tenant_id": {
+          "name": "tenants__pk__tenant_id",
+          "columns": [
+            "tenant_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "tenants_slug_unique": {
+          "name": "tenants_slug_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "slug"
+          ]
+        },
+        "tenants_api_key_hash_unique": {
+          "name": "tenants_api_key_hash_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "api_key_hash"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "tenants__chk__slug": {
+          "name": "tenants__chk__slug",
+          "value": "length(\"slug\") >= 1"
+        },
+        "tenants__chk__time_zone": {
+          "name": "tenants__chk__time_zone",
+          "value": "length(\"time_zone\") >= 1"
+        },
+        "tenants__chk__api_key_hash": {
+          "name": "tenants__chk__api_key_hash",
+          "value": "length(\"api_key_hash\") = 64"
+        },
+        "tenants__chk__webhook_url": {
+          "name": "tenants__chk__webhook_url",
+          "value": "length(\"webhook_url\") >= 1"
+        },
+        "tenants__chk__webhook_secret": {
+          "name": "tenants__chk__webhook_secret",
+          "value": "length(\"webhook_secret\") >= 1"
+        },
+        "tenants__chk__checkout_ttl_hours": {
+          "name": "tenants__chk__checkout_ttl_hours",
+          "value": "\"checkout_ttl_hours\" >= 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.webhook_events": {
+      "name": "webhook_events",
+      "schema": "",
+      "columns": {
+        "webhook_event_id": {
+          "name": "webhook_event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "provider_connection_id": {
+          "name": "provider_connection_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider": {
+          "name": "provider",
+          "type": "payment_provider",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "dedup_key": {
+          "name": "dedup_key",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "raw_body": {
+          "name": "raw_body",
+          "type": "varchar(5000000)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "trusted": {
+          "name": "trusted",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "received_at": {
+          "name": "received_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "processed_at": {
+          "name": "processed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "webhook_events__fk__provider_connection_id": {
+          "name": "webhook_events__fk__provider_connection_id",
+          "tableFrom": "webhook_events",
+          "tableTo": "provider_connections",
+          "columnsFrom": [
+            "provider_connection_id"
+          ],
+          "columnsTo": [
+            "provider_connection_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "webhook_events__pk__webhook_event_id": {
+          "name": "webhook_events__pk__webhook_event_id",
+          "columns": [
+            "webhook_event_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "webhook_events_dedup": {
+          "name": "webhook_events_dedup",
+          "nullsNotDistinct": false,
+          "columns": [
+            "provider_connection_id",
+            "dedup_key"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "webhook_events__chk__dedup_key": {
+          "name": "webhook_events__chk__dedup_key",
+          "value": "length(\"dedup_key\") = 64"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.charge_kind": {
+      "name": "charge_kind",
+      "schema": "public",
+      "values": [
+        "first",
+        "renewal",
+        "retry",
+        "immediate_retry"
+      ]
+    },
+    "public.charge_status": {
+      "name": "charge_status",
+      "schema": "public",
+      "values": [
+        "pending",
+        "succeeded",
+        "failed"
+      ]
+    },
+    "public.reconcile_flag": {
+      "name": "reconcile_flag",
+      "schema": "public",
+      "values": [
+        "stuck_pending",
+        "ref_not_found",
+        "no_reference_lookup",
+        "amount_mismatch",
+        "late_success"
+      ]
+    },
+    "public.invoicing_service": {
+      "name": "invoicing_service",
+      "schema": "public",
+      "values": [
+        "morning"
+      ]
+    },
+    "public.currency": {
+      "name": "currency",
+      "schema": "public",
+      "values": [
+        "ILS",
+        "USD"
+      ]
+    },
+    "public.delivery_status": {
+      "name": "delivery_status",
+      "schema": "public",
+      "values": [
+        "pending",
+        "delivered",
+        "dead"
+      ]
+    },
+    "public.outbound_event_type": {
+      "name": "outbound_event_type",
+      "schema": "public",
+      "values": [
+        "subscription.activated",
+        "subscription.past_due",
+        "subscription.canceled",
+        "charge.succeeded",
+        "charge.failed"
+      ]
+    },
+    "public.payment_provider": {
+      "name": "payment_provider",
+      "schema": "public",
+      "values": [
+        "grow",
+        "stripe"
+      ]
+    },
+    "public.billing_interval": {
+      "name": "billing_interval",
+      "schema": "public",
+      "values": [
+        "month",
+        "year"
+      ]
+    },
+    "public.cancel_reason": {
+      "name": "cancel_reason",
+      "schema": "public",
+      "values": [
+        "payment_failure",
+        "customer_request",
+        "already_subscribed",
+        "checkout_expired"
+      ]
+    },
+    "public.schedule_owner": {
+      "name": "schedule_owner",
+      "schema": "public",
+      "values": [
+        "self",
+        "external"
+      ]
+    },
+    "public.subscription_status": {
+      "name": "subscription_status",
+      "schema": "public",
+      "values": [
+        "incomplete",
+        "active",
+        "past_due",
+        "canceled"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

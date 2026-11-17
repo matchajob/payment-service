@@ -15,6 +15,13 @@
       "when": 1794942951305,
       "tag": "0001_closed_professor_monster",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794943607101,
+      "tag": "0002_parallel_vivisector",
+      "breakpoints": true
     }
   ]
 }
