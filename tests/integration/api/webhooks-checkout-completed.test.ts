@@ -270,7 +270,7 @@ describe('checkout completed webhook (S1 r2, ADR 0007, ADR 0008)', () => {
     it('activates checkouts of two different customers independently', async () => {
       await withRollback(testDb(), async (tx) => {
         const { ctx, provider, app, subscriptionId, complete } = await setup(tx);
-        const other = await createCustomer(tx, ctx.tenantId, OTHER_EXTERNAL_REF);
+        const other = await createCustomer(tx, ctx.tenantId, { externalRef: OTHER_EXTERNAL_REF });
         if (other.outcome !== CREATE_CUSTOMER_OUTCOME.CREATED) throw new Error('second customer already existed');
         const second = await startTestCheckout(app, { ...ctx, customerId: other.customer.customerId });
         provider.scriptCharge(SUCCEEDED);

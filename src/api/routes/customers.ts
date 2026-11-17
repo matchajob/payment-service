@@ -8,11 +8,11 @@ import { zCustomerCreate, zCustomerRead, type Customer } from '@/lib/customers/s
 import type { CustomerResponse } from '@/contract/customer-response';
 import { readJsonBody } from '@/api/read-json-body';
 
-const createBody = zCustomerCreate.pick({ externalRef: true });
+const createBody = zCustomerCreate.pick({ externalRef: true, name: true, email: true, taxId: true });
 const customerIdParam = zCustomerRead.shape.customerId;
 
-const toResponse = ({ customerId, externalRef }: Customer): CustomerResponse => ({
-  data: { customerId, externalRef },
+const toResponse = ({ customerId, externalRef, name, email, taxId }: Customer): CustomerResponse => ({
+  data: { customerId, externalRef, name, email, taxId },
 });
 
 export const customersRoutes = () =>
@@ -20,7 +20,7 @@ export const customersRoutes = () =>
     .post('/', async (c) => {
       const body = createBody.safeParse(await readJsonBody(c));
       if (!body.success) return problemResponse(c, HTTP_STATUS.BAD_REQUEST, body.error.message);
-      const result = await createCustomer(c.get('db'), c.get('tenant').tenantId, body.data.externalRef);
+      const result = await createCustomer(c.get('db'), c.get('tenant').tenantId, body.data);
       if (result.outcome === CREATE_CUSTOMER_OUTCOME.DUPLICATE) {
         return problemResponse(c, HTTP_STATUS.CONFLICT, `customer ${body.data.externalRef} already exists`);
       }

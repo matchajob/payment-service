@@ -8,6 +8,7 @@ import { sdkFor } from '@tests/utils/sdk-client';
 import { testApp } from '@tests/utils/test-app';
 import { ACME } from '@tests/utils/tenant-fixtures';
 import { seedTenant } from '@tests/utils/tenant-rows';
+import { BILLING_DETAILS } from '@tests/utils/customer-billing-fixtures';
 
 const EXTERNAL_REF = 'user-42';
 
@@ -25,8 +26,8 @@ describe('SDK plans and customers, run against the real app (ADR 0015)', () => {
     await withRollback(testDb(), async (tx) => {
       const { apiKey } = await seedTenant(tx, ACME);
       const sdk = sdkFor(testApp(tx), apiKey);
-      const created = await sdk.customers.create({ externalRef: EXTERNAL_REF });
-      expect(created).toEqual({ customerId: expect.any(String), externalRef: EXTERNAL_REF });
+      const created = await sdk.customers.create({ externalRef: EXTERNAL_REF, ...BILLING_DETAILS });
+      expect(created).toEqual({ customerId: expect.any(String), externalRef: EXTERNAL_REF, ...BILLING_DETAILS });
       expect(await sdk.customers.get(created.customerId)).toEqual(created);
     });
   });

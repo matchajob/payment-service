@@ -14,6 +14,18 @@ const verdicts = (schema: ZodType, inputs: readonly unknown[]) =>
   inputs.map((input) => schema.safeParse(input).success);
 
 const STRING_BOUNDARIES = ['', 'a', 'a'.repeat(COLUMN_MAX_LENGTH), 'a'.repeat(COLUMN_MAX_LENGTH + 1)];
+const NULLABLE_STRING_BOUNDARIES = [...STRING_BOUNDARIES, null, undefined];
+const EMAIL_MAX_LENGTH = 254;
+const EMAIL_DOMAIN = '@x.co';
+const EMAIL_BOUNDARIES = [
+  'a@b.co',
+  'not-an-email',
+  '',
+  null,
+  undefined,
+  `${'a'.repeat(EMAIL_MAX_LENGTH - EMAIL_DOMAIN.length)}${EMAIL_DOMAIN}`,
+  `${'a'.repeat(EMAIL_MAX_LENGTH - EMAIL_DOMAIN.length + 1)}${EMAIL_DOMAIN}`,
+];
 const AMOUNT_BOUNDARIES = [-1, 0, 1, 1.5, 4900];
 const UUID_BOUNDARIES = [
   randomUUID(),
@@ -27,6 +39,18 @@ describe('contract fields accept and reject exactly what the columns do', () => 
   it('customer externalRef', () => {
     expect(verdicts(createCustomerRequestSchema.shape.externalRef, STRING_BOUNDARIES)).toEqual(
       verdicts(zCustomerCreate.shape.externalRef, STRING_BOUNDARIES),
+    );
+  });
+
+  it.each(['name', 'taxId'] as const)('customer %s', (field) => {
+    expect(verdicts(createCustomerRequestSchema.shape[field], NULLABLE_STRING_BOUNDARIES)).toEqual(
+      verdicts(zCustomerCreate.shape[field], NULLABLE_STRING_BOUNDARIES),
+    );
+  });
+
+  it('customer email', () => {
+    expect(verdicts(createCustomerRequestSchema.shape.email, EMAIL_BOUNDARIES)).toEqual(
+      verdicts(zCustomerCreate.shape.email, EMAIL_BOUNDARIES),
     );
   });
 

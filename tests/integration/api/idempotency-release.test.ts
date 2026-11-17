@@ -15,7 +15,7 @@ const WRITES_THEN_THROWS_PATH = '/v1/writes-then-throws';
 const writesThenThrows = (db: Database) => {
   const app = testApp(db);
   app.post(WRITES_THEN_THROWS_PATH, async (c) => {
-    await createCustomer(c.get('db'), c.get('tenant').tenantId, 'half-done');
+    await createCustomer(c.get('db'), c.get('tenant').tenantId, { externalRef: 'half-done' });
     throw new Error('handler failed after writing');
   });
   return app;

@@ -8,6 +8,13 @@
       "when": 1794926518979,
       "tag": "0000_purple_piledriver",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794942951305,
+      "tag": "0001_closed_professor_monster",
+      "breakpoints": true
     }
   ]
 }

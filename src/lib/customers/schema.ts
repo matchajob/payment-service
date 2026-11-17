@@ -1,5 +1,6 @@
 import { unique } from '@matcha/infra/domain-drizzle/exports';
 import { defineEntity } from '@matcha/infra/domain-ef/define-entity';
+import { DZD_NULLABLE } from '@matcha/infra/dzd/dzd-config';
 import { entityFromDzd } from '@matcha/infra/domain-ef/entity-from-dzd';
 import { dzdThemeStr } from '@matcha/infra/dzd/dzd-string';
 import { dzdThemeTimestamp } from '@matcha/infra/dzd/dzd-timestamp';
@@ -20,6 +21,9 @@ export const customersEntity = defineEntity(
         ),
       ),
     externalRef: (f) => entityFromDzd(dzdThemeStr.nonEmpty.title(f)),
+    name: (f) => entityFromDzd(dzdThemeStr.nonEmpty.title(f), DZD_NULLABLE),
+    email: (f) => entityFromDzd(dzdThemeStr.email(f), DZD_NULLABLE),
+    taxId: (f) => entityFromDzd(dzdThemeStr.nonEmpty.title(f), DZD_NULLABLE),
     createdAt: (f) => entityFromDzd(dzdThemeTimestamp.defaultNow(f)),
   },
   {
@@ -35,3 +39,4 @@ export const zCustomerCreate = customersEntity.create;
 export const zCustomerRead = customersEntity.read;
 
 export type Customer = typeof customersTable.$inferSelect;
+export type NewCustomer = typeof customersTable.$inferInsert;

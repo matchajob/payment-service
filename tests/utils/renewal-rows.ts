@@ -42,7 +42,7 @@ const addWithCard = async (
   index: number,
   overrides: SubscriptionOverrides = {},
 ): Promise<Renewing> => {
-  const customer = await createCustomer(db, ctx.tenantId, `${EXTERNAL_REF_PREFIX}${index}`);
+  const customer = await createCustomer(db, ctx.tenantId, { externalRef: `${EXTERNAL_REF_PREFIX}${index}` });
   if (customer.outcome !== CREATE_CUSTOMER_OUTCOME.CREATED) throw new Error('renewal customer already existed');
   const [subscription] = await insertSubscription(
     db,

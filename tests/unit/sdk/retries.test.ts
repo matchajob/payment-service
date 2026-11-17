@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createClient } from '@sdk/create-client';
 import { PaymentServiceError } from '@sdk/payment-service-error';
 import { recordingSleep, scriptedFetch, type ScriptedStep } from '@tests/utils/sdk-client';
+import { NO_BILLING_DETAILS } from '@tests/utils/customer-billing-fixtures';
 
 const BASE_URL = 'http://payments.test';
 const API_KEY = 'sk_test_key';
@@ -25,7 +26,7 @@ const failure = (status: number): ScriptedStep =>
     headers: { [CONTENT_TYPE_HEADER]: PROBLEM_TYPE },
   });
 const customerCreated = (): ScriptedStep =>
-  new Response(JSON.stringify({ data: { customerId: randomUUID(), externalRef: REF } }), {
+  new Response(JSON.stringify({ data: { customerId: randomUUID(), externalRef: REF, ...NO_BILLING_DETAILS } }), {
     status: 201,
     headers: { [CONTENT_TYPE_HEADER]: JSON_TYPE },
   });

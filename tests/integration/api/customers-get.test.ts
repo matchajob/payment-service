@@ -8,15 +8,18 @@ import { testDb, withRollback } from '@tests/utils/db';
 import { postJson } from '@tests/utils/post-json';
 import { ACME, GLOBEX } from '@tests/utils/tenant-fixtures';
 import { seedTenant } from '@tests/utils/tenant-rows';
+import { BILLING_DETAILS } from '@tests/utils/customer-billing-fixtures';
 
 const EXTERNAL_REF = 'user-42';
 
 describe('GET /v1/customers/:customerId', () => {
-  it("returns the tenant's own customer", async () => {
+  it("returns the tenant's own customer with its billing details", async () => {
     await withRollback(testDb(), async (tx) => {
       const { apiKey } = await seedTenant(tx, ACME);
       const app = testApp(tx);
-      const created = await (await app.request(CUSTOMERS_PATH, postJson(apiKey, { externalRef: EXTERNAL_REF }))).json();
+      const created = await (
+        await app.request(CUSTOMERS_PATH, postJson(apiKey, { externalRef: EXTERNAL_REF, ...BILLING_DETAILS }))
+      ).json();
       const res = await app.request(`${CUSTOMERS_PATH}/${created.data.customerId}`, bearer(apiKey));
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual(created);

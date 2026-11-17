@@ -6,16 +6,45 @@ import { testDb, withRollback } from '@tests/utils/db';
 import { postJson } from '@tests/utils/post-json';
 import { ACME, GLOBEX } from '@tests/utils/tenant-fixtures';
 import { seedTenant } from '@tests/utils/tenant-rows';
+import { BILLING_DETAILS, NO_BILLING_DETAILS } from '@tests/utils/customer-billing-fixtures';
 
 const EXTERNAL_REF = 'user-42';
+const NOT_AN_EMAIL = 'not-an-email';
 
 describe('POST /v1/customers', () => {
-  it('creates a customer and answers 201 with its public fields', async () => {
+  it('creates a customer and answers 201 with its public fields, billing details null when not given', async () => {
     await withRollback(testDb(), async (tx) => {
       const { apiKey } = await seedTenant(tx, ACME);
       const res = await testApp(tx).request(CUSTOMERS_PATH, postJson(apiKey, { externalRef: EXTERNAL_REF }));
       expect(res.status).toBe(201);
-      expect(await res.json()).toEqual({ data: { customerId: expect.any(String), externalRef: EXTERNAL_REF } });
+      expect(await res.json()).toEqual({
+        data: { customerId: expect.any(String), externalRef: EXTERNAL_REF, ...NO_BILLING_DETAILS },
+      });
+    });
+  });
+
+  it('stores the billing details an invoice needs: name, email and tax id', async () => {
+    await withRollback(testDb(), async (tx) => {
+      const { apiKey } = await seedTenant(tx, ACME);
+      const res = await testApp(tx).request(
+        CUSTOMERS_PATH,
+        postJson(apiKey, { externalRef: EXTERNAL_REF, ...BILLING_DETAILS }),
+      );
+      expect(res.status).toBe(201);
+      expect(await res.json()).toEqual({
+        data: { customerId: expect.any(String), externalRef: EXTERNAL_REF, ...BILLING_DETAILS },
+      });
+    });
+  });
+
+  it('rejects a malformed email with 400', async () => {
+    await withRollback(testDb(), async (tx) => {
+      const { apiKey } = await seedTenant(tx, ACME);
+      const res = await testApp(tx).request(
+        CUSTOMERS_PATH,
+        postJson(apiKey, { externalRef: EXTERNAL_REF, email: NOT_AN_EMAIL }),
+      );
+      expect(res.status).toBe(400);
     });
   });
 

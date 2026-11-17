@@ -25,7 +25,7 @@ export const seedBillingContext = async (
 ): Promise<BillingContext> => {
   const created = await seedTenant(db, tenant, connection);
   const { tenantId } = created.tenant;
-  const customer = await createCustomer(db, tenantId, EXTERNAL_REF);
+  const customer = await createCustomer(db, tenantId, { externalRef: EXTERNAL_REF });
   if (customer.outcome !== CREATE_CUSTOMER_OUTCOME.CREATED) throw new Error('seed customer already existed');
   const plan = await createPlan(db, { tenantId, ...MONTHLY });
   return {

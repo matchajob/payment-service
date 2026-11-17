@@ -102,7 +102,7 @@ describe('subscriptions table constraints', () => {
     it('lets two different customers each have a live subscription', async () => {
       await withRollback(testDb(), async (tx) => {
         const parents = await seedSubscriptionParents(tx);
-        const other = await createCustomer(tx, parents.tenantId, OTHER_EXTERNAL_REF);
+        const other = await createCustomer(tx, parents.tenantId, { externalRef: OTHER_EXTERNAL_REF });
         if (other.outcome !== CREATE_CUSTOMER_OUTCOME.CREATED) throw new Error('second customer already existed');
         await insertSubscription(tx, parents, { status: ACTIVE, currentPeriodEnd: PERIOD_END });
         const write = (db: Database) =>
