@@ -1,4 +1,7 @@
+import type { Logger } from 'pino';
 import type { Charge } from '@/lib/charges/schema';
+import { forEachWithinBudget } from '@/lib/cron/for-each-within-budget';
+import type { TimeUp } from '@/lib/cron/time-up';
 import { deferReconcile } from '@/lib/reconcile/defer-reconcile';
 import { findLostCharges } from '@/lib/reconcile/find-lost-charges';
 import { NO_PROGRESS_RESULTS } from '@/lib/reconcile/no-progress-results';
@@ -9,7 +12,11 @@ import { RECONCILE_RESULT, type ReconcileResult } from '@/lib/reconcile/reconcil
 import type { ReconcileSummary } from '@/lib/reconcile/reconcile-summary';
 import { sweepLostCharge } from '@/lib/reconcile/sweep-lost-charge';
 
-export type RunReconcileDeps = ReconcileDeps & { batchLimit: number };
+export type RunReconcileDeps = ReconcileDeps & {
+  batchLimit: number;
+  timeUp: TimeUp;
+  logger: Pick<Logger, 'error' | 'warn'>;
+};
 type Step = (deps: ReconcileDeps, charge: Charge, now: Date) => Promise<ReconcileResult>;
 
 const countOf = (results: readonly ReconcileResult[], wanted: ReconcileResult): number =>
@@ -20,14 +27,14 @@ export const runReconcile = async (deps: RunReconcileDeps, now: Date): Promise<R
   const lost = await findLostCharges(deps.db, now, deps.batchLimit);
   const results: ReconcileResult[] = [];
   const runEach = async (charges: readonly Charge[], step: Step) => {
-    for (const charge of charges) {
+    await forEachWithinBudget(deps, charges, async (charge) => {
       const result = await step(deps, charge, now).catch((error: unknown) => {
         deps.logger.error({ err: error, chargeId: charge.chargeId }, 'reconcile failed');
         return RECONCILE_RESULT.FAILED;
       });
       if (NO_PROGRESS_RESULTS.includes(result)) await deferReconcile(deps.db, charge.chargeId, now);
       results.push(result);
-    }
+    });
   };
   await runEach(unsettled, reconcileCharge);
   await runEach(lost, sweepLostCharge);
