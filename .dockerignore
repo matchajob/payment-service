@@ -1,0 +1,15 @@
+.git
+node_modules
+.env
+.env.*
+tests
+iac
+docs
+spec
+.claude
+.remember
+.github
+graphify-out
+.playwright-mcp
+*.md
+*.docx

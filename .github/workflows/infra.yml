@@ -52,19 +52,15 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ vars.GCP_DEPLOYER_EMAIL }}
 
-      - name: pulumi preview
-        uses: pulumi/actions@v6
-        with:
-          command: preview
-          stack-name: ${{ matrix.stack }}
-          work-dir: iac
-          cloud-url: ${{ vars.PULUMI_BACKEND_URL }}
+      - uses: pulumi/actions@v6
 
-      - name: pulumi up (staging, main only)
-        if: matrix.stack == 'staging' && github.ref == 'refs/heads/main'
-        uses: pulumi/actions@v6
-        with:
-          command: up
-          stack-name: staging
-          work-dir: iac
-          cloud-url: ${{ vars.PULUMI_BACKEND_URL }}
+      - name: pulumi preview against the image staging runs now
+        working-directory: iac
+        env:
+          PULUMI_BACKEND_URL: ${{ vars.PULUMI_BACKEND_URL }}
+        run: |
+          pulumi login "$PULUMI_BACKEND_URL"
+          pulumi stack select ${{ matrix.stack }}
+          DEPLOYED_IMAGE="$(pulumi stack output image 2>/dev/null || true)"
+          if [ -n "$DEPLOYED_IMAGE" ]; then pulumi config set image "$DEPLOYED_IMAGE"; fi
+          pulumi preview

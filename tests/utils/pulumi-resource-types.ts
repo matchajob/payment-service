@@ -1,5 +1,6 @@
 export const RESOURCE_TYPE = {
   account: 'gcp:serviceaccount/account:Account',
+  cloudRunJob: 'gcp:cloudrunv2/job:Job',
   cloudRunService: 'gcp:cloudrunv2/service:Service',
   cryptoKey: 'gcp:kms/cryptoKey:CryptoKey',
   cryptoKeyIamMember: 'gcp:kms/cryptoKeyIAMMember:CryptoKeyIAMMember',

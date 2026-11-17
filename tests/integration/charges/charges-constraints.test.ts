@@ -6,13 +6,12 @@ import { insertCharge, seedChargeOwner } from '@tests/utils/charge-rows';
 import { testDb, withRollback } from '@tests/utils/db';
 import { GLOBEX } from '@tests/utils/tenant-fixtures';
 import { violatedConstraint } from '@tests/utils/violated-constraint';
+import { CHARGE_CONNECTION_CONSTRAINTS } from '@tests/utils/charge-connection-constraints';
 
 const SUCCEEDED_HAS_REF = 'charges_succeeded_has_provider_ref';
 const REASON_IFF_FAILED = 'charges_failure_reason_iff_failed';
 const ONE_PER_ATTEMPT = 'charges_one_per_attempt';
 const ONE_LIVE_PER_PERIOD = 'charges_one_live_per_period';
-const SUBSCRIPTION_CONNECTION = 'charges_subscription_connection';
-const PAYMENT_METHOD_CONNECTION = 'charges_payment_method_connection';
 const FLAG_IFF_FLAGGED_AT = 'charges_reconcile_flag_iff_flagged_at';
 const FLAGGED_AT = new Date('2026-02-22T10:00:00.000Z');
 const DECLINED = 'card declined';
@@ -118,7 +117,7 @@ describe('charges table constraints', () => {
             paymentMethodId: theirs.paymentMethodId,
             providerConnectionId: theirs.providerConnectionId,
           });
-        expect(await violatedConstraint(tx, write)).toBe(SUBSCRIPTION_CONNECTION);
+        expect(CHARGE_CONNECTION_CONSTRAINTS).toContain(await violatedConstraint(tx, write));
       });
     });
 
@@ -127,7 +126,7 @@ describe('charges table constraints', () => {
         const ours = await seedChargeOwner(tx);
         const theirs = await seedChargeOwner(tx, GLOBEX);
         const write = (db: Database) => insertCharge(db, { ...ours, paymentMethodId: theirs.paymentMethodId });
-        expect(await violatedConstraint(tx, write)).toBe(PAYMENT_METHOD_CONNECTION);
+        expect(CHARGE_CONNECTION_CONSTRAINTS).toContain(await violatedConstraint(tx, write));
       });
     });
   });

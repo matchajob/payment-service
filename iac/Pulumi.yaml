@@ -6,7 +6,7 @@ runtime:
   options:
     packagemanager: pnpm
     typescript: false
-    nodeargs: "--import tsx"
+    nodeargs: '--import tsx'
 config:
   pulumi:tags:
     value:

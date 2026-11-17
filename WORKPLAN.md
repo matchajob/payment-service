@@ -56,7 +56,7 @@ Blocked by: 0.1, 0.0 test database.
 
 - [x] `docker-compose.yml` with Postgres.
 - [x] `drizzle.config.ts`, `src/lib/db.ts` with `createDb(url)` built on `resolveDbProvider` from `@matcha/infra/postgres/resolve` (infra has no `createDB`; the app owns the drizzle instance).
-- [x] Migration scripts `db:generate`, `db:migrate`. Decided 2026-10-14: `drizzle/` is gitignored during local development, so CI must run `db:generate` before tests. Revisit before slice 16: production needs reviewed, incremental migrations.
+- [x] Migration scripts `db:generate`, `db:migrate`. Decided 2026-10-14: `drizzle/` is gitignored during local development. Revisited 2026-11-17 (ADR 0025): `drizzle/` is tracked from a single fresh baseline, every later migration is reviewed in its PR, and CI fails when a schema change has no committed migration.
 - [x] One throwaway table to prove the loop, deleted in slice 1. `loop_probe` in `src/lib/loop-probe/schema.ts`.
 
 Delivers: a migration generated, applied, and queried from a test.
@@ -87,8 +87,9 @@ Delivers: one integration test that writes a row inside the helper and proves it
 
 Blocked by: 0.3, 0.6.
 
-- [ ] Dockerfile, `/health` reachable on the Cloud Run service that 0.6 declares.
-- [ ] CI: typecheck, lint, test on push.
+- [x] Dockerfile (ADR 0025): `tsx` at runtime, production dependencies only, private `@matcha/infra` fetched over a forwarded SSH agent. Verified locally: migrate twice against an empty database, boot, `/health` 200, cron without a token 401.
+- [ ] `/health` reachable on the Cloud Run service that 0.6 declares. Waits for a GCP project; `app.yml` deploys staging once `GCP_PROJECT` is set on the `staging` environment.
+- [x] CI (`app.yml`): typecheck, lint, format, migration drift, tests against Postgres 17 on every push. On `main`: build and push the image, run the `migrate` Cloud Run Job, then `pulumi up` staging.
 
 Delivers: a URL that returns `/health`. Deploying early means every later slice can be deployed in minutes, and the deployment itself is never the risky step.
 
@@ -100,7 +101,7 @@ Blocked by: 0.1.
 - [x] Declared resources: Artifact Registry, the Cloud Run service and its service account, the Postgres instance, Secret Manager entries (values set out of band, never in the stack config), and the Cloud Scheduler jobs for the crons and the drainer as they appear.
 - [x] CI runs the iac unit tests, then `pulumi preview` on every push and `pulumi up` on `staging` from `main`. `production` is previewed from `main` only and applied by hand.
 - [x] Unit tests of the program with Pulumi's mocks: every secret is a Secret Manager reference, the scheduler jobs are OIDC-signed by `cron-invoker` with no `Authorization` header (ADR 0012 amends ADR 0002), and only `main` can become the production deployer. Cloud Run is publicly invocable by design, so "the cron endpoints are not public" is the app's job and `cron-auth.test.ts` covers it.
-- [ ] Review fixes (2026-10-16): production deployer trust pinned to `main`, iac tests gate the apply, `attemptDeadline` matches the service timeout, Resource Manager API enabled.
+- [x] Review fixes (2026-10-16): production deployer trust pinned to `main`, iac tests gate the apply, `attemptDeadline` matches the service timeout, Resource Manager API enabled. All four found in code on 2026-11-17.
 
 Delivers: `pulumi up` on an empty GCP project produces everything 0.5 deploys into. Nothing is clicked in the console, so staging and production cannot drift apart.
 

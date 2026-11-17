@@ -5,6 +5,7 @@ import { declareDatabase } from '@iac/database';
 import { declareGithubDeployer } from '@iac/github-deployer';
 import { declareProviderCredentialsKey } from '@iac/provider-credentials-key';
 import { enableRequiredApis } from '@iac/enable-required-apis';
+import { declareMigrateJob } from '@iac/migrate-job';
 import { declareRuntimeSecrets } from '@iac/runtime-secrets';
 import { declareSchedulerJobs } from '@iac/scheduler-jobs';
 import { declareServiceAccounts } from '@iac/service-accounts';
@@ -33,16 +34,22 @@ export const declarePaymentServiceStack = (settings: StackSettings) => {
     },
     opts,
   );
+  const migrateJob = declareMigrateJob(
+    { settings, runtime, databaseConnectionName: instance.connectionName, secrets },
+    opts,
+  );
   const jobs = declareSchedulerJobs(settings, service.uri, cronInvoker, cronAudience, opts);
   const { deployer, provider } = declareGithubDeployer(settings, opts);
 
   return {
+    image: settings.image,
     serviceUrl: service.uri,
     registryUrl: registry.url,
     databaseConnectionName: instance.connectionName,
     providerCredentialsKey: providerCredentialsKey.id,
     cronInvokerEmail: cronInvoker.email,
     cronJobNames: pulumi.all(jobs.map((job) => job.name)),
+    migrateJobName: migrateJob.name,
     deployerEmail: deployer.email,
     workloadIdentityProvider: provider.name,
   };

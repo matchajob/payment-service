@@ -26,7 +26,5 @@ deploy/.secrets
 # Source docs that have been converted; PRD.md is the tracked form
 *.docx
 
-# drizzle
-drizzle/
 # Playwright MCP screenshots and logs
 .playwright-mcp/
