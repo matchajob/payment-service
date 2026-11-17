@@ -16,6 +16,7 @@ import type { CronTokenVerifier } from '@/api/cron-token-verifier';
 import { cronRoutes } from '@/api/routes/cron';
 import { subscriptionsRoutes } from '@/api/routes/subscriptions';
 import { webhooksRoutes } from '@/api/routes/webhooks';
+import type { InvoicerFor } from '@/lib/invoicing-connections/invoicer-for';
 import type { ProviderFor } from '@/lib/provider-connections/provider-for';
 import { WEBHOOKS_PREFIX } from '@/lib/webhooks/webhooks-prefix';
 
@@ -25,12 +26,13 @@ export type AppDeps = {
   clock: Clock;
   verifyCronToken: CronTokenVerifier;
   providerFor: ProviderFor;
+  invoicerFor: InvoicerFor;
 };
 
 const V1 = '/v1/*';
 const CRON_PREFIX = '/internal/cron';
 
-export const createApp = ({ logger, db, clock, verifyCronToken, providerFor }: AppDeps) => {
+export const createApp = ({ logger, db, clock, verifyCronToken, providerFor, invoicerFor }: AppDeps) => {
   const app = new Hono<AppEnv>();
 
   app.use(requestLogger(logger));
@@ -44,7 +46,7 @@ export const createApp = ({ logger, db, clock, verifyCronToken, providerFor }: A
 
   app.route('/v1/plans', plansRoutes());
   app.route('/v1/customers', customersRoutes());
-  app.route(CRON_PREFIX, cronRoutes({ clock, providerFor, logger }));
+  app.route(CRON_PREFIX, cronRoutes({ clock, providerFor, invoicerFor, logger }));
   app.route('/v1/subscriptions', subscriptionsRoutes(providerFor, clock));
 
   app.get('/health', (c) => c.json({ ok: true }));

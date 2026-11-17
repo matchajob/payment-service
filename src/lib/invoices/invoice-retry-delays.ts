@@ -1,0 +1,10 @@
+const MS_PER_MINUTE = 60_000;
+const MS_PER_HOUR = 60 * MS_PER_MINUTE;
+
+export const INVOICE_RETRY_DELAYS_MS = [
+  1 * MS_PER_MINUTE,
+  10 * MS_PER_MINUTE,
+  1 * MS_PER_HOUR,
+  6 * MS_PER_HOUR,
+  24 * MS_PER_HOUR,
+] as const;

@@ -10,6 +10,8 @@ import { readRequiredEnv } from '@/lib/env';
 import { ENV } from '@/lib/env-names';
 import { providerForConnections } from '@/lib/provider-connections/provider-for';
 import { selectCredentialCipher } from '@/lib/provider-connections/select-credential-cipher';
+import { buildInvoicerFrom } from '@/lib/invoicing-connections/build-invoicer';
+import { invoicerForConnections } from '@/lib/invoicing-connections/invoicer-for';
 import { buildProviderFrom } from '@/lib/provider-connections/build-provider';
 import { readProviderConfig } from '@/lib/provider-connections/read-provider-config';
 
@@ -34,9 +36,10 @@ const cipher = selectCredentialCipher({
   clock: systemClock,
 });
 const providerFor = providerForConnections(cipher, buildProviderFrom(readProviderConfig()));
+const invoicerFor = invoicerForConnections(cipher, buildInvoicerFrom());
 
 const server = serve(
-  { fetch: createApp({ logger, db, clock: systemClock, verifyCronToken, providerFor }).fetch, port },
+  { fetch: createApp({ logger, db, clock: systemClock, verifyCronToken, providerFor, invoicerFor }).fetch, port },
   () => logger.info({ port }, 'listening'),
 );
 const shutdown = gracefulShutdown({ server, closeDb: () => db.$client.end(), logger });
