@@ -52,12 +52,12 @@ IDs `N1`… are findings that had no number in the sections below.
 | [ ] | M24 | Medium | Ops / CLI | Settle CLI doesn't verify the ref or amount, and has no confirm or operator; redrive has no cap | Gap | |
 | [x] | N2 | Medium | Ops / CLI | Seed has no way to add a plan, which pushes operators towards `UPDATE plans` | Gap | `4d461c1`: `pnpm plans:add` |
 | [ ] | N3 | Medium | Security | Seed prints the API key to stdout and takes provider credentials as arguments | Bug | |
-| [ ] | N4 | Medium | CI | No CI for the app: tests, typecheck and lint never run on push | Gap | |
+| [x] | N4 | Medium | CI | No CI for the app: tests, typecheck and lint never run on push | Gap | `c19c4b1` (ADR 0025): `app.yml` typecheck, lint, format, migration drift, tests on every push |
 | [x] | M27 | Medium | Tests | Seeders build states the real flow never produces (no charge #1, no failed charges) | Bug | `48de2e6` |
 | [x] | M28 | Medium | Tests | Fake provider ignores `dedupKey`; `verifyCharge` doesn't match earlier charges | Bug | `48de2e6` |
 | [x] | M29 | Medium | Tests | Weak assertions in the cron, reconcile-concurrency and safety tests | Bug | `48de2e6` |
 | [ ] | M26 | Low–Med | Security / Infra | A push to any branch runs `pulumi preview` as the staging deployer | Accepted (0012) | |
-| [ ] | N5 | Low–Med | Security | Cipher doesn't bind a credential to its connection (no AAD); no key id, so no rotation | Gap | |
+| [x] | N5 | Low–Med | Security | Cipher doesn't bind a credential to its connection (no AAD); no key id, so no rotation | Gap | `4e2d44f` (ADR 0024): KMS cipher, AAD = connection id; no version pinned, so rotation is safe |
 | [ ] | M4 | Low | Idempotency | `startCheckout` runs inside the transaction (only the missing timeout is open) | Accepted (0006) | |
 | [ ] | M3 | Low | Idempotency | `completeKey` unfenced; 90s reservation vs 300s request timeout | Bug | |
 | [ ] | N6 | Low | Idempotency | Abandoned reserved keys are never purged | Bug | |
@@ -78,11 +78,11 @@ IDs `N1`… are findings that had no number in the sections below.
 | [ ] | N16 | Low | SDK | Fresh idempotency key per call, so a tenant's own retry duplicates a create | Accepted (SDK 0015) | |
 | [ ] | N17 | Low | API | `with-tenant-subscription` locks the row before checking the tenant | Bug | |
 | [ ] | N18 | Low | Outbox | `drainOutbox` uses `Promise.all`, so one failure discards the whole run report | Bug | |
-| [ ] | N19 | Low | Security | Empty or `change-me` `CRON_SECRET` accepted | Bug | |
+| [x] | N19 | Low | Security | Empty or `change-me` `CRON_SECRET` accepted | Bug | `ae0ae08`: `CRON_SECRET` retired; cron verifies Google OIDC tokens |
 | [ ] | N20 | Low | Security | No `bodyLimit` and no webhook rate limit | Gap | |
 | [ ] | N21 | Low | Security | Postgres in docker-compose bound to 0.0.0.0; confirm the infra deploy key is read-only | Gap | |
-| [ ] | H6 | — | Infra / Deploy | Cron OIDC vs `CRON_SECRET`; secret never provisioned; KMS cipher still a stub | Pre-deploy | |
-| [ ] | N22 | — | Infra / Deploy | `drizzle/` gitignored, so migrations are never committed | Pre-deploy | |
+| [x] | H6 | — | Infra / Deploy | Cron OIDC vs `CRON_SECRET`; secret never provisioned; KMS cipher still a stub | Pre-deploy | `ae0ae08` cron OIDC, `4e2d44f` KMS cipher, `c19c4b1` deploy pipeline; staging waits for a GCP project |
+| [x] | N22 | — | Infra / Deploy | `drizzle/` gitignored, so migrations are never committed | Pre-deploy | `c19c4b1` (ADR 0025): `drizzle/` tracked from a fresh baseline; CI fails on drift |
 | [ ] | N23 | **Check now** | Governance | Working tree deletes `.claude/hooks/protect-src.sh` and `.claude/settings.json` | ? | |
 | [ ] | N24 | Low | House rules | 46 repeated literals, 3 TODO comments, `findCycleParties` duplicated | Bug | |
 | [ ] | N25 | Low | Docs | Superseded ADRs not annotated, PRD drift, two ADRs numbered 0015, no `GLOSSARY.md` | Gap | |
