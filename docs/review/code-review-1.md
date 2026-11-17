@@ -47,8 +47,8 @@ IDs `N1`… are findings that had no number in the sections below.
 | [ ] | M20 | Medium | API | Problem+json has no machine-readable `code`; no list endpoints or pagination; no lookup by `externalRef` | Gap | |
 | [ ] | M21 | Medium | API | GET lacks what a billing UI needs: amount, next charge date, dunning state, card last4 | Gap | |
 | [x] | M11 | Medium | Ops | Cron always returns 200; no time budget; no provider call timeouts anywhere | Bug | `1824190` (ADR 0026): charge crons 500 when an item fails; 240s budget; provider timeouts already in place |
-| [ ] | M22 | Medium | Ops | No SIGTERM drain or pool close | Gap | |
-| [ ] | M23 | Medium | Ops | Dead letters, ignored webhooks and ignored card updates aren't logged (breaks D13 and Spec 1) | Bug | |
+| [x] | M22 | Medium | Ops | No SIGTERM drain or pool close | Gap | `4766e04`: SIGTERM stops new requests, waits for in-flight ones, then closes the pool |
+| [x] | M23 | Medium | Ops | Dead letters, ignored webhooks and ignored card updates aren't logged (breaks D13 and Spec 1) | Bug | `ad80f4b`: dead letters log an error; ignored webhooks and card updates log a warning with a named reason |
 | [ ] | M24 | Medium | Ops / CLI | Settle CLI doesn't verify the ref or amount, and has no confirm or operator; redrive has no cap | Gap | |
 | [x] | N2 | Medium | Ops / CLI | Seed has no way to add a plan, which pushes operators towards `UPDATE plans` | Gap | `4d461c1`: `pnpm plans:add` |
 | [ ] | N3 | Medium | Security | Seed prints the API key to stdout and takes provider credentials as arguments | Bug | |
