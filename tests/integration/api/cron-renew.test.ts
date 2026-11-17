@@ -10,7 +10,8 @@ import { RENEW_PATH } from '@tests/utils/paths';
 import { RENEWAL_SUCCEEDED } from '@tests/utils/renewal-charge-fixtures';
 import { chargesAfterHistory, eventsOf, subscriptionRow } from '@tests/utils/renewal-reads';
 import { PERIOD_END, seedRenewing } from '@tests/utils/renewal-rows';
-import { TEST_CRON_SECRET, TEST_NOW, testApp } from '@tests/utils/test-app';
+import { TEST_CRON_TOKEN } from '@tests/utils/fake-cron-token-verifier';
+import { TEST_NOW, testApp } from '@tests/utils/test-app';
 
 const POST = { method: 'POST' } as const;
 
@@ -23,7 +24,7 @@ describe('POST /internal/cron/renew (ADR 0002, ADR 0013)', () => {
       const provider = providers.providerOf(renewing.ctx.providerConnectionId);
       provider.scriptCharge(RENEWAL_SUCCEEDED);
       const res = await testApp(tx, { providerFor: providers.providerFor }).request(RENEW_PATH, {
-        ...bearer(TEST_CRON_SECRET),
+        ...bearer(TEST_CRON_TOKEN),
         ...POST,
       });
       expect(res.status).toBe(200);

@@ -2,11 +2,8 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { deployerTrustCondition } from '@iac/deployer-trust-condition';
 import { RUNTIME_SECRET_ENV } from '@iac/runtime-secret-env';
-import type { StackSettings } from '@iac/stack-settings';
 import { ENV } from '@/lib/env-names';
 import {
-  MOCK_PROJECT,
-  MOCK_REGION,
   installPulumiMocks,
   mockAccountEmail,
   mockId,
@@ -17,6 +14,7 @@ import {
   type RecordedResource,
 } from '@tests/utils/pulumi-mocks';
 import { RESOURCE_TYPE } from '@tests/utils/pulumi-resource-types';
+import { TEST_STACK_SETTINGS } from '@tests/utils/pulumi-test-settings';
 
 const envVarSchema = z.object({
   name: z.string(),
@@ -46,15 +44,7 @@ const databaseInstanceInputsSchema = z.object({
   }),
 });
 
-const SETTINGS: StackSettings = {
-  project: MOCK_PROJECT,
-  region: MOCK_REGION,
-  environment: 'staging',
-  image: 'example.invalid/payment-service:test',
-  githubRepository: 'example/payment-service',
-  databaseTier: 'db-f1-micro',
-  maxInstances: 2,
-};
+const SETTINGS = TEST_STACK_SETTINGS;
 
 const CRON_PATH_PREFIX = '/internal/cron/';
 const PROVIDER_CREDENTIALS_KEY_ID = mockId('provider-credentials');
@@ -69,6 +59,7 @@ const only = (type: string) => {
 
 const serviceInputs = () => serviceInputsSchema.parse(only(RESOURCE_TYPE.cloudRunService).inputs);
 const runtimeMember = () => mockMember(serviceInputs().template.serviceAccount);
+const RETIRED_CRON_SECRET = 'CRON_SECRET';
 const containerEnv = () => serviceInputs().template.containers[0]!.envs;
 const envValue = (name: string) => containerEnv().find((e) => e.name === name)?.value;
 const schedulerJobs = () =>
@@ -137,7 +128,7 @@ describe('payment service stack (slice 0.6)', () => {
     });
 
     it('no longer passes CRON_SECRET to the service', () => {
-      expect(containerEnv().map((e) => e.name)).not.toContain(ENV.CRON_SECRET);
+      expect(containerEnv().map((e) => e.name)).not.toContain(RETIRED_CRON_SECRET);
     });
 
     it('waits as long as the service may run, so a slow run is not recorded as a failed job', () => {

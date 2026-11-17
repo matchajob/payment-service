@@ -4,7 +4,8 @@ import { bearer } from '@tests/utils/bearer';
 import { testDb, withRollback } from '@tests/utils/db';
 import { insertCompletedKey } from '@tests/utils/idempotency-rows';
 import { PURGE_IDEMPOTENCY_PATH } from '@tests/utils/paths';
-import { TEST_CRON_SECRET, TEST_NOW, testApp } from '@tests/utils/test-app';
+import { TEST_CRON_TOKEN } from '@tests/utils/fake-cron-token-verifier';
+import { TEST_NOW, testApp } from '@tests/utils/test-app';
 import { ACME } from '@tests/utils/tenant-fixtures';
 import { seedTenant } from '@tests/utils/tenant-rows';
 
@@ -15,7 +16,7 @@ describe('POST /internal/cron/purge-idempotency', () => {
       await insertCompletedKey(tx, tenant.tenantId, new Date(TEST_NOW.getTime() - COMPLETED_KEY_TTL_MS - 1));
       await insertCompletedKey(tx, tenant.tenantId, TEST_NOW);
       const res = await testApp(tx).request(PURGE_IDEMPOTENCY_PATH, {
-        ...bearer(TEST_CRON_SECRET),
+        ...bearer(TEST_CRON_TOKEN),
         method: 'POST',
       });
       expect(res.status).toBe(200);

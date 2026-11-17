@@ -20,7 +20,7 @@ That rule collides with ADR 0002. Cloud Scheduler would have to send `Authorizat
 - Scheduler jobs carry `oidcToken { serviceAccountEmail: cron-invoker, audience }`. The audience is the fixed string `payment-service-<environment>-cron`, not the service URL. The URL is an output of the service, so it can't also be an input to the service's own env without a cycle.
 - The service gets `CRON_INVOKER_EMAIL` and `CRON_AUDIENCE` as plain env vars. Neither is secret.
 - `cronAuth` verifies the token behind a port (`CronTokenVerifier`). Production uses Google's public keys. Tests inject a fake, which answers ADR 0002's objection that OIDC is not testable through `app.request()`.
-- `CRON_SECRET` is retired once that change lands. Until then the service still requires it, so the first deploy of the real image (slice 0.5) waits for the swap.
+- `CRON_SECRET` is retired (2026-11-17). `googleIdTokenVerifier` (`src/infra/google-oidc`) checks the signature against Google's published keys with `jose`, pins RS256, and requires Google as issuer, `CRON_AUDIENCE` as audience, and `CRON_INVOKER_EMAIL` as a verified email. A token that fails any check is `401`. A failure to fetch Google's keys is `500`, not `401`, so Scheduler records a failed run instead of a quiet rejection.
 - Cloud Run itself stays publicly invocable (`invokerIamDisabled`). Tenants authenticate with API keys and Grow's webhooks carry no Google identity, so Cloud Run IAM can't gate the service. `/internal/cron/*` is closed by the app, as before.
 
 ### Pulumi

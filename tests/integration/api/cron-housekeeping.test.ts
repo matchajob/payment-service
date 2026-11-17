@@ -6,7 +6,8 @@ import { HOUSEKEEPING_PATH } from '@tests/utils/paths';
 import { HOUR_MS } from '@tests/utils/reconcile-times';
 import { subscriptionRow } from '@tests/utils/renewal-reads';
 import { insertSubscription, seedSubscriptionParents } from '@tests/utils/subscription-rows';
-import { TEST_CRON_SECRET, TEST_NOW, testApp } from '@tests/utils/test-app';
+import { TEST_CRON_TOKEN } from '@tests/utils/fake-cron-token-verifier';
+import { TEST_NOW, testApp } from '@tests/utils/test-app';
 
 const POST = { method: 'POST' } as const;
 const DEFAULT_TTL_HOURS = 12;
@@ -18,7 +19,7 @@ describe('POST /internal/cron/housekeeping (ADR 0002, S1 r3)', () => {
       const parents = await seedSubscriptionParents(tx);
       await insertSubscription(tx, parents, { createdAt: ABANDONED_AT });
 
-      const res = await testApp(tx).request(HOUSEKEEPING_PATH, { ...bearer(TEST_CRON_SECRET), ...POST });
+      const res = await testApp(tx).request(HOUSEKEEPING_PATH, { ...bearer(TEST_CRON_TOKEN), ...POST });
 
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({ processed: 1, failed: 0 });

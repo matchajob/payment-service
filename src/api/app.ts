@@ -12,18 +12,25 @@ import { dbContext } from '@/api/db-context';
 import type { Clock } from '@/lib/clock';
 import { idempotency } from '@/api/idempotency';
 import { cronAuth } from '@/api/cron-auth';
+import type { CronTokenVerifier } from '@/api/cron-token-verifier';
 import { cronRoutes } from '@/api/routes/cron';
 import { subscriptionsRoutes } from '@/api/routes/subscriptions';
 import { webhooksRoutes } from '@/api/routes/webhooks';
 import type { ProviderFor } from '@/lib/provider-connections/provider-for';
 import { WEBHOOKS_PREFIX } from '@/lib/webhooks/webhooks-prefix';
 
-export type AppDeps = { logger: Logger; db: Database; clock: Clock; cronSecret: string; providerFor: ProviderFor };
+export type AppDeps = {
+  logger: Logger;
+  db: Database;
+  clock: Clock;
+  verifyCronToken: CronTokenVerifier;
+  providerFor: ProviderFor;
+};
 
 const V1 = '/v1/*';
 const CRON_PREFIX = '/internal/cron';
 
-export const createApp = ({ logger, db, clock, cronSecret, providerFor }: AppDeps) => {
+export const createApp = ({ logger, db, clock, verifyCronToken, providerFor }: AppDeps) => {
   const app = new Hono<AppEnv>();
 
   app.use(requestLogger(logger));
@@ -33,7 +40,7 @@ export const createApp = ({ logger, db, clock, cronSecret, providerFor }: AppDep
   // Registered before the V1 middleware: Hono runs middleware in registration order, and providers carry no tenant API key.
   app.use(V1, tenantAuth());
   app.use(V1, idempotency(clock));
-  app.use(`${CRON_PREFIX}/*`, cronAuth(cronSecret));
+  app.use(`${CRON_PREFIX}/*`, cronAuth(verifyCronToken));
 
   app.route('/v1/plans', plansRoutes());
   app.route('/v1/customers', customersRoutes());

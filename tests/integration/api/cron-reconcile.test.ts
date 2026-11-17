@@ -8,7 +8,8 @@ import { seedPendingRenewal } from '@tests/utils/pending-charge-rows';
 import { HOUR_MS } from '@tests/utils/reconcile-times';
 import { chargesAfterHistory, subscriptionRow } from '@tests/utils/renewal-reads';
 import { NEXT_PERIOD_END } from '@tests/utils/renewal-rows';
-import { TEST_CRON_SECRET, TEST_NOW, testApp } from '@tests/utils/test-app';
+import { TEST_CRON_TOKEN } from '@tests/utils/fake-cron-token-verifier';
+import { TEST_NOW, testApp } from '@tests/utils/test-app';
 import { VERIFIED_SUCCEEDED } from '@tests/utils/verified-charge-fixtures';
 
 const POST = { method: 'POST' } as const;
@@ -23,7 +24,7 @@ describe('POST /internal/cron/reconcile (ADR 0002, ADR 0017)', () => {
       provider.scriptVerify(VERIFIED_SUCCEEDED);
 
       const res = await testApp(tx, { providerFor: providers.providerFor }).request(RECONCILE_PATH, {
-        ...bearer(TEST_CRON_SECRET),
+        ...bearer(TEST_CRON_TOKEN),
         ...POST,
       });
 
