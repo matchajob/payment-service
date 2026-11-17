@@ -46,7 +46,7 @@ IDs `N1`… are findings that had no number in the sections below.
 | [ ] | M19 | Medium | Events / SDK | Strict enums and no `apiVersion`: a new enum value dead-letters tenant events | Gap | |
 | [ ] | M20 | Medium | API | Problem+json has no machine-readable `code`; no list endpoints or pagination; no lookup by `externalRef` | Gap | |
 | [ ] | M21 | Medium | API | GET lacks what a billing UI needs: amount, next charge date, dunning state, card last4 | Gap | |
-| [ ] | M11 | Medium | Ops | Cron always returns 200; no time budget; no provider call timeouts anywhere | Bug | |
+| [x] | M11 | Medium | Ops | Cron always returns 200; no time budget; no provider call timeouts anywhere | Bug | `1824190` (ADR 0026): charge crons 500 when an item fails; 240s budget; provider timeouts already in place |
 | [ ] | M22 | Medium | Ops | No SIGTERM drain or pool close | Gap | |
 | [ ] | M23 | Medium | Ops | Dead letters, ignored webhooks and ignored card updates aren't logged (breaks D13 and Spec 1) | Bug | |
 | [ ] | M24 | Medium | Ops / CLI | Settle CLI doesn't verify the ref or amount, and has no confirm or operator; redrive has no cap | Gap | |
@@ -58,7 +58,7 @@ IDs `N1`… are findings that had no number in the sections below.
 | [x] | M29 | Medium | Tests | Weak assertions in the cron, reconcile-concurrency and safety tests | Bug | `48de2e6` |
 | [ ] | M26 | Low–Med | Security / Infra | A push to any branch runs `pulumi preview` as the staging deployer | Accepted (0012) | |
 | [x] | N5 | Low–Med | Security | Cipher doesn't bind a credential to its connection (no AAD); no key id, so no rotation | Gap | `4e2d44f` (ADR 0024): KMS cipher, AAD = connection id; no version pinned, so rotation is safe |
-| [ ] | M4 | Low | Idempotency | `startCheckout` runs inside the transaction (only the missing timeout is open) | Accepted (0006) | |
+| [x] | M4 | Low | Idempotency | `startCheckout` runs inside the transaction (only the missing timeout is open) | Accepted (0006) | `1824190`: the open timeout was already there (Grow 10s, in `read-provider-config.ts`) |
 | [ ] | M3 | Low | Idempotency | `completeKey` unfenced; 90s reservation vs 300s request timeout | Bug | |
 | [ ] | N6 | Low | Idempotency | Abandoned reserved keys are never purged | Bug | |
 | [x] | M5 | Low | Webhooks | Identical webhooks run at the same time (money safe; no test) | Gap | `48de2e6` |
