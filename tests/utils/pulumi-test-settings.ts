@@ -9,4 +9,5 @@ export const TEST_STACK_SETTINGS: StackSettings = {
   githubRepository: 'example/payment-service',
   databaseTier: 'db-f1-micro',
   maxInstances: 2,
+  alertEmail: 'alerts@example.invalid',
 };

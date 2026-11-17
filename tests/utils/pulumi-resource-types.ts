@@ -1,10 +1,12 @@
 export const RESOURCE_TYPE = {
   account: 'gcp:serviceaccount/account:Account',
+  alertPolicy: 'gcp:monitoring/alertPolicy:AlertPolicy',
   cloudRunJob: 'gcp:cloudrunv2/job:Job',
   cloudRunService: 'gcp:cloudrunv2/service:Service',
   cryptoKey: 'gcp:kms/cryptoKey:CryptoKey',
   cryptoKeyIamMember: 'gcp:kms/cryptoKeyIAMMember:CryptoKeyIAMMember',
   databaseInstance: 'gcp:sql/databaseInstance:DatabaseInstance',
+  notificationChannel: 'gcp:monitoring/notificationChannel:NotificationChannel',
   projectIamMember: 'gcp:projects/iAMMember:IAMMember',
   projectService: 'gcp:projects/service:Service',
   schedulerJob: 'gcp:cloudscheduler/job:Job',

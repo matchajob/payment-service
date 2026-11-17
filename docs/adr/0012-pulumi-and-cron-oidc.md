@@ -56,6 +56,7 @@ pulumi stack init $STACK --secrets-provider "gcpkms://projects/$PROJECT/location
 pulumi config set gcp:project $PROJECT
 pulumi config set gcp:region $REGION
 pulumi config set githubRepository matchajob/payment-service
+pulumi config set alertEmail <who gets the alerts>
 
 # Cloud Run rejects a revision whose secret has no version, so everything but the service and its Scheduler jobs first.
 pulumi up --exclude "urn:pulumi:$STACK::payment-service::gcp:cloudrunv2/service:Service::payment-service" --exclude-dependents

@@ -16,6 +16,7 @@ const stackSettingsSchema = z.object({
   githubRepository: z.string().regex(GITHUB_REPOSITORY_PATTERN),
   databaseTier: z.string().min(1).default(DEFAULT_DATABASE_TIER),
   maxInstances: z.number().int().positive().default(DEFAULT_MAX_INSTANCES),
+  alertEmail: z.email(),
 });
 
 export type StackSettings = z.output<typeof stackSettingsSchema>;
@@ -31,5 +32,6 @@ export const readStackSettings = (): StackSettings => {
     githubRepository: own.require('githubRepository'),
     databaseTier: own.get('databaseTier'),
     maxInstances: own.getNumber('maxInstances'),
+    alertEmail: own.require('alertEmail'),
   });
 };

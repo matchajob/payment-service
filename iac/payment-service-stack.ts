@@ -1,6 +1,7 @@
 import * as pulumi from '@pulumi/pulumi';
 import { declareArtifactRegistry } from '@iac/artifact-registry';
 import { SERVICE_NAME, declareCloudRunService } from '@iac/cloud-run-service';
+import { declareAlerts } from '@iac/alerts';
 import { declareDatabase } from '@iac/database';
 import { declareGithubDeployer } from '@iac/github-deployer';
 import { declareProviderCredentialsKey } from '@iac/provider-credentials-key';
@@ -40,6 +41,7 @@ export const declarePaymentServiceStack = (settings: StackSettings) => {
   );
   const jobs = declareSchedulerJobs(settings, service.uri, cronInvoker, cronAudience, opts);
   const { deployer, provider } = declareGithubDeployer(settings, opts);
+  declareAlerts(settings, opts);
 
   return {
     image: settings.image,
