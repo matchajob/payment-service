@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { claimDueEvents } from '@/lib/outbox/claim-due-events';
 import { DELIVERY_STATUS } from '@/lib/outbox/delivery-status';
 import { LEASE_MS } from '@/lib/outbox/delivery-timing';
-import { drainOutbox } from '@/lib/outbox/drain-outbox';
+import { drainWith } from '@tests/utils/drain-run';
 import { recordDeliveryResult } from '@/lib/outbox/record-delivery-result';
 import { fakeTenantEndpoint } from '@tests/utils/fake-tenant-endpoint';
 import { OCCURRED_AT } from '@tests/utils/outbox-rows';
@@ -36,7 +36,7 @@ describe('drainOutbox: lease and fence (ADR 0009)', () => {
     const receiver = await seedReceiver(db, receivingAt(endpoint, ACME));
     const event = await queueEvent(db, receiver);
     await claimDueEvents(db, NOW);
-    expect(await drainOutbox(db, at(LEASE_MS))).toEqual({ processed: 1, failed: 0 });
+    expect(await drainWith(db)(at(LEASE_MS))).toEqual({ processed: 1, failed: 0 });
     expect(await outboxRow(db, event)).toMatchObject({ deliveryStatus: DELIVERY_STATUS.DELIVERED, attempts: 2 });
   });
 

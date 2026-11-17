@@ -26,7 +26,7 @@ export const runHousekeeping = async (
   const failures: Subscription['subscriptionId'][] = [];
   await forEachWithinBudget({ timeUp, logger }, expired, async (checkout) => {
     try {
-      results.push(await settleExpiredCheckout({ db, providerFor }, checkout, now));
+      results.push(await settleExpiredCheckout({ db, providerFor, logger }, checkout, now));
     } catch (error) {
       logger.error({ err: error, subscriptionId: checkout.subscriptionId }, 'checkout expiration failed');
       failures.push(checkout.subscriptionId);

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { SIGNATURE_HEADER, TIMESTAMP_HEADER } from '@/contract/event-signature';
 import { DELIVERY_STATUS } from '@/lib/outbox/delivery-status';
-import { drainOutbox } from '@/lib/outbox/drain-outbox';
+import { drainWith } from '@tests/utils/drain-run';
 import { signPayload } from '@/lib/outbox/sign-payload';
 import { fakeTenantEndpoint, type ReceivedDelivery } from '@tests/utils/fake-tenant-endpoint';
 import { OCCURRED_AT } from '@tests/utils/outbox-rows';
@@ -26,7 +26,7 @@ describe('drainOutbox: tenant isolation (multi-tenant, D12)', () => {
     const globex = await seedReceiver(db, receivingAt(globexEndpoint, GLOBEX));
     const acmeEvent = await queueEvent(db, acme);
     const globexEvent = await queueEvent(db, globex);
-    await drainOutbox(db, NOW);
+    await drainWith(db)(NOW);
     expect(acmeEndpoint.deliveries.map(eventIdOf)).toEqual([acmeEvent.outboxEventId]);
     expect(globexEndpoint.deliveries.map(eventIdOf)).toEqual([globexEvent.outboxEventId]);
     expect(acmeEndpoint.deliveries.every((delivery) => verifies(acme.webhookSecret, delivery))).toBe(true);
@@ -42,7 +42,7 @@ describe('drainOutbox: tenant isolation (multi-tenant, D12)', () => {
     const globex = await seedReceiver(db, receivingAt(globexEndpoint, GLOBEX));
     const acmeEvent = await queueEvent(db, acme);
     const globexEvent = await queueEvent(db, globex);
-    expect(await drainOutbox(db, NOW)).toEqual({ processed: 1, failed: 1 });
+    expect(await drainWith(db)(NOW)).toEqual({ processed: 1, failed: 1 });
     expect(await outboxRow(db, acmeEvent)).toMatchObject({ deliveryStatus: DELIVERY_STATUS.PENDING });
     expect(await outboxRow(db, globexEvent)).toMatchObject({ deliveryStatus: DELIVERY_STATUS.DELIVERED });
   });
@@ -53,8 +53,8 @@ describe('drainOutbox: tenant isolation (multi-tenant, D12)', () => {
     const receiver = await seedReceiver(db, receivingAt(endpoint, ACME));
     const first = await queueEvent(db, receiver, 1);
     const second = await queueEvent(db, receiver, 2, { nextAttemptAt: new Date(NOW.getTime() + 1) });
-    await drainOutbox(db, NOW);
-    expect(await drainOutbox(db, new Date(NOW.getTime() + 1))).toEqual({ processed: 1, failed: 0 });
+    await drainWith(db)(NOW);
+    expect(await drainWith(db)(new Date(NOW.getTime() + 1))).toEqual({ processed: 1, failed: 0 });
     expect(await outboxRow(db, first)).toMatchObject({ deliveryStatus: DELIVERY_STATUS.PENDING });
     expect(await outboxRow(db, second)).toMatchObject({ deliveryStatus: DELIVERY_STATUS.DELIVERED });
   });

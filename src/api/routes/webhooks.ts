@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import type { Logger } from 'pino';
 import type { AppEnv } from '@/api/app-env';
 import { HTTP_STATUS } from '@/api/http-status';
 import { problemResponse } from '@/api/problem-response';
@@ -9,13 +10,15 @@ import { findProviderConnection } from '@/lib/provider-connections/find-provider
 import type { ProviderFor } from '@/lib/provider-connections/provider-for';
 import { zProviderConnectionRead } from '@/lib/provider-connections/schema';
 import { handleCheckoutCompleted } from '@/lib/webhooks/handle-checkout-completed';
+import { IGNORED_REASON } from '@/lib/webhooks/ignored-reason';
 import { markWebhookProcessed } from '@/lib/webhooks/mark-webhook-processed';
 import { recordWebhookEvent } from '@/lib/webhooks/record-webhook-event';
+import { WEBHOOK_IGNORED } from '@/lib/webhooks/webhook-ignored';
 
 const providerParam = zProviderConnectionRead.shape.provider;
 const connectionParam = zProviderConnectionRead.shape.providerConnectionId;
 
-export const webhooksRoutes = (providerFor: ProviderFor, clock: Clock) =>
+export const webhooksRoutes = (providerFor: ProviderFor, clock: Clock, logger: Logger) =>
   new Hono<AppEnv>().post('/:provider/:providerConnectionId', async (c) => {
     const providerName = providerParam.safeParse(c.req.param('provider'));
     const connectionId = connectionParam.safeParse(c.req.param('providerConnectionId'));
@@ -34,10 +37,21 @@ export const webhooksRoutes = (providerFor: ProviderFor, clock: Clock) =>
 
     const provider = await providerFor(connection);
     const parsed = provider.parseWebhook(event.rawBody);
+    if (parsed.kind === WEBHOOK_KIND.UNRECOGNIZED) {
+      logger.warn(
+        {
+          reason: IGNORED_REASON.UNRECOGNIZED_PAYLOAD,
+          provider: connection.provider,
+          providerConnectionId: connection.providerConnectionId,
+          webhookEventId: event.webhookEventId,
+        },
+        WEBHOOK_IGNORED,
+      );
+    }
     const completion =
       parsed.kind === WEBHOOK_KIND.CHECKOUT_COMPLETED
         ? await handleCheckoutCompleted(
-            { db, provider, clock },
+            { db, provider, clock, logger },
             {
               providerConnectionId: connection.providerConnectionId,
               reference: parsed.reference,

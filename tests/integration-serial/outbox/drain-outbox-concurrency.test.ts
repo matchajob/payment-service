@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, it } from 'vitest';
-import { drainOutbox } from '@/lib/outbox/drain-outbox';
+import { drainWith } from '@tests/utils/drain-run';
 import { testDb } from '@tests/utils/db';
 import { fakeTenantEndpoint } from '@tests/utils/fake-tenant-endpoint';
 import { OCCURRED_AT } from '@tests/utils/outbox-rows';
@@ -21,7 +21,7 @@ describe('drainOutbox: concurrency (Spec 5 rule 2, ADR 0002 double-fire)', () =>
     const sequences = Array.from({ length: EVENT_COUNT }, (_, index) => index + 1);
     const events = await Promise.all(sequences.map((sequence) => queueEvent(db, receiver, sequence)));
 
-    const [first, second] = await Promise.all([drainOutbox(db, NOW), drainOutbox(secondInstance, NOW)]);
+    const [first, second] = await Promise.all([drainWith(db)(NOW), drainWith(secondInstance)(NOW)]);
 
     const deliveredIds = endpoint.deliveries.map(({ body }) => JSON.parse(body).eventId);
     expect((first?.processed ?? 0) + (second?.processed ?? 0)).toBe(EVENT_COUNT);

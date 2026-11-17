@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SIGNATURE_HEADER, TIMESTAMP_HEADER } from '@/contract/event-signature';
-import { drainOutbox } from '@/lib/outbox/drain-outbox';
+import { drainWith } from '@tests/utils/drain-run';
 import { verifyAndParseEvent } from '@sdk/verify-and-parse-event';
 import { fakeTenantEndpoint } from '@tests/utils/fake-tenant-endpoint';
 import { OCCURRED_AT } from '@tests/utils/outbox-rows';
@@ -15,7 +15,7 @@ describe('SDK verifies what the server really delivers (ADR 0015)', () => {
     const endpoint = await fakeTenantEndpoint();
     const receiver = await seedReceiver(db, receivingAt(endpoint, ACME));
     const queued = await queueEvent(db, receiver);
-    await drainOutbox(db, OCCURRED_AT);
+    await drainWith(db)(OCCURRED_AT);
     const [delivery] = endpoint.deliveries;
 
     const event = await verifyAndParseEvent(

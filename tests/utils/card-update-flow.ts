@@ -1,4 +1,5 @@
 import { updatePaymentMethodResponseSchema } from '@/contract/update-payment-method-response';
+import type { Logger } from 'pino';
 import type { Database } from '@/lib/db';
 import { fakeClock } from '@tests/utils/fake-clock';
 import { fakeCheckoutCompletedBody } from '@tests/utils/fake-payment-provider';
@@ -7,15 +8,21 @@ import { postJson } from '@tests/utils/post-json';
 import { postWebhook, webhookPath } from '@tests/utils/post-webhook';
 import type { Renewing } from '@tests/utils/renewal-rows';
 import { updatePaymentMethodPath } from '@tests/utils/subscription-api';
+import { silentLogger } from '@tests/utils/silent-logger';
 import { testApp } from '@tests/utils/test-app';
 
 export const CARD_UPDATE_RETURN_URL = 'https://tenant.test/billing/card-updated';
 
-export const cardUpdateFlow = (tx: Database, { ctx, subscription }: Renewing, at: Date) => {
+export const cardUpdateFlow = (
+  tx: Database,
+  { ctx, subscription }: Renewing,
+  at: Date,
+  logger: Logger = silentLogger,
+) => {
   const providers = fakeProviderFactory();
   const provider = providers.providerOf(subscription.providerConnectionId);
   const clock = fakeClock(at);
-  const app = testApp(tx, { providerFor: providers.providerFor, clock });
+  const app = testApp(tx, { providerFor: providers.providerFor, clock, logger });
 
   const request = (returnUrl: string = CARD_UPDATE_RETURN_URL) =>
     app.request(updatePaymentMethodPath(subscription.subscriptionId), postJson(ctx.apiKey, { returnUrl }));

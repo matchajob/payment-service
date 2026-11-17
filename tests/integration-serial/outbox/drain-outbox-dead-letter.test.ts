@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DELIVERY_STATUS } from '@/lib/outbox/delivery-status';
 import { LEASE_EXPIRED_ERROR } from '@/lib/outbox/lease-expired-error';
-import { drainOutbox } from '@/lib/outbox/drain-outbox';
+import { drainWith } from '@tests/utils/drain-run';
 import { MAX_DELIVERY_ATTEMPTS, retryDelayAfter } from '@/lib/outbox/retry-schedule';
 import { fakeTenantEndpoint } from '@tests/utils/fake-tenant-endpoint';
 import { OCCURRED_AT } from '@tests/utils/outbox-rows';
@@ -26,7 +26,7 @@ describe('drainOutbox: dead letter (Spec 5 rule 6, ADR 0009)', () => {
       attempts: MAX_DELIVERY_ATTEMPTS - 1,
       lastError: `HTTP ${SERVER_ERROR}`,
     });
-    expect(await drainOutbox(db, NOW)).toEqual({ processed: 0, failed: 1 });
+    expect(await drainWith(db)(NOW)).toEqual({ processed: 0, failed: 1 });
     expect(await outboxRow(db, event)).toMatchObject({
       deliveryStatus: DELIVERY_STATUS.DEAD,
       attempts: MAX_DELIVERY_ATTEMPTS,
@@ -45,8 +45,8 @@ describe('drainOutbox: dead letter (Spec 5 rule 6, ADR 0009)', () => {
         NOW.getTime(),
       ),
     );
-    for (const time of attemptTimes) await drainOutbox(db, new Date(time));
-    await drainOutbox(db, MUCH_LATER);
+    for (const time of attemptTimes) await drainWith(db)(new Date(time));
+    await drainWith(db)(MUCH_LATER);
     expect(endpoint.deliveries).toHaveLength(MAX_DELIVERY_ATTEMPTS);
     expect(await outboxRow(db, event)).toMatchObject({
       deliveryStatus: DELIVERY_STATUS.DEAD,
@@ -58,7 +58,7 @@ describe('drainOutbox: dead letter (Spec 5 rule 6, ADR 0009)', () => {
     const endpoint = await fakeTenantEndpoint();
     const receiver = await seedReceiver(db, receivingAt(endpoint, ACME));
     const event = await queueEvent(db, receiver, 1, { attempts: MAX_DELIVERY_ATTEMPTS });
-    expect(await drainOutbox(db, NOW)).toEqual({ processed: 0, failed: 1 });
+    expect(await drainWith(db)(NOW)).toEqual({ processed: 0, failed: 1 });
     expect(endpoint.deliveries).toEqual([]);
     expect(await outboxRow(db, event)).toMatchObject({
       deliveryStatus: DELIVERY_STATUS.DEAD,

@@ -1,5 +1,5 @@
 import { settleCycleCharge } from '@/lib/charge-cycle/settle-cycle-charge';
-import { chargeDedupKey } from '@/lib/charges/charge-dedup-key';
+import type { Logger } from 'pino';
 import type { Clock } from '@/lib/clock';
 import type { Database } from '@/lib/db';
 import { immediateRetryDecide } from '@/lib/payment-method-updates/immediate-retry-decide';
@@ -10,15 +10,24 @@ import { CHECKOUT_VERIFICATION } from '@/lib/payments/checkout-verification';
 import type { PaymentProvider } from '@/lib/payments/provider';
 import { chargeRequestFor } from '@/lib/charges/charge-request-for';
 import { CHECKOUT_COMPLETION, type CheckoutCompletion } from '@/lib/subscriptions/checkout-completion';
+import { ignoredCompletion } from '@/lib/webhooks/ignored-completion';
+import { IGNORED_REASON } from '@/lib/webhooks/ignored-reason';
 
-export type CompletePaymentMethodUpdateDeps = { db: Database; provider: PaymentProvider; clock: Clock };
+export type CompletePaymentMethodUpdateDeps = {
+  db: Database;
+  provider: PaymentProvider;
+  clock: Clock;
+  logger: Pick<Logger, 'warn'>;
+};
 
 export const completePaymentMethodUpdate = async (
-  { db, provider, clock }: CompletePaymentMethodUpdateDeps,
+  { db, provider, clock, logger }: CompletePaymentMethodUpdateDeps,
   update: PaymentMethodUpdate,
   reference: string,
 ): Promise<CheckoutCompletion> => {
-  if (update.completedAt !== null || update.subscriptionId !== reference) return CHECKOUT_COMPLETION.HANDLED;
+  const ignored = () =>
+    ignoredCompletion(logger, IGNORED_REASON.CARD_UPDATE_IGNORED, { subscriptionId: update.subscriptionId, reference });
+  if (update.completedAt !== null || update.subscriptionId !== reference) return ignored();
   const verified = await provider.verifyCheckout(update.sessionRef);
   if (verified.outcome === CHECKOUT_VERIFICATION.NOT_COMPLETED) return CHECKOUT_COMPLETION.NOT_COMPLETED;
 
@@ -27,6 +36,7 @@ export const completePaymentMethodUpdate = async (
     paymentMethodToken: verified.paymentMethodToken,
     now: clock.now(),
   });
+  if (replaced.kind === REPLACEMENT.IGNORED) return ignored();
   if (replaced.kind !== REPLACEMENT.RETRY) return CHECKOUT_COMPLETION.HANDLED;
 
   const { charge, parties } = replaced;

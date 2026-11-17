@@ -3,7 +3,7 @@ import { outboundEventSchema } from '@/contract/outbound-event';
 import { SIGNATURE_HEADER, TIMESTAMP_HEADER } from '@/contract/event-signature';
 import { DELIVERY_STATUS } from '@/lib/outbox/delivery-status';
 import { DRAIN_BATCH_SIZE } from '@/lib/outbox/delivery-timing';
-import { drainOutbox } from '@/lib/outbox/drain-outbox';
+import { drainWith } from '@tests/utils/drain-run';
 import { MAX_DELIVERY_ATTEMPTS } from '@/lib/outbox/retry-schedule';
 import { signPayload } from '@/lib/outbox/sign-payload';
 import { fakeTenantEndpoint } from '@tests/utils/fake-tenant-endpoint';
@@ -24,7 +24,7 @@ describe('drainOutbox: delivery (Spec 5 rules 2, 3, 5)', () => {
     const endpoint = await fakeTenantEndpoint();
     const receiver = await seedReceiver(db, receivingAt(endpoint, ACME));
     const event = await queueEvent(db, receiver);
-    expect(await drainOutbox(db, NOW)).toEqual({ processed: 1, failed: 0 });
+    expect(await drainWith(db)(NOW)).toEqual({ processed: 1, failed: 0 });
     expect(endpoint.deliveries).toHaveLength(1);
     expect(await outboxRow(db, event)).toMatchObject({
       deliveryStatus: DELIVERY_STATUS.DELIVERED,
@@ -37,7 +37,7 @@ describe('drainOutbox: delivery (Spec 5 rules 2, 3, 5)', () => {
     const endpoint = await fakeTenantEndpoint();
     const receiver = await seedReceiver(db, receivingAt(endpoint, ACME));
     const event = await queueEvent(db, receiver);
-    await drainOutbox(db, NOW);
+    await drainWith(db)(NOW);
     const [delivery] = endpoint.deliveries;
     const body = JSON.parse(delivery?.body ?? '');
     expect(outboundEventSchema.parse(body)).toEqual(body);
@@ -49,7 +49,7 @@ describe('drainOutbox: delivery (Spec 5 rules 2, 3, 5)', () => {
     const endpoint = await fakeTenantEndpoint();
     const receiver = await seedReceiver(db, receivingAt(endpoint, ACME));
     await queueEvent(db, receiver);
-    await drainOutbox(db, NOW);
+    await drainWith(db)(NOW);
     const [delivery] = endpoint.deliveries;
     const timestamp = Number(delivery?.header(TIMESTAMP_HEADER));
     expect(delivery?.header(SIGNATURE_HEADER)).toBe(
@@ -61,7 +61,7 @@ describe('drainOutbox: delivery (Spec 5 rules 2, 3, 5)', () => {
     const endpoint = await fakeTenantEndpoint();
     const receiver = await seedReceiver(db, receivingAt(endpoint, ACME));
     await queueEvent(db, receiver);
-    await drainOutbox(db, NOW);
+    await drainWith(db)(NOW);
     expect(endpoint.deliveries[0]?.header(TIMESTAMP_HEADER)).toBe(NOW_UNIX_SECONDS);
   });
 
@@ -69,7 +69,7 @@ describe('drainOutbox: delivery (Spec 5 rules 2, 3, 5)', () => {
     const endpoint = await fakeTenantEndpoint();
     const receiver = await seedReceiver(db, receivingAt(endpoint, ACME));
     const event = await queueEvent(db, receiver, 1, { nextAttemptAt: LATER });
-    expect(await drainOutbox(db, NOW)).toEqual({ processed: 0, failed: 0 });
+    expect(await drainWith(db)(NOW)).toEqual({ processed: 0, failed: 0 });
     expect(endpoint.deliveries).toEqual([]);
     expect(await outboxRow(db, event)).toMatchObject({ deliveryStatus: DELIVERY_STATUS.PENDING, attempts: 0 });
   });
@@ -83,7 +83,7 @@ describe('drainOutbox: delivery (Spec 5 rules 2, 3, 5)', () => {
       attempts: MAX_DELIVERY_ATTEMPTS,
       lastError: 'HTTP 500',
     });
-    expect(await drainOutbox(db, LATER)).toEqual({ processed: 0, failed: 0 });
+    expect(await drainWith(db)(LATER)).toEqual({ processed: 0, failed: 0 });
     expect(endpoint.deliveries).toEqual([]);
   });
 
@@ -92,7 +92,7 @@ describe('drainOutbox: delivery (Spec 5 rules 2, 3, 5)', () => {
     const receiver = await seedReceiver(db, receivingAt(endpoint, ACME));
     const sequences = Array.from({ length: DRAIN_BATCH_SIZE + 1 }, (_, index) => index + 1);
     await Promise.all(sequences.map((sequence) => queueEvent(db, receiver, sequence)));
-    expect(await drainOutbox(db, NOW)).toEqual({ processed: DRAIN_BATCH_SIZE, failed: 0 });
-    expect(await drainOutbox(db, NOW)).toEqual({ processed: 1, failed: 0 });
+    expect(await drainWith(db)(NOW)).toEqual({ processed: DRAIN_BATCH_SIZE, failed: 0 });
+    expect(await drainWith(db)(NOW)).toEqual({ processed: 1, failed: 0 });
   });
 });

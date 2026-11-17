@@ -35,7 +35,7 @@ export const createApp = ({ logger, db, clock, verifyCronToken, providerFor }: A
 
   app.use(requestLogger(logger));
   app.use(dbContext(db));
-  app.route(WEBHOOKS_PREFIX, webhooksRoutes(providerFor, clock));
+  app.route(WEBHOOKS_PREFIX, webhooksRoutes(providerFor, clock, logger));
 
   // Registered before the V1 middleware: Hono runs middleware in registration order, and providers carry no tenant API key.
   app.use(V1, tenantAuth());

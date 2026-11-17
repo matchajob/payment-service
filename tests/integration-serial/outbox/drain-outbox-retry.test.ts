@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { DELIVERY_STATUS } from '@/lib/outbox/delivery-status';
-import { drainOutbox } from '@/lib/outbox/drain-outbox';
+import { drainWith } from '@tests/utils/drain-run';
 import { retryDelayAfter } from '@/lib/outbox/retry-schedule';
 import { outboxEventsTable } from '@/lib/outbox/schema';
 import { closedEndpointUrl, fakeTenantEndpoint, HANG, REDIRECT_TARGET_PATH } from '@tests/utils/fake-tenant-endpoint';
@@ -26,7 +26,7 @@ describe('drainOutbox: retries (Spec 5 rule 2, ADR 0009)', () => {
     endpoint.reply(SERVER_ERROR);
     const receiver = await seedReceiver(db, receivingAt(endpoint, ACME));
     const event = await queueEvent(db, receiver);
-    expect(await drainOutbox(db, NOW)).toEqual({ processed: 0, failed: 1 });
+    expect(await drainWith(db)(NOW)).toEqual({ processed: 0, failed: 1 });
     expect(await outboxRow(db, event)).toMatchObject({
       deliveryStatus: DELIVERY_STATUS.PENDING,
       attempts: 1,
@@ -40,9 +40,9 @@ describe('drainOutbox: retries (Spec 5 rule 2, ADR 0009)', () => {
     endpoint.reply(SERVER_ERROR);
     const receiver = await seedReceiver(db, receivingAt(endpoint, ACME));
     const event = await queueEvent(db, receiver);
-    await drainOutbox(db, NOW);
-    expect(await drainOutbox(db, at(FIRST_RETRY_DELAY - 1))).toEqual({ processed: 0, failed: 0 });
-    expect(await drainOutbox(db, at(FIRST_RETRY_DELAY))).toEqual({ processed: 1, failed: 0 });
+    await drainWith(db)(NOW);
+    expect(await drainWith(db)(at(FIRST_RETRY_DELAY - 1))).toEqual({ processed: 0, failed: 0 });
+    expect(await drainWith(db)(at(FIRST_RETRY_DELAY))).toEqual({ processed: 1, failed: 0 });
     expect(endpoint.deliveries).toHaveLength(2);
     expect(await outboxRow(db, event)).toMatchObject({
       deliveryStatus: DELIVERY_STATUS.DELIVERED,
@@ -56,7 +56,7 @@ describe('drainOutbox: retries (Spec 5 rule 2, ADR 0009)', () => {
     endpoint.reply(HANG);
     const receiver = await seedReceiver(db, receivingAt(endpoint, ACME));
     const event = await queueEvent(db, receiver);
-    expect(await drainOutbox(db, NOW, SHORT_TIMEOUT_MS)).toEqual({ processed: 0, failed: 1 });
+    expect(await drainWith(db, SHORT_TIMEOUT_MS)(NOW)).toEqual({ processed: 0, failed: 1 });
     expect(await outboxRow(db, event)).toMatchObject({ attempts: 1, lastError: TIMEOUT_ERROR });
   });
 
@@ -65,7 +65,7 @@ describe('drainOutbox: retries (Spec 5 rule 2, ADR 0009)', () => {
     endpoint.reply(FOUND);
     const receiver = await seedReceiver(db, receivingAt(endpoint, ACME));
     const event = await queueEvent(db, receiver);
-    expect(await drainOutbox(db, NOW)).toEqual({ processed: 0, failed: 1 });
+    expect(await drainWith(db)(NOW)).toEqual({ processed: 0, failed: 1 });
     expect(endpoint.deliveries.map(({ path }) => path)).not.toContain(REDIRECT_TARGET_PATH);
     expect(await outboxRow(db, event)).toMatchObject({ lastError: `HTTP ${FOUND}` });
   });
@@ -73,7 +73,7 @@ describe('drainOutbox: retries (Spec 5 rule 2, ADR 0009)', () => {
   it('counts an unreachable receiver as a failed attempt', async () => {
     const receiver = await seedReceiver(db, { ...ACME, webhookUrl: await closedEndpointUrl() });
     const event = await queueEvent(db, receiver);
-    expect(await drainOutbox(db, NOW)).toEqual({ processed: 0, failed: 1 });
+    expect(await drainWith(db)(NOW)).toEqual({ processed: 0, failed: 1 });
     expect(await outboxRow(db, event)).toMatchObject({
       deliveryStatus: DELIVERY_STATUS.PENDING,
       attempts: 1,
@@ -90,7 +90,7 @@ describe('drainOutbox: retries (Spec 5 rule 2, ADR 0009)', () => {
       .update(outboxEventsTable)
       .set({ snapshot: { ...snapshotFor(receiver), status: 'paused' } })
       .where(eq(outboxEventsTable.outboxEventId, corrupt.outboxEventId));
-    expect(await drainOutbox(db, NOW)).toEqual({ processed: 1, failed: 1 });
+    expect(await drainWith(db)(NOW)).toEqual({ processed: 1, failed: 1 });
     expect(endpoint.deliveries).toHaveLength(1);
     expect(await outboxRow(db, corrupt)).toMatchObject({ attempts: 1, lastError: expect.any(String) });
     expect(await outboxRow(db, healthy)).toMatchObject({ deliveryStatus: DELIVERY_STATUS.DELIVERED });

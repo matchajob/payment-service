@@ -1,4 +1,4 @@
-import { chargeDedupKey } from '@/lib/charges/charge-dedup-key';
+import type { Logger } from 'pino';
 import type { Clock } from '@/lib/clock';
 import { findCustomer } from '@/lib/customers/find-customer';
 import type { Database } from '@/lib/db';
@@ -16,10 +16,17 @@ import { settleFirstCharge } from '@/lib/subscriptions/settle-first-charge';
 import { SUBSCRIPTION_STATUS } from '@/lib/subscriptions/state-machine/subscription-status';
 import { findTenant } from '@/lib/tenants/find-tenant';
 import { chargeRequestFor } from '@/lib/charges/charge-request-for';
+import { ignoredCompletion } from '@/lib/webhooks/ignored-completion';
+import { IGNORED_REASON } from '@/lib/webhooks/ignored-reason';
 
 const MISSING_PARENTS = 'subscription references a missing tenant, customer or plan';
 
-export type CompleteCheckoutDeps = { db: Database; provider: PaymentProvider; clock: Clock };
+export type CompleteCheckoutDeps = {
+  db: Database;
+  provider: PaymentProvider;
+  clock: Clock;
+  logger: Pick<Logger, 'warn'>;
+};
 export type CompleteCheckoutInput = {
   providerConnectionId: ProviderConnection['providerConnectionId'];
   reference: string;
@@ -27,14 +34,22 @@ export type CompleteCheckoutInput = {
 };
 
 export const completeCheckout = async (
-  { db, provider, clock }: CompleteCheckoutDeps,
+  { db, provider, clock, logger }: CompleteCheckoutDeps,
   { providerConnectionId, reference, sessionRef }: CompleteCheckoutInput,
 ): Promise<CheckoutCompletion> => {
   const subscriptionId = zSubscriptionRead.shape.subscriptionId.safeParse(reference);
-  if (!subscriptionId.success) return CHECKOUT_COMPLETION.HANDLED;
+  const unknown = () =>
+    ignoredCompletion(logger, IGNORED_REASON.UNKNOWN_SUBSCRIPTION, { providerConnectionId, reference });
+  if (!subscriptionId.success) return unknown();
   const subscription = await findSubscriptionOnConnection(db, providerConnectionId, subscriptionId.data);
-  if (subscription?.status !== SUBSCRIPTION_STATUS.INCOMPLETE) return CHECKOUT_COMPLETION.HANDLED;
-  if (subscription.checkoutSessionRef !== sessionRef) return CHECKOUT_COMPLETION.HANDLED;
+  if (subscription === undefined) return unknown();
+  const ids = { providerConnectionId, subscriptionId: subscription.subscriptionId };
+  if (subscription.status !== SUBSCRIPTION_STATUS.INCOMPLETE) {
+    return ignoredCompletion(logger, IGNORED_REASON.NOT_AWAITING_CHECKOUT, { ...ids, status: subscription.status });
+  }
+  if (subscription.checkoutSessionRef !== sessionRef) {
+    return ignoredCompletion(logger, IGNORED_REASON.SESSION_MISMATCH, { ...ids, sessionRef });
+  }
 
   const verified = await provider.verifyCheckout(sessionRef);
   if (verified.outcome === CHECKOUT_VERIFICATION.NOT_COMPLETED) return CHECKOUT_COMPLETION.NOT_COMPLETED;

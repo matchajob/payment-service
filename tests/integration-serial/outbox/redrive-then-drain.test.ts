@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DELIVERY_STATUS } from '@/lib/outbox/delivery-status';
-import { drainOutbox } from '@/lib/outbox/drain-outbox';
+import { drainWith } from '@tests/utils/drain-run';
 import { redriveDeadLetters } from '@/lib/outbox/redrive-dead-letters';
 import { MAX_DELIVERY_ATTEMPTS } from '@/lib/outbox/retry-schedule';
 import { fakeTenantEndpoint } from '@tests/utils/fake-tenant-endpoint';
@@ -23,7 +23,7 @@ describe('redrive after the receiver is fixed (Spec 5 rule 7)', () => {
       lastError: 'HTTP 500',
     });
     await redriveDeadLetters(db, { tenantId: receiver.tenantId }, FIXED_AT);
-    expect(await drainOutbox(db, FIXED_AT)).toEqual({ processed: 1, failed: 0 });
+    expect(await drainWith(db)(FIXED_AT)).toEqual({ processed: 1, failed: 0 });
     expect(await outboxRow(db, dead)).toMatchObject({ deliveryStatus: DELIVERY_STATUS.DELIVERED, attempts: 1 });
   });
 });

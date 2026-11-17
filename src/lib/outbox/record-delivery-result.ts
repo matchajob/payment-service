@@ -1,5 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import type { Database } from '@/lib/db';
+import { DEAD_LETTER_COLUMNS, type DeadLetter } from '@/lib/outbox/dead-letter';
 import type { DeliveryResult } from '@/lib/outbox/delivery-result';
 import { DELIVERY_STATUS } from '@/lib/outbox/delivery-status';
 import { toLastError } from '@/lib/outbox/last-error';
@@ -22,8 +23,8 @@ export const recordDeliveryResult = async (
   { outboxEventId, attempts }: Claimed,
   result: DeliveryResult,
   now: Date,
-): Promise<void> => {
-  await db
+): Promise<DeadLetter | undefined> => {
+  const [written] = await db
     .update(outboxEventsTable)
     .set(outcomeOf(attempts, result, now))
     .where(
@@ -32,5 +33,9 @@ export const recordDeliveryResult = async (
         eq(outboxEventsTable.attempts, attempts),
         eq(outboxEventsTable.deliveryStatus, DELIVERY_STATUS.PENDING),
       ),
-    );
+    )
+    .returning({ ...DEAD_LETTER_COLUMNS, deliveryStatus: outboxEventsTable.deliveryStatus });
+  if (written === undefined) return undefined;
+  const { deliveryStatus, ...deadLetter } = written;
+  return deliveryStatus === DELIVERY_STATUS.DEAD ? deadLetter : undefined;
 };
