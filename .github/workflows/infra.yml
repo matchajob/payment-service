@@ -26,7 +26,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        stack: ${{ github.ref == 'refs/heads/main' && fromJSON('["staging","production"]') || fromJSON('["staging"]') }}
+        # production joins once its stack and GitHub environment variables exist
+        stack: [staging]
     runs-on: ubuntu-latest
     environment: ${{ matrix.stack }}
     steps:

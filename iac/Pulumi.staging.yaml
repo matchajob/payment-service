@@ -1,0 +1,11 @@
+secretsprovider: gcpkms://projects/kedge-staging/locations/me-west1/keyRings/pulumi/cryptoKeys/stack-secrets
+encryptedkey: CiQALf4eSP8hav2mtCt9isSU1SvY23nFRupDYbD8l9c/FGJzETISSQDG2nHcfxGBJvFEmJpHluDsZlMywrlKykEMqQbR3qAlPW6a2sLIdl0wFbVI81QZttBPMhYodpSHy+HULCUtV6pYMiEpPn2V3mM=
+config:
+  gcp:project: kedge-staging
+  gcp:region: me-west1
+  payment-service:githubRepository: matchajob/payment-service
+  payment-service:alertEmail:
+    secure: v1:nk4DkGGRVFwqpopI:nXXoFo5yI+/q6GmtX56TZCrTMSoLZBqZJsrLQDqEjJUT4wmxHw==
+  payment-service:publicBaseUrl: https://payment-service-695605426747.me-west1.run.app
+  payment-service:growBaseUrl: https://sandbox.meshulam.co.il/api/light/server/1.0/
+  payment-service:image: me-west1-docker.pkg.dev/kedge-staging/payment-service/payment-service:4d1dc26-dirty
