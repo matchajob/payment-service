@@ -185,5 +185,10 @@ describe('payment service stack (slice 0.6)', () => {
     it('runs as its own service account, not the default compute one', () => {
       expect(serviceInputs().template.serviceAccount).toBe(mockAccountEmail('payment-service-runtime'));
     });
+
+    it('tells the service its public base URL and the Grow base URL, which it refuses to boot without', () => {
+      expect(envValue(ENV.PUBLIC_BASE_URL)).toBe(SETTINGS.publicBaseUrl);
+      expect(envValue(ENV.GROW_BASE_URL)).toBe(SETTINGS.growBaseUrl);
+    });
   });
 });

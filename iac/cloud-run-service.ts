@@ -53,6 +53,8 @@ export const declareCloudRunService = (args: CloudRunServiceArgs, opts: pulumi.C
               { name: ENV.CRON_INVOKER_EMAIL, value: args.cronInvoker.email },
               { name: ENV.CRON_AUDIENCE, value: args.cronAudience },
               { name: ENV.PROVIDER_CREDENTIALS_KMS_KEY, value: args.providerCredentialsKeyId },
+              { name: ENV.PUBLIC_BASE_URL, value: settings.publicBaseUrl },
+              { name: ENV.GROW_BASE_URL, value: settings.growBaseUrl },
               ...secretEnvVars(args.secrets),
             ],
           },

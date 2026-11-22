@@ -10,4 +10,6 @@ export const TEST_STACK_SETTINGS: StackSettings = {
   databaseTier: 'db-f1-micro',
   maxInstances: 2,
   alertEmail: 'alerts@example.invalid',
+  publicBaseUrl: 'https://payment-service.example.invalid',
+  growBaseUrl: 'https://grow.example.invalid/api/',
 };

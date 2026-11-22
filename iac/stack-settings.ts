@@ -17,6 +17,8 @@ const stackSettingsSchema = z.object({
   databaseTier: z.string().min(1).default(DEFAULT_DATABASE_TIER),
   maxInstances: z.number().int().positive().default(DEFAULT_MAX_INSTANCES),
   alertEmail: z.email(),
+  publicBaseUrl: z.url(),
+  growBaseUrl: z.url(),
 });
 
 export type StackSettings = z.output<typeof stackSettingsSchema>;
@@ -33,5 +35,7 @@ export const readStackSettings = (): StackSettings => {
     databaseTier: own.get('databaseTier'),
     maxInstances: own.getNumber('maxInstances'),
     alertEmail: own.require('alertEmail'),
+    publicBaseUrl: own.require('publicBaseUrl'),
+    growBaseUrl: own.require('growBaseUrl'),
   });
 };
