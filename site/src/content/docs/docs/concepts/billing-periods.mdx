@@ -1,0 +1,59 @@
+---
+title: Billing periods
+description: How renewal dates are chosen, how month ends and time zones are handled, and what amount is charged.
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+## Anniversary billing
+
+Period one starts when the first payment succeeds. Every renewal falls on the same day of the month, or the same date each year, at the same local time. A customer who activates on the 14th at 09:31 renews every 14th at 09:31.
+
+| Plan interval | Activated | Renewals |
+| --- | --- | --- |
+| `month` | Mar 14, 09:31 | Apr 14, May 14, Jun 14 … at 09:31 |
+| `year` | Mar 14, 2026 | Mar 14, 2027, Mar 14, 2028 … |
+
+## Short months
+
+When the anniversary day does not exist in a month, the renewal moves to the last day of that month. The original day is kept for the months that have it.
+
+| Activated | Next renewals |
+| --- | --- |
+| Jan 31 | Feb 28 (Feb 29 in a leap year), Mar 31, Apr 30, May 31 |
+| Jan 30 | Feb 28, Mar 30, Apr 30 |
+
+## Your time zone
+
+Billing dates follow the calendar of the time zone set on your application, for example `Asia/Jerusalem`. Two effects:
+
+- A customer who pays at 00:30 local time on the 1st is billed on the 1st, not on the last day of the previous month in UTC.
+- The local billing hour stays fixed across daylight saving changes.
+
+All timestamps in the API and in events are ISO 8601 in UTC. Convert them for display.
+
+<Aside type="caution">
+  The time zone is set when your application is created. Changing it later would move every subscriber's billing date, so it is not done casually. Get it right at onboarding.
+</Aside>
+
+## When renewals run
+
+- A renewal is due once `currentPeriodEnd` has passed. We never charge early.
+- Due renewals are picked up every hour.
+- While the charge runs the subscription stays `active`. It only becomes `past_due` on a confirmed decline, so a slow provider never interrupts access.
+- The next period starts exactly where the previous one ended. A renewal that ran an hour late does not shift the customer's dates.
+
+## The amount
+
+The charge always uses the amount on the subscription's plan. Plans never change after they are created, so a subscriber is never repriced by accident. To raise a price, create a new plan for new subscribers. Existing subscribers stay on theirs.
+
+## After a failed renewal
+
+A successful retry pays for the period that failed. The new period starts at the original renewal date, so the customer's anniversary never moves and the grace days are covered. See [Handle failed payments](/docs/guides/failed-payments/).
+
+## Next steps
+
+<CardGrid>
+  <LinkCard title="Billing policy" href="/docs/concepts/billing-policy/" />
+  <LinkCard title="Subscription lifecycle" href="/docs/concepts/lifecycle/" />
+</CardGrid>

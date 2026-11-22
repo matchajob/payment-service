@@ -1,0 +1,62 @@
+---
+title: How it works
+description: The three parties in a Payment Service integration, what each one is responsible for, and how a subscription moves from checkout to renewal.
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+A Payment Service integration has three parties. Each one owns a clear part of the job, and none of them needs to know the internals of the others.
+
+## The three parties
+
+| Party | Owns | Never does |
+| --- | --- | --- |
+| **Your application** | Your users, your plans' place in your product, access to features | Store card data, schedule charges, retry declines |
+| **Payment Service** | The subscription lifecycle, the billing schedule, retries, events | Hold your money, see a card number, decide what a canceled user loses |
+| **Your card provider** | The payment page, card storage, the actual charge, settlement into your account | Know about subscriptions, periods or retries |
+
+You sign up with the card provider yourself and pay its fees directly. We connect to your account with credentials you give us at onboarding. That is why we are software, not a payment facilitator: money goes from your customer's card straight into your account.
+
+## The life of a subscription
+
+1. **Create.** Your server calls `POST /v1/subscriptions`. We create an `incomplete` subscription and a hosted checkout on your provider, and return its `checkoutUrl`.
+2. **Checkout.** The customer pays on the provider's page. The provider saves the card and gives us a token. We never receive the card number.
+3. **Activate.** We charge the token for the first period. On success the subscription becomes `active`, period one starts, and you receive `subscription.activated`.
+4. **Renew.** When `currentPeriodEnd` passes, we charge the saved token for the next period through your provider account. On success you receive `charge.succeeded` with the new `currentPeriodEnd`.
+5. **Recover.** If a renewal is declined, the subscription becomes `past_due` and we retry on your schedule. A successful retry makes it `active` again. If every retry fails, it is canceled.
+6. **End.** You cancel, or retries run out. The subscription becomes `canceled` and stays that way. A returning customer gets a new subscription.
+
+## Where your code fits
+
+Your integration is small on purpose:
+
+- **Write path.** Your server calls our API to create customers and subscriptions, cancel, resume and start card updates. Every write takes an `Idempotency-Key`, so retrying is always safe.
+- **Read path.** You do not poll us. Every change arrives as a signed event that carries the full subscription. You store it, and your app reads its own database.
+- **Access.** Each subscription carries `entitled`, which we compute from the status, the payment history and your grace policy. Your feature gates read that one field.
+
+<Aside type="tip">
+  Because events carry the whole subscription and a sequence number, your app keeps working if we are briefly unreachable. Your stored copy is always a complete, recent answer.
+</Aside>
+
+## Inbound provider notifications
+
+Card providers notify us when a checkout completes. Some providers do not sign those notifications. We never trust a notification on its own: we confirm it with the provider before acting, and anything we cannot match is ignored. Only then do we change the subscription and send you a signed event.
+
+## Scheduled work
+
+We run the billing schedule ourselves:
+
+| Job | What it does |
+| --- | --- |
+| Renewals | Charge subscriptions whose period has ended. Runs every hour. |
+| Retries | Charge `past_due` subscriptions whose next retry is due. |
+| Checkout expiry | Cancel `incomplete` subscriptions nobody paid for in time, after asking the provider. |
+| Reconciliation | Settle charges whose outcome was unclear, by asking the provider. |
+| Event delivery | Send pending events and retry failed deliveries. |
+
+## Next steps
+
+<CardGrid>
+  <LinkCard title="Subscription lifecycle" description="Every state and every allowed transition." href="/docs/concepts/lifecycle/" />
+  <LinkCard title="Money and data safety" description="How double charges and card data exposure are prevented." href="/docs/concepts/safety/" />
+</CardGrid>

@@ -1,0 +1,30 @@
+---
+title: Glossary
+description: The terms used across the Payment Service docs and API.
+---
+
+| Term | Meaning |
+| --- | --- |
+| **Application** | One product of your business. Has its own API key, webhook, policy, plans and customers. |
+| **Anniversary** | The day and time a subscription renews, set by its first payment. |
+| **Billing policy** | Per-application settings: checkout window, resume, grace access, retry schedule, time zone. |
+| **Charge** | One attempt to take payment for one period. |
+| **Checkout** | The provider's hosted page where the customer enters a card. |
+| **Customer** | One of your users, identified by your `externalRef`. |
+| **Dead letter** | An event that failed every delivery attempt. Kept, and redelivered by us once your endpoint is fixed. |
+| **Dunning** | The recovery period after a declined renewal, when retries run. |
+| **Entitled** | Whether a customer should have access now. Computed by us, carried on every subscription. |
+| **Event** | A signed message to your webhook describing a change, carrying the full subscription. |
+| **Grace access** | Keeping access while a subscription is `past_due`. Controlled by `graceEntitlement`. |
+| **Idempotency key** | A UUID on a write that makes retries return the first answer instead of running again. |
+| **Minor units** | The smallest unit of a currency: agorot for ILS, cents for USD. |
+| **Organization** | Your business, the legal entity. Owns provider connections. |
+| **Period** | The span a payment covers, ending at `currentPeriodEnd`. |
+| **Plan** | An amount, a currency and an interval. Never changes after creation. |
+| **Problem document** | The JSON error format, RFC 9457. |
+| **Provider connection** | Your card provider account and its encrypted credentials. |
+| **Reconciliation** | Settling a charge whose outcome was unclear by asking the provider. |
+| **Sequence** | A per-subscription counter on events. Apply the highest. |
+| **Subscription** | One customer on one plan, moving through `incomplete`, `active`, `past_due` and `canceled`. |
+| **Token** | The provider's stand-in for a saved card. The only card reference we store. |
+| **Webhook secret** | The key used to sign events sent to your application. |

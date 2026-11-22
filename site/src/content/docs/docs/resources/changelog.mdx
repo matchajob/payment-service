@@ -1,0 +1,24 @@
+---
+title: Changelog
+description: Changes to the Payment Service API, events and SDK.
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+## How we version
+
+The API is versioned in the path (`/v1`). Within a version we only add: new response fields, new optional request fields, new endpoints and new enum values announced here first. A field is never removed or changed in type within a version. Ignore fields you do not recognize.
+
+The SDK follows semantic versioning.
+
+## 2026-11 <Badge text="API" variant="note" /> <Badge text="SDK 0.1.0" variant="note" />
+
+- Customers accept optional billing details for tax invoices: `name`, `email` and `taxId`.
+- The API reference is now generated from the same schemas the server validates with, and a test fails if the two drift.
+
+## 2026-10 <Badge text="API" variant="note" /> <Badge text="SDK 0.1.0" variant="note" />
+
+- First preview of the API: plans, customers, subscriptions, cancel, resume and card updates.
+- Signed events: `subscription.activated`, `subscription.past_due`, `subscription.canceled`, `charge.succeeded`, `charge.failed`.
+- `cancelReason` on the Subscription object.
+- TypeScript SDK 0.1.0 with typed calls, retries and event verification.

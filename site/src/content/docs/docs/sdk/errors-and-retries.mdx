@@ -1,0 +1,84 @@
+---
+title: Errors and retries
+description: What the SDK throws, which failures it retries on its own, and how to handle each case.
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+## What can throw
+
+| Thrown | When | Retried by the SDK |
+| --- | --- | --- |
+| `ZodError` | Your input fails validation. Nothing is sent. | No |
+| `PaymentServiceError` | The service answered with a 4xx or 5xx. | Only 502, 503, 504 |
+| The fetch error (`TypeError`, `TimeoutError`) | The network failed or an attempt timed out, on every attempt. | Yes, until retries run out |
+| `ZodError` | The response does not match the published contract. | No |
+
+## PaymentServiceError
+
+```ts
+import { PaymentServiceError } from '@payment-service/sdk/payment-service-error';
+```
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `status` | `number` | The HTTP status. |
+| `problem` | `{ type, title, status, detail?, instance? }` | The problem document the service returned. |
+| `message` | `string` | `title: detail`, or just `title`. |
+
+If a proxy answers with something that is not a problem document, you still get a `PaymentServiceError` with the status and the status text as the title.
+
+```ts
+try {
+  await payments.subscriptions.cancel(subscriptionId);
+} catch (error) {
+  if (error instanceof PaymentServiceError && error.status === 409) {
+    if (error.problem.detail === 'charge_in_flight') return retryInAMinute();
+    if (error.problem.detail === 'not_accepted_in_state') return showMessage('This subscription has already ended.');
+  }
+  throw error;
+}
+```
+
+### Status codes
+
+| Status | Meaning | What to do |
+| --- | --- | --- |
+| `400` | Malformed body or missing key. Rare with the SDK, which validates first. | Fix the request. |
+| `401` | Missing or unknown API key. | Check your configuration. |
+| `404` | No such record in your application. | Check the id you stored. |
+| `409` | The lifecycle refuses the change, a duplicate, or the same key is still running. | Read `problem.detail`. |
+| `422` | An idempotency key reused with different input. | Use a new key for a new intent. |
+| `500` | Something failed on our side. | Retry later with the same key. |
+
+## Built-in retries
+
+The SDK retries a call when the attempt fails with a network error, times out, or returns `502`, `503` or `504`.
+
+| Setting | Default | Option |
+| --- | --- | --- |
+| Extra attempts | 2 (3 attempts in total) | `retries` |
+| Timeout per attempt | 30 seconds | `timeoutMs` |
+| Wait before retry n | random between 50% and 100% of 200 ms × 2ⁿ | `sleep` to replace the wait |
+
+Every attempt of a write sends the **same** `Idempotency-Key`, so a lost response never runs a change twice. Other errors, including `500`, are not retried automatically.
+
+<Aside type="caution" title="Your own retries">
+  Retries end when the call returns or throws. If your job queue retries the whole call, pass the same `idempotencyKey` you used the first time. Otherwise each run gets a new key and is a new request.
+</Aside>
+
+## Validation errors
+
+Inputs are parsed with the contract schemas before any request leaves your process:
+
+```ts
+await payments.subscriptions.create({ customerId: 'not-a-uuid', planId, returnUrl });
+// throws ZodError: customerId: Invalid UUID
+```
+
+## Next steps
+
+<CardGrid>
+  <LinkCard title="Errors concept" description="The problem format and every detail code." href="/docs/concepts/errors/" />
+  <LinkCard title="Idempotency" href="/docs/concepts/idempotency/" />
+</CardGrid>

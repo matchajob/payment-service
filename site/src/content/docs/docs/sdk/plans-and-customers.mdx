@@ -1,0 +1,89 @@
+---
+title: Plans and customers
+description: List your plans and create or retrieve customers with the TypeScript SDK.
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+## plans.list()
+
+Returns every plan of your application. Plans are created with you at onboarding and never change, so you can cache this list.
+
+```ts
+const plans = await payments.plans.list();
+const pro = plans.find((plan) => plan.name === 'Pro monthly');
+```
+
+### The Plan object
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `planId` | `string` (UUID) | Unique identifier for the plan. |
+| `name` | `string` | The plan name. Also the line description on tax invoices. |
+| `amountMinor` | `number` | Price per interval in minor units. `4900` is 49.00. |
+| `currency` | `'ILS' \| 'USD'` | ISO currency code. |
+| `interval` | `'month' \| 'year'` | How often the subscription renews. |
+
+<Aside type="tip" title="Show prices from minor units">
+  Divide by 100 and format with `Intl.NumberFormat`: `new Intl.NumberFormat('he-IL', { style: 'currency', currency: plan.currency }).format(plan.amountMinor / 100)`.
+</Aside>
+
+## customers.create(input, options?)
+
+Creates a customer for one of your users.
+
+```ts
+const customer = await payments.customers.create({
+  externalRef: user.id,
+  name: user.companyName ?? user.fullName,
+  email: user.billingEmail,
+  taxId: user.companyNumber,
+});
+```
+
+### Input
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `externalRef` | `string`, 1 to 64 chars | yes | Your own id for the user. Unique within your application. |
+| `name` | `string \| null`, 1 to 64 chars | no | Name printed on tax invoices. |
+| `email` | `string \| null`, email | no | Where tax invoices are sent. |
+| `taxId` | `string \| null`, 1 to 64 chars | no | Company number or personal id, for business invoices. |
+
+Billing details can only be set at creation. There is no update endpoint yet.
+
+### Errors
+
+| Status | When |
+| --- | --- |
+| `409` | A customer with this `externalRef` already exists. Look up your stored `customerId` instead. |
+| `422` | You reused an `idempotencyKey` with different input. |
+
+<Aside type="caution" title="Store the customerId">
+  There is no lookup by `externalRef`. Save the returned `customerId` next to your user record. If you lose it after a `409`, ask us to look it up.
+</Aside>
+
+## customers.get(customerId)
+
+```ts
+const customer = await payments.customers.get(storedCustomerId);
+```
+
+Throws a `PaymentServiceError` with status `404` if the customer does not exist in your application.
+
+### The Customer object
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `customerId` | `string` (UUID) | Unique identifier for the customer. |
+| `externalRef` | `string` | Your id for the user. |
+| `name` | `string \| null` | Name on tax invoices. |
+| `email` | `string \| null` | Email for tax invoices. |
+| `taxId` | `string \| null` | Company number or personal id. |
+
+## Next steps
+
+<CardGrid>
+  <LinkCard title="Subscriptions" href="/docs/sdk/subscriptions/" />
+  <LinkCard title="Customers in the API reference" href="/api-reference/#tag/customers" />
+</CardGrid>

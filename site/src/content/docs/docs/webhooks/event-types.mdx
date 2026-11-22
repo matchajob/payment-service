@@ -1,0 +1,218 @@
+---
+title: Event types
+description: Every event Payment Service sends, when each one fires, a full sample payload, and what your application should do with it.
+---
+
+import { Aside, Badge, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+There are five event types. Each one carries the same envelope and the full [Subscription object](#the-subscription-object) after the change.
+
+| Type | Fires when | Typical action |
+| --- | --- | --- |
+| [`subscription.activated`](#subscriptionactivated) | The first payment succeeded | Grant access, send a welcome |
+| [`charge.succeeded`](#chargesucceeded) | A renewal or retry succeeded | Extend access, send a receipt |
+| [`charge.failed`](#chargefailed) | Any charge was declined | Ask the customer to update their card |
+| [`subscription.past_due`](#subscriptionpast_due) | The first renewal failure | Show a payment problem banner |
+| [`subscription.canceled`](#subscriptioncanceled) | An active or past-due subscription ended | Remove access, offer to come back |
+
+## Which events a flow sends
+
+| Flow | Events, in order |
+| --- | --- |
+| Customer pays checkout | `subscription.activated` |
+| Customer's first payment is declined | `charge.failed` (subscription already `canceled`, reason `payment_failure`) |
+| Checkout link expires unpaid | none |
+| You cancel an `incomplete` subscription | none |
+| Renewal succeeds | `charge.succeeded` |
+| Renewal is declined | `charge.failed`, then `subscription.past_due` |
+| A retry is declined, more retries left | `charge.failed` |
+| A retry succeeds | `charge.succeeded` |
+| The last retry is declined | `charge.failed`, then `subscription.canceled` (`payment_failure`) |
+| You cancel an `active` subscription | none now; `subscription.canceled` (`customer_request`) at period end |
+| You resume before period end | none |
+| You cancel a `past_due` subscription | `subscription.canceled` (`customer_request`) |
+| Card update on a `past_due` subscription, charge succeeds | `charge.succeeded` |
+| Card update on a `past_due` subscription, charge declined | `charge.failed` |
+| Card update on an `active` subscription | none |
+| Customer pays a second checkout while subscribed | `subscription.canceled` (`already_subscribed`) on the new subscription |
+
+<Aside type="note">
+  Commands you call, such as cancel and resume, return the updated subscription in the response. They only send an event when the subscription actually ends.
+</Aside>
+
+## The event envelope
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `eventId` | UUID | Unique per event. A retried delivery carries the same `eventId`. |
+| `type` | string | One of the five types on this page. |
+| `sequence` | positive integer | Increases with every event of the same subscription. Apply only if higher than what you stored. |
+| `occurredAt` | ISO 8601 | When the change happened. |
+| `subscription` | Subscription | The full subscription after the change. |
+
+## subscription.activated
+
+Sent once per subscription, when the first charge succeeds after checkout. The subscription is `active`, `entitled` is `true`, and `currentPeriodEnd` is one interval from now.
+
+```json
+{
+  "eventId": "0c2e7a1b-9d4f-4b8e-a3c6-5f1d2e3a4b5c",
+  "type": "subscription.activated",
+  "sequence": 1,
+  "occurredAt": "2026-11-14T09:31:07.000Z",
+  "subscription": {
+    "subscriptionId": "b7e1c2d4-5a6f-4b3c-8d9e-0f1a2b3c4d5e",
+    "customerId": "3f2b6a7e-1c4d-4e1a-9b0f-2a6f0c1d9e11",
+    "customerExternalRef": "user_42",
+    "planId": "8d0c5e3a-7b21-4f6e-a1d2-5c9e0b7f4a33",
+    "status": "active",
+    "entitled": true,
+    "currentPeriodEnd": "2026-12-14T09:31:07.000Z",
+    "cancelAtPeriodEnd": false,
+    "cancelReason": null,
+    "canceledAt": null
+  }
+}
+```
+
+**Do:** store the subscription, grant access, and finish any "confirming your payment" screen.
+
+## charge.succeeded
+
+Sent for every successful renewal, scheduled retry and card-update retry. The period has moved on, so `currentPeriodEnd` is the new end. After a recovery from `past_due`, the new period starts at the old period end, not at the time of the retry.
+
+```json
+{
+  "eventId": "6a1f2b3c-4d5e-4f60-8a9b-0c1d2e3f4a5b",
+  "type": "charge.succeeded",
+  "sequence": 2,
+  "occurredAt": "2026-12-14T10:00:41.000Z",
+  "subscription": {
+    "subscriptionId": "b7e1c2d4-5a6f-4b3c-8d9e-0f1a2b3c4d5e",
+    "customerId": "3f2b6a7e-1c4d-4e1a-9b0f-2a6f0c1d9e11",
+    "customerExternalRef": "user_42",
+    "planId": "8d0c5e3a-7b21-4f6e-a1d2-5c9e0b7f4a33",
+    "status": "active",
+    "entitled": true,
+    "currentPeriodEnd": "2027-01-14T09:31:07.000Z",
+    "cancelAtPeriodEnd": false,
+    "cancelReason": null,
+    "canceledAt": null
+  }
+}
+```
+
+**Do:** store the subscription. Clear any payment problem banner. Send a receipt if you send your own.
+
+## charge.failed
+
+Sent for every declined charge: the first payment, a renewal, each retry, and a card-update retry. The snapshot shows where the subscription stands after the decline: `past_due` while retries remain, `canceled` when it was the first payment or the last retry.
+
+```json
+{
+  "eventId": "9b8a7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d",
+  "type": "charge.failed",
+  "sequence": 3,
+  "occurredAt": "2027-01-14T10:00:19.000Z",
+  "subscription": {
+    "subscriptionId": "b7e1c2d4-5a6f-4b3c-8d9e-0f1a2b3c4d5e",
+    "customerId": "3f2b6a7e-1c4d-4e1a-9b0f-2a6f0c1d9e11",
+    "customerExternalRef": "user_42",
+    "planId": "8d0c5e3a-7b21-4f6e-a1d2-5c9e0b7f4a33",
+    "status": "past_due",
+    "entitled": true,
+    "currentPeriodEnd": "2027-01-14T09:31:07.000Z",
+    "cancelAtPeriodEnd": false,
+    "cancelReason": null,
+    "canceledAt": null
+  }
+}
+```
+
+**Do:** email the customer a link that starts a [card update](/docs/guides/update-a-card/). You get this event after each failed retry, so you can remind them each time.
+
+## subscription.past_due
+
+Sent right after the `charge.failed` of the first failed renewal. Retries now run on your schedule, by default 1, 3 and 7 days after the failure. `entitled` follows your grace policy: `true` by default.
+
+```json
+{
+  "eventId": "1d2c3b4a-5f6e-4d7c-8b9a-0f1e2d3c4b5a",
+  "type": "subscription.past_due",
+  "sequence": 4,
+  "occurredAt": "2027-01-14T10:00:19.000Z",
+  "subscription": {
+    "subscriptionId": "b7e1c2d4-5a6f-4b3c-8d9e-0f1a2b3c4d5e",
+    "customerId": "3f2b6a7e-1c4d-4e1a-9b0f-2a6f0c1d9e11",
+    "customerExternalRef": "user_42",
+    "planId": "8d0c5e3a-7b21-4f6e-a1d2-5c9e0b7f4a33",
+    "status": "past_due",
+    "entitled": true,
+    "currentPeriodEnd": "2027-01-14T09:31:07.000Z",
+    "cancelAtPeriodEnd": false,
+    "cancelReason": null,
+    "canceledAt": null
+  }
+}
+```
+
+**Do:** show an in-app banner asking for a new card. Keep access as `entitled` says.
+
+## subscription.canceled
+
+Sent when an `active` or `past_due` subscription ends. `cancelReason` says why. A canceled subscription never changes again.
+
+| `cancelReason` | Meaning |
+| --- | --- |
+| `customer_request` | You canceled it, and it reached its period end, or you canceled it while `past_due`. |
+| `payment_failure` | The last retry was declined. |
+| `already_subscribed` | The customer paid a second checkout while another subscription of theirs was live. This one was canceled. |
+
+```json
+{
+  "eventId": "7e6d5c4b-3a2f-4e1d-9c8b-7a6f5e4d3c2b",
+  "type": "subscription.canceled",
+  "sequence": 7,
+  "occurredAt": "2027-01-21T10:00:05.000Z",
+  "subscription": {
+    "subscriptionId": "b7e1c2d4-5a6f-4b3c-8d9e-0f1a2b3c4d5e",
+    "customerId": "3f2b6a7e-1c4d-4e1a-9b0f-2a6f0c1d9e11",
+    "customerExternalRef": "user_42",
+    "planId": "8d0c5e3a-7b21-4f6e-a1d2-5c9e0b7f4a33",
+    "status": "canceled",
+    "entitled": false,
+    "currentPeriodEnd": "2027-01-14T09:31:07.000Z",
+    "cancelAtPeriodEnd": false,
+    "cancelReason": "payment_failure",
+    "canceledAt": "2027-01-21T10:00:05.000Z"
+  }
+}
+```
+
+**Do:** remove access. What the customer keeps, such as their data or a free tier, is your decision. To bring them back, create a new subscription.
+
+<Aside type="caution" title="already_subscribed is about the new subscription">
+  When a customer pays twice, the second subscription is the one canceled. Their original subscription stays active. Match by `subscriptionId`, not by customer.
+</Aside>
+
+## The Subscription object
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `subscriptionId` | UUID | Unique identifier for the subscription. |
+| `customerId` | UUID | The customer it belongs to. |
+| `customerExternalRef` | string | The customer's `externalRef`, so you can match it without a lookup. |
+| `planId` | UUID | The plan being billed. Never changes. |
+| `status` | `incomplete`, `active`, `past_due`, `canceled` | Where it is in the [lifecycle](/docs/concepts/lifecycle/). |
+| `entitled` | boolean | Whether the customer should have access now. Gate on this, never on `status`. |
+| `currentPeriodEnd` | ISO 8601 or null | End of the paid period and time of the next renewal. |
+| `cancelAtPeriodEnd` | boolean | Canceled, ending at `currentPeriodEnd`. |
+| `cancelReason` | string or null | Why it ended. Null unless canceled. |
+| `canceledAt` | ISO 8601 or null | When it ended. |
+
+## Next steps
+
+<CardGrid>
+  <LinkCard title="Delivery and retries" href="/docs/webhooks/delivery/" />
+  <LinkCard title="Webhooks in the API reference" href="/api-reference/" />
+</CardGrid>

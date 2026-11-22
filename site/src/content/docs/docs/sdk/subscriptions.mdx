@@ -1,0 +1,107 @@
+---
+title: Subscriptions
+description: Create, retrieve, cancel and resume subscriptions, and start card updates, with the TypeScript SDK.
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Every method here except `create` and `updatePaymentMethod` returns the same [Subscription object](#the-subscription-object) that events carry, so you can store the result the same way you store an event.
+
+## subscriptions.create(input, options?)
+
+Creates an `incomplete` subscription and a hosted checkout. Redirect the customer to `checkoutUrl`.
+
+```ts
+const { subscriptionId, status, checkoutUrl } = await payments.subscriptions.create(
+  {
+    customerId: customer.customerId,
+    planId: pro.planId,
+    returnUrl: 'https://app.example.com/billing/return',
+  },
+  { idempotencyKey: order.idempotencyKey },
+);
+// status === 'incomplete'
+```
+
+| Input | Type | Description |
+| --- | --- | --- |
+| `customerId` | UUID | The customer to subscribe. |
+| `planId` | UUID | The plan to bill. |
+| `returnUrl` | `http` or `https` URL | Where the provider sends the customer after checkout, paid or not. |
+
+Throws `404` if the customer or the plan does not exist in your application.
+
+<Aside type="caution">
+  Reaching `returnUrl` does not mean the customer paid. Wait for `subscription.activated`. See [Accept a subscription](/docs/guides/accept-a-subscription/).
+</Aside>
+
+## subscriptions.get(subscriptionId)
+
+```ts
+const subscription = await payments.subscriptions.get(subscriptionId);
+if (subscription.entitled) { /* grant access */ }
+```
+
+You rarely need it: events already carry the same object. Use it to backfill or to check one record.
+
+## subscriptions.cancel(subscriptionId, options?)
+
+```ts
+const subscription = await payments.subscriptions.cancel(subscriptionId);
+```
+
+| Status before | Result |
+| --- | --- |
+| `active` | `cancelAtPeriodEnd` becomes `true`. Access stays on until `currentPeriodEnd`. Calling again changes nothing. |
+| `incomplete` | `canceled` at once. |
+| `past_due` | `canceled` at once. Retries stop. |
+| `canceled` | Throws `409` with detail `not_accepted_in_state`. |
+
+## subscriptions.resume(subscriptionId, options?)
+
+Takes back a cancellation that has not taken effect yet.
+
+```ts
+const subscription = await payments.subscriptions.resume(subscriptionId);
+// subscription.cancelAtPeriodEnd === false
+```
+
+Throws `409` with detail `resume_not_allowed` when your billing policy turns resume off, and `not_accepted_in_state` when there is nothing to resume.
+
+## subscriptions.updatePaymentMethod(subscriptionId, input, options?)
+
+Starts a checkout that saves a new card without charging it.
+
+```ts
+const { checkoutUrl } = await payments.subscriptions.updatePaymentMethod(subscriptionId, {
+  returnUrl: 'https://app.example.com/billing/card-updated',
+});
+```
+
+For a `past_due` subscription the new card is charged right away for the failed period. Throws `409` for `incomplete` and `canceled` subscriptions. See [Update a card](/docs/guides/update-a-card/).
+
+## Charge in flight
+
+`cancel` throws `409` with detail `charge_in_flight` while a charge for the subscription is running, so a cancel never races a renewal. The response carries `Retry-After: 60`. Try again after a minute with the same `idempotencyKey`.
+
+## The Subscription object
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `subscriptionId` | UUID | Unique identifier. |
+| `customerId` | UUID | The customer. |
+| `customerExternalRef` | `string` | The customer's `externalRef`, so you can match it without a lookup. |
+| `planId` | UUID | The plan being billed. Never changes. |
+| `status` | `'incomplete' \| 'active' \| 'past_due' \| 'canceled'` | Where the subscription is in its [lifecycle](/docs/concepts/lifecycle/). |
+| `entitled` | `boolean` | Whether the customer should have access right now. Gate on this. |
+| `currentPeriodEnd` | ISO 8601 `string \| null` | End of the paid period and time of the next renewal. Null before the first payment. |
+| `cancelAtPeriodEnd` | `boolean` | Canceled, and will end at `currentPeriodEnd`. |
+| `cancelReason` | `'payment_failure' \| 'customer_request' \| 'already_subscribed' \| 'checkout_expired' \| null` | Why it ended. Null unless `canceled`. |
+| `canceledAt` | ISO 8601 `string \| null` | When it ended. |
+
+## Next steps
+
+<CardGrid>
+  <LinkCard title="Errors and retries" href="/docs/sdk/errors-and-retries/" />
+  <LinkCard title="Verify events" href="/docs/sdk/verify-events/" />
+</CardGrid>

@@ -1,0 +1,111 @@
+---
+title: Webhooks overview
+description: How Payment Service tells your application about every subscription change, and the four rules your webhook endpoint must follow.
+---
+
+import { Aside, Steps, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Every change to a subscription is sent to your application as an **event**: an HTTPS `POST` to the webhook URL you gave us at onboarding. Each event carries the **full subscription after the change**, so your app never needs to call back to find out what happened.
+
+## Why events carry the whole subscription
+
+Many APIs send a thin "something changed" ping and expect you to fetch the record. We send the record itself, with a per-subscription `sequence` number. That has three effects:
+
+- Your app keeps working when we are briefly unreachable, because your stored copy is complete.
+- Arrival order does not matter. You apply the highest `sequence` and ignore the rest.
+- Repeated deliveries are harmless. You skip an `eventId` you already handled.
+
+## What a delivery looks like
+
+```http
+POST /payments-webhook HTTP/1.1
+Host: app.example.com
+Content-Type: application/json
+Payments-Timestamp: 1763712012
+Payments-Signature: 5f1c0e…b9a2
+
+{
+  "eventId": "6a1f2b3c-4d5e-4f60-8a9b-0c1d2e3f4a5b",
+  "type": "charge.succeeded",
+  "sequence": 5,
+  "occurredAt": "2026-12-14T08:00:12.000Z",
+  "subscription": {
+    "subscriptionId": "b7e1c2d4-5a6f-4b3c-8d9e-0f1a2b3c4d5e",
+    "customerId": "3f2b6a7e-1c4d-4e1a-9b0f-2a6f0c1d9e11",
+    "customerExternalRef": "user_42",
+    "planId": "8d0c5e3a-7b21-4f6e-a1d2-5c9e0b7f4a33",
+    "status": "active",
+    "entitled": true,
+    "currentPeriodEnd": "2027-01-14T08:00:00.000Z",
+    "cancelAtPeriodEnd": false,
+    "cancelReason": null,
+    "canceledAt": null
+  }
+}
+```
+
+## The four rules
+
+<Steps>
+
+1. **Verify the signature.** Compute the HMAC-SHA256 of `{Payments-Timestamp}.{raw body}` with your webhook secret and compare it to `Payments-Signature` in constant time. Reject timestamps more than 5 minutes from your clock. [Verify signatures](/docs/webhooks/verify-signatures/).
+
+2. **Answer fast.** Return any `2xx` as soon as the event is verified and saved or queued. Do the slow work afterwards. A non-2xx answer or a timeout counts as a failed delivery.
+
+3. **Expect repeats.** Delivery is at least once. Record each `eventId` you process and skip one you have seen.
+
+4. **Apply by sequence.** Store the subscription only if the event's `sequence` is higher than the one you have for that `subscriptionId`. Older events are no-ops.
+
+</Steps>
+
+## A complete receiver
+
+```ts title="server/apply-event.ts"
+import type { verifyAndParseEvent } from '@payment-service/sdk/verify-and-parse-event';
+
+type PaymentsEvent = Awaited<ReturnType<typeof verifyAndParseEvent>>;
+
+export const applyEvent = async (event: PaymentsEvent) =>
+  db.transaction(async (tx) => {
+    const inserted = await tx.processedEvents.insertIfAbsent({ eventId: event.eventId });
+    if (!inserted) return; // a repeat delivery
+
+    const stored = await tx.subscriptions.find(event.subscription.subscriptionId);
+    if (stored !== undefined && stored.sequence >= event.sequence) return; // an older event
+
+    await tx.subscriptions.upsert({ ...event.subscription, sequence: event.sequence });
+  });
+```
+
+<Aside type="tip" title="Never call back to interpret an event">
+  The snapshot is the data. If your handler calls our API to decide what an event means, a short outage on our side becomes an outage on yours.
+</Aside>
+
+## Event types
+
+| Type | Sent when |
+| --- | --- |
+| `subscription.activated` | The first payment succeeded. |
+| `charge.succeeded` | A renewal or a retry succeeded. |
+| `charge.failed` | Any charge was declined. |
+| `subscription.past_due` | The first renewal failure. Retries started. |
+| `subscription.canceled` | An active or past-due subscription ended. |
+
+Full payloads and when each one fires: [Event types](/docs/webhooks/event-types/).
+
+## Your endpoint
+
+| Requirement | Detail |
+| --- | --- |
+| Protocol | HTTPS, reachable from the internet |
+| Method | `POST` with a JSON body |
+| Response | Any `2xx` to acknowledge |
+| Secret | One webhook secret per application, given at onboarding |
+| URL | One webhook URL per application, set with us at onboarding |
+
+## Next steps
+
+<CardGrid>
+  <LinkCard title="Verify signatures" href="/docs/webhooks/verify-signatures/" />
+  <LinkCard title="Delivery and retries" href="/docs/webhooks/delivery/" />
+</CardGrid>

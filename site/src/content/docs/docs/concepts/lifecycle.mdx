@@ -1,0 +1,82 @@
+---
+title: Subscription lifecycle
+description: The four states of a subscription, every allowed transition, what triggers it, and the event it sends.
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+A subscription is always in one of four states and moves only along the transitions on this page. Anything else is refused: an API call answers `409`, and a provider notification is ignored. The same table governs your API calls, our scheduler and provider notifications, so a subscription never ends up somewhere unexpected.
+
+## States
+
+| State | Meaning | `entitled` |
+| --- | --- | --- |
+| `incomplete` | Created. The first payment has not arrived. | `false` |
+| `active` | Paid through `currentPeriodEnd`. | `true` |
+| `past_due` | A renewal was declined. Retries are running. | Your `graceEntitlement` policy, `true` by default |
+| `canceled` | Ended. Terminal. | `false` |
+
+A pending cancellation is not a state. It is the `cancelAtPeriodEnd` flag on an `active` subscription.
+
+| From | Can move to |
+| --- | --- |
+| `incomplete` | `active` (paid), `canceled` (expired, canceled, declined, or a duplicate) |
+| `active` | `active` (renewed), `past_due` (renewal declined), `canceled` (flagged period ended) |
+| `past_due` | `active` (a retry or card update succeeded), `canceled` (retries ran out, or canceled) |
+| `canceled` | nothing |
+
+## Transitions
+
+| From | Trigger | Source | To | Event |
+| --- | --- | --- | --- | --- |
+| none | Create subscription | Your API call | `incomplete` | none |
+| `incomplete` | Checkout completed, first charge succeeds | Provider, then us | `active` | `subscription.activated` |
+| `incomplete` | Checkout completed, first charge declined | Provider, then us | `canceled` (`payment_failure`) | `charge.failed` |
+| `incomplete` | Checkout window passes unpaid | Scheduler | `canceled` (`checkout_expired`) | none |
+| `incomplete` | Cancel | Your API call | `canceled` | none |
+| `incomplete` | Paid while another subscription is live | Provider, then us | `canceled` (`already_subscribed`) | `subscription.canceled` |
+| `active` | Period ends, renewal succeeds | Scheduler | `active`, next period | `charge.succeeded` |
+| `active` | Period ends, renewal declined | Scheduler | `past_due` | `charge.failed`, `subscription.past_due` |
+| `active` | Cancel | Your API call | `active` + `cancelAtPeriodEnd` | none |
+| `active` + flag | Resume (if allowed) | Your API call | `active` | none |
+| `active` + flag | Period ends | Scheduler | `canceled` (`customer_request`) | `subscription.canceled` |
+| `active` | Card update completed | Customer | `active`, new card | none |
+| `past_due` | Retry succeeds | Scheduler | `active`, next period | `charge.succeeded` |
+| `past_due` | Retry declined, retries left | Scheduler | `past_due` | `charge.failed` |
+| `past_due` | Last retry declined | Scheduler | `canceled` (`payment_failure`) | `charge.failed`, `subscription.canceled` |
+| `past_due` | Cancel | Your API call | `canceled` (`customer_request`) | `subscription.canceled` |
+| `past_due` | Card update, immediate charge succeeds | Customer, then us | `active` | `charge.succeeded` |
+| `past_due` | Card update, immediate charge declined | Customer, then us | `past_due`, schedule restarts | `charge.failed` |
+| `canceled` | Anything | Any | refused | none |
+
+## Why canceled is final
+
+A canceled subscription never comes back. There are three reasons:
+
+- **Clean history.** Each subscription is one continuous story you can audit.
+- **Current pricing.** A returning customer subscribes to the plan you sell today, not an old one.
+- **Safety.** A late or replayed provider notification cannot revive a subscription you ended.
+
+To bring a customer back, create a new subscription. The customer record carries over.
+
+## Rejection reasons
+
+When the lifecycle refuses an API call, the `409` problem's `detail` says why:
+
+| `detail` | Meaning |
+| --- | --- |
+| `not_accepted_in_state` | The action does not apply to the current state, for example cancel on a canceled subscription. |
+| `resume_not_allowed` | Your billing policy turns resume off. |
+| `charge_in_flight` | Cancel arrived while a charge for the subscription is running. Retry after `Retry-After` seconds. |
+| `store_managed` | Reserved for app store subscriptions, which are not available yet. |
+
+<Aside type="note" title="One live subscription per customer">
+  A customer can have only one live subscription at a time in an application. Creating a second `incomplete` one is allowed, so a customer can retry checkout, but if both are paid, the second to complete is canceled with `already_subscribed`.
+</Aside>
+
+## Next steps
+
+<CardGrid>
+  <LinkCard title="Billing periods" href="/docs/concepts/billing-periods/" />
+  <LinkCard title="Event types" href="/docs/webhooks/event-types/" />
+</CardGrid>

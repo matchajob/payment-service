@@ -1,0 +1,58 @@
+---
+title: Billing policy
+description: The per-application settings that shape checkout expiry, grace access, resume and the retry schedule.
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Each application has its own billing policy. We set it with you at onboarding. The defaults follow common practice for consumer subscriptions.
+
+| Setting | Default | What it controls |
+| --- | --- | --- |
+| `checkoutTtlHours` | `12` | How long an `incomplete` subscription waits for payment before it is canceled with `checkout_expired`. |
+| `resumeAllowed` | `true` | Whether a cancellation can be taken back before the period ends. When `false`, resume answers `409 resume_not_allowed`. |
+| `graceEntitlement` | `true` | Whether a `past_due` customer keeps access while we retry. Reflected in `entitled`. |
+| `dunningScheduleDays` | `[1, 3, 7]` | Days after the failed renewal at which each retry runs. The last entry is the final attempt. Must have at least one entry. |
+| `timeZone` | set at onboarding | The IANA time zone whose calendar sets billing dates, for example `Asia/Jerusalem`. |
+
+## Choosing values
+
+### checkoutTtlHours
+
+Long enough for a customer who steps away to come back, short enough that abandoned checkouts do not pile up. Before canceling an expired checkout we ask the provider whether it was paid, so a slow payment is never lost.
+
+### graceEntitlement
+
+| Value | Customer experience | Good for |
+| --- | --- | --- |
+| `true` | Access continues while retries run. Most declines recover without the customer noticing. | Consumer apps, where losing access feels punitive |
+| `false` | Access stops at the first decline and returns when a retry succeeds. | Expensive services where usage costs you money |
+
+### dunningScheduleDays
+
+More retries over a longer window recover more payments. A typical schedule spans about a week. Each retry is a real charge attempt on the card, so very frequent retries add little.
+
+| Schedule | Retries | Last attempt |
+| --- | --- | --- |
+| `[1, 3, 7]` | 3 | 7 days after the failure |
+| `[1, 2, 4, 7, 14]` | 5 | 14 days after the failure |
+| `[3]` | 1 | 3 days after the failure |
+
+## Changing a setting
+
+Ask us. A change applies from then on:
+
+- A new retry schedule applies to retries computed after the change. A retry already scheduled keeps its time.
+- A change to `graceEntitlement` shows up in `entitled` on the next event or read for each subscription.
+- The time zone is not changed after you have subscribers, because it would move their billing dates.
+
+<Aside type="note">
+  Policy applies per application. Two products of the same business can have different policies while sharing one card provider account.
+</Aside>
+
+## Next steps
+
+<CardGrid>
+  <LinkCard title="Handle failed payments" href="/docs/guides/failed-payments/" />
+  <LinkCard title="Organizations and applications" href="/docs/concepts/organizations/" />
+</CardGrid>

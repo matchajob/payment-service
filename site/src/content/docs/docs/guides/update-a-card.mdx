@@ -1,0 +1,84 @@
+---
+title: Update a card
+description: Let customers replace the card on a subscription, and rescue a past-due subscription with an immediate charge.
+---
+
+import { Aside, Steps, Tabs, TabItem, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Customers replace their card on your provider's hosted page, just like at checkout. You never handle the card. For a subscription whose renewal failed, the new card is charged at once, which is the fastest way back to `active`.
+
+## What happens
+
+| Status | When the customer saves the new card | Events |
+| --- | --- | --- |
+| `active` | The new card replaces the old one and is used from the next renewal. Nothing is charged now. | None |
+| `past_due` | The new card replaces the old one and is charged right away for the failed period. | `charge.succeeded` on success, `charge.failed` on decline |
+| `incomplete` | Refused with `409`: there is no card yet. Use the subscription's own checkout. | None |
+| `canceled` | Refused with `409`. | None |
+
+## Build it
+
+<Steps>
+
+1. **Start a card update** from your billing page.
+
+    <Tabs syncKey="lang">
+      <TabItem label="Node.js (SDK)">
+        ```ts title="server/billing/update-card.ts"
+        export const updateCard = async (subscriptionId: string) => {
+          const { checkoutUrl } = await payments.subscriptions.updatePaymentMethod(subscriptionId, {
+            returnUrl: 'https://app.example.com/billing/card-updated',
+          });
+          return Response.redirect(checkoutUrl, 303);
+        };
+        ```
+      </TabItem>
+      <TabItem label="curl">
+        ```sh
+        curl -X POST https://payments.example.com/v1/subscriptions/b7e1c2d4-5a6f-4b3c-8d9e-0f1a2b3c4d5e/update-payment-method \
+          -H "Authorization: Bearer $PAYMENTS_API_KEY" \
+          -H "Idempotency-Key: 1f2e3d4c-5b6a-4987-a6b5-c4d3e2f1a0b9" \
+          -H "Content-Type: application/json" \
+          -d '{ "returnUrl": "https://app.example.com/billing/card-updated" }'
+        ```
+        ```json title="201 Created"
+        {
+          "data": {
+            "subscriptionId": "b7e1c2d4-5a6f-4b3c-8d9e-0f1a2b3c4d5e",
+            "checkoutUrl": "https://pay.provider.example/checkout/…"
+          }
+        }
+        ```
+      </TabItem>
+    </Tabs>
+
+2. **Redirect the customer** to `checkoutUrl`. The page saves a card. It does not take a payment by itself.
+
+3. **Wait for the result.** For a `past_due` subscription, `charge.succeeded` means it is `active` again. `charge.failed` means the new card was declined too, and the retry schedule restarts from now. For an `active` subscription there is no event; the next renewal uses the new card.
+
+4. **Show the result on the return page** from your stored subscription, as in [Accept a subscription](/docs/guides/accept-a-subscription/).
+
+</Steps>
+
+## Sending the link by email
+
+A card update link is a good call to action in a `charge.failed` email. Create the link when the customer clicks your email, not when you send it: point the email at a page in your app that calls `updatePaymentMethod` and redirects.
+
+<Aside type="note" title="Older links keep working">
+  Every link you create stays valid. If a customer opens an older link after you created a newer one, saving a card there still replaces the card.
+</Aside>
+
+## Edge cases
+
+| Situation | Behaviour |
+| --- | --- |
+| A scheduled retry is already running when the card is saved | The card is replaced, and no extra immediate charge is made. The running retry settles on its own. |
+| The immediate charge times out | It stays pending and is settled by asking the provider. It is never charged twice. |
+| The customer updates the card several times while `past_due` | Each saved card gets one immediate charge, and each decline restarts the schedule. |
+
+## Next steps
+
+<CardGrid>
+  <LinkCard title="Handle failed payments" href="/docs/guides/failed-payments/" />
+  <LinkCard title="Update payment method in the API reference" href="/api-reference/#tag/subscriptions/POST/v1/subscriptions/{subscriptionId}/update-payment-method" />
+</CardGrid>

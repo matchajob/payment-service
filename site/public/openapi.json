@@ -1,0 +1,1486 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Payment Service API",
+    "version": "1.0.0",
+    "description": "The Payment Service API is organized around REST. It accepts JSON request bodies, returns JSON responses, and uses standard HTTP status codes and bearer authentication.\n\nEach API key belongs to one application and sees only that application's records.\n\n## Authentication\n\nSend your API key in the `Authorization` header on every request:\n\n```\nAuthorization: Bearer YOUR_API_KEY\n```\n\nKeep the key on your server. A missing or unknown key answers `401`.\n\n## Idempotency\n\nEvery `POST` requires an `Idempotency-Key` header holding a UUID. Generate it once per intended change, store it with your own record, and send the same key on every retry. A repeat with the same key and body returns the stored answer, including a stored error, and does nothing twice. The same key with a different body answers `422`. A repeat while the first request is still running answers `409` with `Retry-After: 1`. Keys are kept for 24 hours.\n\n## Errors\n\nErrors are [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem documents served as `application/problem+json`. The `detail` field names the reason.\n\n| Status | Meaning |\n| --- | --- |\n| `400` | The body failed validation, or the Idempotency-Key is missing or not a UUID. |\n| `401` | The API key is missing or unknown. |\n| `404` | No such record in your application. |\n| `409` | The lifecycle refuses the change, the record already exists, or the same key is still running. |\n| `422` | The Idempotency-Key was used with a different body. |\n| `500` | Something failed on our side. Retry with the same Idempotency-Key. |\n\n## Webhooks\n\nEvery change to a subscription is sent to your webhook URL as a signed event. See the Webhooks section below for each event type, and the [webhook guide](/docs/webhooks/overview/) for verification and delivery rules.\n\n## Versioning\n\nThe API is versioned in the path (`/v1`). Within a version we only add: new fields in responses, new optional request fields, new endpoints. Ignore fields you do not know. A field is never removed or changed in type within a version."
+  },
+  "servers": [
+    {
+      "url": "{baseUrl}",
+      "description": "Your API base URL, given at onboarding",
+      "variables": {
+        "baseUrl": {
+          "default": "https://payments.example.com"
+        }
+      }
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Plans",
+      "description": "A plan is a price: an amount, a currency and an interval. Plans never change after they are created, so a price change is a new plan and existing subscribers keep theirs until you move them."
+    },
+    {
+      "name": "Customers",
+      "description": "A customer is one of your users, identified by your own `externalRef`. Create one before its first subscription. A customer outlives its subscriptions, and its optional billing details go on tax invoices."
+    },
+    {
+      "name": "Subscriptions",
+      "description": "A subscription bills one customer for one plan on the anniversary of the first payment. Its status moves through a fixed lifecycle: `incomplete`, `active`, `past_due`, `canceled`. Every read and command returns the same Subscription object that events carry. Grant access from `entitled`."
+    }
+  ],
+  "paths": {
+    "/v1/plans": {
+      "get": {
+        "operationId": "listPlans",
+        "tags": [
+          "Plans"
+        ],
+        "summary": "List plans",
+        "description": "Returns every plan of your application. Plans are created with you at onboarding. Use a `planId` from this list to create a subscription.",
+        "responses": {
+          "200": {
+            "description": "Your plans.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Plan"
+                      },
+                      "description": "Every plan of your application."
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or unknown.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/customers": {
+      "post": {
+        "operationId": "createCustomer",
+        "tags": [
+          "Customers"
+        ],
+        "summary": "Create a customer",
+        "description": "Creates a customer for one of your users. `externalRef` is your own id for the user and must be unique within your application, so a second create with the same `externalRef` is refused with a 409.\n\nBilling details (`name`, `email`, `taxId`) are optional and go on tax invoices. They can only be set here, at creation.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "A UUID you generate once per intended change and reuse on every retry of it. The same key with the same body returns the stored answer without running the change again. Keys are kept for 24 hours.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "externalRef": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "description": "Your own identifier for this customer, such as your user id. Unique within your application.",
+                    "examples": [
+                      "user_42"
+                    ]
+                  },
+                  "name": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "The customer or business name printed on tax invoices.",
+                    "examples": [
+                      "Dana Cohen"
+                    ]
+                  },
+                  "email": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 254,
+                        "format": "email"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "The email address tax invoices are sent to.",
+                    "examples": [
+                      "dana@example.com"
+                    ]
+                  },
+                  "taxId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "A company number or personal id for tax invoices. Give it for business customers; large invoices need it for an allocation number.",
+                    "examples": [
+                      "515555555"
+                    ]
+                  }
+                },
+                "required": [
+                  "externalRef"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new customer.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Customer"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body failed validation, or the Idempotency-Key header is missing or not a UUID. The detail lists the fields.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or unknown.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A customer with this externalRef already exists, or a request with the same Idempotency-Key is still running.",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds to wait before retrying with the same key. Sent only for a request still running.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The Idempotency-Key was already used with a different request body.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/customers/{customerId}": {
+      "get": {
+        "operationId": "getCustomer",
+        "tags": [
+          "Customers"
+        ],
+        "summary": "Retrieve a customer",
+        "description": "Returns a customer by its id.",
+        "parameters": [
+          {
+            "name": "customerId",
+            "in": "path",
+            "required": true,
+            "description": "The customer to retrieve.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The customer.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Customer"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or unknown.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such record in your application. A record of another application answers the same way.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/subscriptions": {
+      "post": {
+        "operationId": "createSubscription",
+        "tags": [
+          "Subscriptions"
+        ],
+        "summary": "Create a subscription",
+        "description": "Creates an `incomplete` subscription and a hosted checkout on your card provider. Send the customer to `checkoutUrl`. When they pay, the first charge starts period one and you receive `subscription.activated`.\n\nIf nobody pays within your checkout window (12 hours by default), the subscription is canceled with `checkout_expired`. No event is sent for that, because nothing was ever active.\n\nIf the customer pays while another of their subscriptions is live, the new one is canceled with `already_subscribed`.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "A UUID you generate once per intended change and reuse on every retry of it. The same key with the same body returns the stored answer without running the change again. Keys are kept for 24 hours.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "customerId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "The customer to subscribe."
+                  },
+                  "planId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "The plan to bill. Get it from List plans."
+                  },
+                  "returnUrl": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "Where the provider sends the customer after checkout, paid or not.",
+                    "examples": [
+                      "https://app.example.com/billing/return"
+                    ]
+                  }
+                },
+                "required": [
+                  "customerId",
+                  "planId",
+                  "returnUrl"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new subscription and its checkout link.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "subscriptionId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "description": "Unique identifier for the new subscription."
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "incomplete",
+                            "active",
+                            "past_due",
+                            "canceled"
+                          ],
+                          "description": "incomplete: waiting for the first payment. active: paid through currentPeriodEnd. past_due: a renewal failed and retries are running. canceled: ended for good."
+                        },
+                        "checkoutUrl": {
+                          "type": "string",
+                          "format": "uri",
+                          "description": "The provider's hosted payment page. Send the customer here."
+                        }
+                      },
+                      "required": [
+                        "subscriptionId",
+                        "status",
+                        "checkoutUrl"
+                      ],
+                      "description": "The new subscription and where to send the customer."
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body failed validation, or the Idempotency-Key header is missing or not a UUID. The detail lists the fields.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or unknown.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The customer or the plan does not exist in your application.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with the same Idempotency-Key is still running, or the change conflicts with the current state. The detail names which.",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds to wait before retrying with the same key.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The Idempotency-Key was already used with a different request body.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/subscriptions/{subscriptionId}": {
+      "get": {
+        "operationId": "getSubscription",
+        "tags": [
+          "Subscriptions"
+        ],
+        "summary": "Retrieve a subscription",
+        "description": "Returns the current state of a subscription. You rarely need this: every event already carries the same object. Use it to backfill or to check one record.",
+        "parameters": [
+          {
+            "name": "subscriptionId",
+            "in": "path",
+            "required": true,
+            "description": "The subscription to act on.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The subscription.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Subscription"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or unknown.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such record in your application. A record of another application answers the same way.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/subscriptions/{subscriptionId}/cancel": {
+      "post": {
+        "operationId": "cancelSubscription",
+        "tags": [
+          "Subscriptions"
+        ],
+        "summary": "Cancel a subscription",
+        "description": "What cancel does depends on the status:\n\n- `active`: sets `cancelAtPeriodEnd`. Access stays on until `currentPeriodEnd`, then the subscription ends with `customer_request` and no charge is made. Canceling again changes nothing.\n- `incomplete`: ends it at once.\n- `past_due`: ends it at once, stops the retries and sends `subscription.canceled`.\n- `canceled`: refused with a 409.",
+        "parameters": [
+          {
+            "name": "subscriptionId",
+            "in": "path",
+            "required": true,
+            "description": "The subscription to act on.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "A UUID you generate once per intended change and reuse on every retry of it. The same key with the same body returns the stored answer without running the change again. Keys are kept for 24 hours.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The subscription after the cancel.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Subscription"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or unknown.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such record in your application. A record of another application answers the same way.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The lifecycle refuses the cancel (`not_accepted_in_state`, for example on a canceled subscription), or a charge for this subscription is running (`charge_in_flight`, retry after Retry-After). A request with the same Idempotency-Key still running also answers 409.",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds to wait before retrying with the same key.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The Idempotency-Key was already used with a different request body.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/subscriptions/{subscriptionId}/resume": {
+      "post": {
+        "operationId": "resumeSubscription",
+        "tags": [
+          "Subscriptions"
+        ],
+        "summary": "Resume a subscription",
+        "description": "Takes back a cancellation that has not taken effect yet: clears `cancelAtPeriodEnd` on an `active` subscription, so it renews as usual. Refused with `resume_not_allowed` when your policy turns resume off. A canceled subscription cannot be resumed; create a new one.",
+        "parameters": [
+          {
+            "name": "subscriptionId",
+            "in": "path",
+            "required": true,
+            "description": "The subscription to act on.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "A UUID you generate once per intended change and reuse on every retry of it. The same key with the same body returns the stored answer without running the change again. Keys are kept for 24 hours.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The subscription after the resume.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Subscription"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or unknown.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such record in your application. A record of another application answers the same way.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The lifecycle refuses this change in the current state. The detail is the reason: `not_accepted_in_state`, `resume_not_allowed` (your policy turns resume off) or `store_managed`. A request with the same Idempotency-Key still running also answers 409.",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds to wait before retrying with the same key.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The Idempotency-Key was already used with a different request body.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/subscriptions/{subscriptionId}/update-payment-method": {
+      "post": {
+        "operationId": "updatePaymentMethod",
+        "tags": [
+          "Subscriptions"
+        ],
+        "summary": "Update the payment method",
+        "description": "Creates a hosted checkout that saves a new card without charging it. Send the customer to `checkoutUrl`.\n\n- `active`: the new card is used from the next renewal.\n- `past_due`: the new card is charged at once for the failed period. Success makes the subscription `active` and sends `charge.succeeded`. A decline sends `charge.failed` and starts the retry schedule over.\n- `incomplete` or `canceled`: refused with a 409. An incomplete subscription has no card yet; its own checkout is the way in.\n\nEvery link you create keeps working, so an older link completed after a newer one still replaces the card.",
+        "parameters": [
+          {
+            "name": "subscriptionId",
+            "in": "path",
+            "required": true,
+            "description": "The subscription to act on.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "A UUID you generate once per intended change and reuse on every retry of it. The same key with the same body returns the stored answer without running the change again. Keys are kept for 24 hours.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "returnUrl": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "Where the provider sends the customer after checkout, paid or not.",
+                    "examples": [
+                      "https://app.example.com/billing/return"
+                    ]
+                  }
+                },
+                "required": [
+                  "returnUrl"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The card update checkout link.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "subscriptionId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "description": "The subscription whose card is being replaced."
+                        },
+                        "checkoutUrl": {
+                          "type": "string",
+                          "format": "uri",
+                          "description": "The provider's hosted page that saves the new card without charging it."
+                        }
+                      },
+                      "required": [
+                        "subscriptionId",
+                        "checkoutUrl"
+                      ],
+                      "description": "Where to send the customer to replace their card."
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body failed validation, or the Idempotency-Key header is missing or not a UUID. The detail lists the fields.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or unknown.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such record in your application. A record of another application answers the same way.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The lifecycle refuses this change in the current state. The detail is the reason: `not_accepted_in_state`, `resume_not_allowed` (your policy turns resume off) or `store_managed`. A request with the same Idempotency-Key still running also answers 409.",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds to wait before retrying with the same key.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The Idempotency-Key was already used with a different request body.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "webhooks": {
+    "subscription.activated": {
+      "post": {
+        "operationId": "subscription.activated",
+        "summary": "The first payment succeeded",
+        "description": "Sent once per subscription, when the first charge succeeds after checkout. The subscription is now `active` and `entitled`, and `currentPeriodEnd` is set.",
+        "parameters": [
+          {
+            "name": "Payments-Signature",
+            "in": "header",
+            "required": true,
+            "description": "Hex HMAC-SHA256 of `{timestamp}.{raw body}` keyed with your webhook secret. Compare in constant time.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Payments-Timestamp",
+            "in": "header",
+            "required": true,
+            "description": "Unix seconds when the delivery was signed. Reject a delivery more than 5 minutes from your clock.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Event"
+              }
+            }
+          }
+        },
+        "responses": {
+          "2XX": {
+            "description": "Any 2xx acknowledges the event. Anything else, or no answer within the timeout, schedules a retry: 8 attempts over about 27 hours."
+          }
+        }
+      }
+    },
+    "subscription.past_due": {
+      "post": {
+        "operationId": "subscription.past_due",
+        "summary": "A renewal failed and retries started",
+        "description": "Sent after the `charge.failed` of the first failed renewal. Retries now run on your schedule. `entitled` follows your grace policy.",
+        "parameters": [
+          {
+            "name": "Payments-Signature",
+            "in": "header",
+            "required": true,
+            "description": "Hex HMAC-SHA256 of `{timestamp}.{raw body}` keyed with your webhook secret. Compare in constant time.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Payments-Timestamp",
+            "in": "header",
+            "required": true,
+            "description": "Unix seconds when the delivery was signed. Reject a delivery more than 5 minutes from your clock.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Event"
+              }
+            }
+          }
+        },
+        "responses": {
+          "2XX": {
+            "description": "Any 2xx acknowledges the event. Anything else, or no answer within the timeout, schedules a retry: 8 attempts over about 27 hours."
+          }
+        }
+      }
+    },
+    "subscription.canceled": {
+      "post": {
+        "operationId": "subscription.canceled",
+        "summary": "The subscription ended",
+        "description": "Sent when an `active` or `past_due` subscription ends: a canceled subscription reached its period end, you canceled it while `past_due`, the last retry failed, or a second paid checkout lost to a live subscription. `cancelReason` says which. A subscription that never activated (checkout expired, or canceled while `incomplete`) ends without this event. A declined first payment sends only `charge.failed`, with the snapshot already `canceled` and `cancelReason` set to `payment_failure`.",
+        "parameters": [
+          {
+            "name": "Payments-Signature",
+            "in": "header",
+            "required": true,
+            "description": "Hex HMAC-SHA256 of `{timestamp}.{raw body}` keyed with your webhook secret. Compare in constant time.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Payments-Timestamp",
+            "in": "header",
+            "required": true,
+            "description": "Unix seconds when the delivery was signed. Reject a delivery more than 5 minutes from your clock.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Event"
+              }
+            }
+          }
+        },
+        "responses": {
+          "2XX": {
+            "description": "Any 2xx acknowledges the event. Anything else, or no answer within the timeout, schedules a retry: 8 attempts over about 27 hours."
+          }
+        }
+      }
+    },
+    "charge.succeeded": {
+      "post": {
+        "operationId": "charge.succeeded",
+        "summary": "A renewal or a retry succeeded",
+        "description": "Sent for every successful renewal, scheduled retry and card-update retry. The period has moved on: `currentPeriodEnd` is the new end. The first payment sends `subscription.activated` instead.",
+        "parameters": [
+          {
+            "name": "Payments-Signature",
+            "in": "header",
+            "required": true,
+            "description": "Hex HMAC-SHA256 of `{timestamp}.{raw body}` keyed with your webhook secret. Compare in constant time.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Payments-Timestamp",
+            "in": "header",
+            "required": true,
+            "description": "Unix seconds when the delivery was signed. Reject a delivery more than 5 minutes from your clock.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Event"
+              }
+            }
+          }
+        },
+        "responses": {
+          "2XX": {
+            "description": "Any 2xx acknowledges the event. Anything else, or no answer within the timeout, schedules a retry: 8 attempts over about 27 hours."
+          }
+        }
+      }
+    },
+    "charge.failed": {
+      "post": {
+        "operationId": "charge.failed",
+        "summary": "A charge was declined",
+        "description": "Sent for every declined charge: the first payment, a renewal, each retry, and a card-update retry. Use it to nudge the customer to update their card.",
+        "parameters": [
+          {
+            "name": "Payments-Signature",
+            "in": "header",
+            "required": true,
+            "description": "Hex HMAC-SHA256 of `{timestamp}.{raw body}` keyed with your webhook secret. Compare in constant time.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Payments-Timestamp",
+            "in": "header",
+            "required": true,
+            "description": "Unix seconds when the delivery was signed. Reject a delivery more than 5 minutes from your clock.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Event"
+              }
+            }
+          }
+        },
+        "responses": {
+          "2XX": {
+            "description": "Any 2xx acknowledges the event. Anything else, or no answer within the timeout, schedules a retry: 8 attempts over about 27 hours."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Your application API key."
+      }
+    },
+    "schemas": {
+      "Plan": {
+        "type": "object",
+        "properties": {
+          "planId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unique identifier for the plan."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "The plan name. It is also the line description on tax invoices.",
+            "examples": [
+              "Pro monthly"
+            ]
+          },
+          "amountMinor": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "The price per interval in minor units: agorot for ILS, cents for USD. 4900 is 49.00.",
+            "examples": [
+              4900
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "ILS",
+              "USD"
+            ],
+            "description": "Three-letter ISO currency code."
+          },
+          "interval": {
+            "type": "string",
+            "enum": [
+              "month",
+              "year"
+            ],
+            "description": "How often the subscription renews."
+          }
+        },
+        "required": [
+          "planId",
+          "name",
+          "amountMinor",
+          "currency",
+          "interval"
+        ],
+        "title": "The Plan object",
+        "examples": [
+          {
+            "planId": "8d0c5e3a-7b21-4f6e-a1d2-5c9e0b7f4a33",
+            "name": "Pro monthly",
+            "amountMinor": 4900,
+            "currency": "ILS",
+            "interval": "month"
+          }
+        ],
+        "description": "A price your customers subscribe to. Plans never change after they are created: a new price is a new plan."
+      },
+      "Customer": {
+        "type": "object",
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unique identifier for the customer."
+          },
+          "externalRef": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "Your own identifier for this customer, such as your user id. Unique within your application.",
+            "examples": [
+              "user_42"
+            ]
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The customer or business name printed on tax invoices.",
+            "examples": [
+              "Dana Cohen"
+            ]
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 254,
+                "format": "email"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The email address tax invoices are sent to.",
+            "examples": [
+              "dana@example.com"
+            ]
+          },
+          "taxId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A company number or personal id for tax invoices. Give it for business customers; large invoices need it for an allocation number.",
+            "examples": [
+              "515555555"
+            ]
+          }
+        },
+        "required": [
+          "customerId",
+          "externalRef",
+          "name",
+          "email",
+          "taxId"
+        ],
+        "title": "The Customer object",
+        "examples": [
+          {
+            "customerId": "3f2b6a7e-1c4d-4e1a-9b0f-2a6f0c1d9e11",
+            "externalRef": "user_42",
+            "name": "Dana Cohen",
+            "email": "dana@example.com",
+            "taxId": null
+          }
+        ],
+        "description": "One of your users. A customer outlives its subscriptions, so a returning user keeps the same customer."
+      },
+      "Subscription": {
+        "type": "object",
+        "properties": {
+          "subscriptionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unique identifier for the subscription."
+          },
+          "customerId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The customer this subscription belongs to."
+          },
+          "customerExternalRef": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "The customer's externalRef, so you can match it without a lookup.",
+            "examples": [
+              "user_42"
+            ]
+          },
+          "planId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The plan being billed. It never changes on a subscription."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "incomplete",
+              "active",
+              "past_due",
+              "canceled"
+            ],
+            "description": "incomplete: waiting for the first payment. active: paid through currentPeriodEnd. past_due: a renewal failed and retries are running. canceled: ended for good."
+          },
+          "entitled": {
+            "type": "boolean",
+            "description": "Whether the customer should have access right now. Computed from the status, the payment history and your grace policy. Grant access from this field, never from status."
+          },
+          "currentPeriodEnd": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the paid period ends and the next renewal is due, in ISO 8601 UTC. Null until the first payment."
+          },
+          "cancelAtPeriodEnd": {
+            "type": "boolean",
+            "description": "True when the subscription was canceled and will end at currentPeriodEnd instead of renewing."
+          },
+          "cancelReason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "payment_failure",
+                  "customer_request",
+                  "already_subscribed",
+                  "checkout_expired"
+                ],
+                "description": "Why the subscription ended. payment_failure: the first payment or the last retry was declined. customer_request: you canceled it. already_subscribed: the customer paid while another of their subscriptions was live. checkout_expired: nobody paid within the checkout window."
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the subscription ended. Null unless canceled."
+          },
+          "canceledAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the subscription ended, in ISO 8601 UTC. Null unless canceled."
+          }
+        },
+        "required": [
+          "subscriptionId",
+          "customerId",
+          "customerExternalRef",
+          "planId",
+          "status",
+          "entitled",
+          "currentPeriodEnd",
+          "cancelAtPeriodEnd",
+          "cancelReason",
+          "canceledAt"
+        ],
+        "title": "The Subscription object",
+        "examples": [
+          {
+            "subscriptionId": "b7e1c2d4-5a6f-4b3c-8d9e-0f1a2b3c4d5e",
+            "customerId": "3f2b6a7e-1c4d-4e1a-9b0f-2a6f0c1d9e11",
+            "customerExternalRef": "user_42",
+            "planId": "8d0c5e3a-7b21-4f6e-a1d2-5c9e0b7f4a33",
+            "status": "active",
+            "entitled": true,
+            "currentPeriodEnd": "2026-12-14T09:31:07.000Z",
+            "cancelAtPeriodEnd": false,
+            "cancelReason": null,
+            "canceledAt": null
+          }
+        ],
+        "description": "One customer on one plan. Every read, every command and every event returns this same snapshot, so you can store it as is."
+      },
+      "Event": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unique identifier for the event. A retried delivery carries the same eventId."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "subscription.activated",
+              "subscription.past_due",
+              "subscription.canceled",
+              "charge.succeeded",
+              "charge.failed"
+            ],
+            "description": "What happened."
+          },
+          "sequence": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "Increases with every event of the same subscription. Apply an event only if its sequence is higher than the one you stored.",
+            "examples": [
+              4
+            ]
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the change happened, in ISO 8601 UTC."
+          },
+          "subscription": {
+            "$ref": "#/components/schemas/Subscription"
+          }
+        },
+        "required": [
+          "eventId",
+          "type",
+          "sequence",
+          "occurredAt",
+          "subscription"
+        ],
+        "title": "The Event object",
+        "examples": [
+          {
+            "eventId": "6a1f2b3c-4d5e-4f60-8a9b-0c1d2e3f4a5b",
+            "type": "charge.succeeded",
+            "sequence": 2,
+            "occurredAt": "2026-11-14T09:31:12.000Z",
+            "subscription": {
+              "subscriptionId": "b7e1c2d4-5a6f-4b3c-8d9e-0f1a2b3c4d5e",
+              "customerId": "3f2b6a7e-1c4d-4e1a-9b0f-2a6f0c1d9e11",
+              "customerExternalRef": "user_42",
+              "planId": "8d0c5e3a-7b21-4f6e-a1d2-5c9e0b7f4a33",
+              "status": "active",
+              "entitled": true,
+              "currentPeriodEnd": "2026-12-14T09:31:07.000Z",
+              "cancelAtPeriodEnd": false,
+              "cancelReason": null,
+              "canceledAt": null
+            }
+          }
+        ],
+        "description": "A signed message sent to your webhook URL. It carries the full subscription after the change."
+      },
+      "Problem": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "A URI that identifies the problem type. about:blank for the standard HTTP problems."
+          },
+          "title": {
+            "type": "string",
+            "description": "The HTTP status phrase.",
+            "examples": [
+              "Conflict"
+            ]
+          },
+          "status": {
+            "type": "integer",
+            "minimum": 400,
+            "maximum": 599,
+            "description": "The HTTP status code.",
+            "examples": [
+              409
+            ]
+          },
+          "detail": {
+            "description": "What went wrong, often a machine-readable reason.",
+            "examples": [
+              "resume_not_allowed"
+            ],
+            "type": "string"
+          },
+          "instance": {
+            "description": "A URI for this occurrence of the problem, when there is one.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status"
+        ],
+        "title": "The Problem object",
+        "examples": [
+          {
+            "type": "about:blank",
+            "title": "Conflict",
+            "status": 409,
+            "detail": "resume_not_allowed"
+          }
+        ],
+        "description": "Every error response is an RFC 9457 problem document served as application/problem+json."
+      }
+    }
+  }
+}

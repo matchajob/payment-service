@@ -1,0 +1,96 @@
+---
+title: Configuration
+description: Options for createClient, per-call options, and how to plug in your own fetch for tracing, proxies and tests.
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Create one client per API key and reuse it. The client holds no connection state, so one instance can serve your whole process.
+
+```ts title="server/payments.ts"
+import { createClient } from '@payment-service/sdk';
+
+export const payments = createClient({
+  baseUrl: process.env.PAYMENTS_BASE_URL!,
+  apiKey: process.env.PAYMENTS_API_KEY!,
+  timeoutMs: 10_000,
+  retries: 3,
+});
+```
+
+## Client options
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `baseUrl` | `string` | required | Your API base URL. Trailing slashes are removed. |
+| `apiKey` | `string` | required | Your application's API key. Sent as `Authorization: Bearer …`. |
+| `timeoutMs` | `number` | `30000` | Timeout for each attempt, in milliseconds. A timed-out attempt counts as a network error and is retried. |
+| `retries` | `number` | `2` | Extra attempts after the first, for network errors, timeouts, 502, 503 and 504. `0` turns retries off. |
+| `fetch` | `(url, init) => Promise<Response>` | global `fetch` | Your own fetch: for tracing, a proxy, or a test double. |
+| `sleep` | `(ms) => Promise<void>` | `setTimeout` | How the client waits between retries. Replace it in tests to skip the wait. |
+
+## Per-call options
+
+Every method that changes something takes an optional last argument:
+
+```ts
+type CallOptions = { idempotencyKey?: string };
+```
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `idempotencyKey` | a new UUID for each call | The `Idempotency-Key` header. Must be a UUID. Pass your own when your code may run the same call again, for example from a job queue. |
+
+```ts
+const key = crypto.randomUUID(); // create once and store it with your own record
+await payments.subscriptions.create(input, { idempotencyKey: key });
+```
+
+Reads (`plans.list`, `customers.get`, `subscriptions.get`) take no options and send no key.
+
+<Aside type="caution" title="Retries inside one call only">
+  The SDK reuses its key across its own retries. If your code calls the method again, a new key is generated unless you pass the same `idempotencyKey`. See [Idempotency](/docs/concepts/idempotency/).
+</Aside>
+
+## Custom fetch
+
+The `fetch` option receives the full URL and an init with `method`, `headers`, an optional `body` string and an abort `signal`. Return a standard `Response`.
+
+```ts title="Add tracing"
+const payments = createClient({
+  baseUrl: process.env.PAYMENTS_BASE_URL!,
+  apiKey: process.env.PAYMENTS_API_KEY!,
+  fetch: async (url, init) => {
+    const started = performance.now();
+    const response = await fetch(url, init);
+    logger.info({ url, method: init.method, status: response.status, ms: performance.now() - started });
+    return response;
+  },
+});
+```
+
+```ts title="A test double"
+const payments = createClient({
+  baseUrl: 'https://payments.test',
+  apiKey: 'test-key',
+  fetch: async () => Response.json({ data: [] }),
+  sleep: async () => {},
+});
+```
+
+## Types
+
+`PaymentServiceClient` is the type of the object `createClient` returns. Use it to type a dependency:
+
+```ts
+import type { PaymentServiceClient } from '@payment-service/sdk';
+
+export const startCheckout = (payments: PaymentServiceClient, userId: string) => { /* … */ };
+```
+
+## Next steps
+
+<CardGrid>
+  <LinkCard title="Plans and customers" href="/docs/sdk/plans-and-customers/" />
+  <LinkCard title="Errors and retries" href="/docs/sdk/errors-and-retries/" />
+</CardGrid>

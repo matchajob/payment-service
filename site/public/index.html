@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Payment Service: subscription billing for local card providers</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="description" content="Stripe-quality subscription billing on the card provider that is cheapest for you. We run the lifecycle, retries and signed events. A flat fee, never a cut of your revenue.">
+<style>
+:root{
+  --bg:#fbfbfd; --panel:#f5f5f7; --raised:#ffffff; --ink:#1d1d1f; --muted:#6e6e73; --line:#d2d2d7;
+  --blue:#0071e3; --blue-ink:#ffffff; --green:#1d8348; --amber:#b25e00; --red:#c4271d;
+  --glass:rgba(251,251,253,.72);
+  --code-bg:#1d1d1f; --code-ink:#f5f5f7; --code-dim:#86868b; --code-key:#64d2ff; --code-str:#ffd60a;
+  --ease:cubic-bezier(.32,.72,0,1);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#000; --panel:#1d1d1f; --raised:#2c2c2e; --ink:#f5f5f7; --muted:#a1a1a6; --line:#424245;
+    --blue:#2997ff; --blue-ink:#000; --green:#30d158; --amber:#ff9f0a; --red:#ff453a;
+    --glass:rgba(0,0,0,.72); --code-bg:#000;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#000; --panel:#1d1d1f; --raised:#2c2c2e; --ink:#f5f5f7; --muted:#a1a1a6; --line:#424245;
+  --blue:#2997ff; --blue-ink:#000; --green:#30d158; --amber:#ff9f0a; --red:#ff453a;
+  --glass:rgba(0,0,0,.72); --code-bg:#000;
+}
+@media (prefers-contrast:more){:root{--muted:#424245;--line:#1d1d1f}}
+@media (prefers-contrast:more) and (prefers-color-scheme:dark){:root:not([data-theme="light"]){--muted:#d2d2d7;--line:#f5f5f7}}
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:100%/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;font-optical-sizing:auto}
+.wrap{max-width:61.25rem;margin:0 auto;padding:0 1.375rem}
+a{color:var(--blue);text-decoration:none}
+a:focus-visible,button:focus-visible{outline:.1875rem solid var(--blue);outline-offset:.1875rem;border-radius:62rem}
+
+.bar{position:sticky;top:0;z-index:5;background:var(--glass);backdrop-filter:blur(1.25rem) saturate(180%);-webkit-backdrop-filter:blur(1.25rem) saturate(180%);box-shadow:0 .0625rem 0 color-mix(in srgb,var(--line) 55%,transparent)}
+.bar .wrap{display:flex;justify-content:space-between;align-items:center;height:3rem}
+.bar b{font-weight:600;font-size:.9375rem;letter-spacing:0}
+.bar nav{display:flex;gap:1.625rem;font-size:.8125rem;letter-spacing:.01em}
+.bar nav a{color:var(--muted);font-weight:500}
+.bar nav a:hover{color:var(--ink)}
+@media(max-width:35rem){.bar nav a:not(:last-child){display:none}}
+@media (prefers-reduced-transparency:reduce){.bar{background:var(--bg);backdrop-filter:none;-webkit-backdrop-filter:none}}
+
+.hero{text-align:center;padding:6rem 0 5.5rem}
+.hero .tag{margin:0 0 .875rem;font-size:1.3125rem;line-height:1.19;font-weight:600;color:var(--muted);letter-spacing:.011em}
+h1{font-size:clamp(2.5rem,8.2vw,5.5rem);line-height:1.03;letter-spacing:-.045em;font-weight:700;margin:0 auto 1.375rem;max-width:13ch}
+.lede{font-size:clamp(1.1875rem,2.6vw,1.625rem);line-height:1.3;color:var(--muted);letter-spacing:-.012em;max-width:29em;margin:0 auto 2.125rem}
+.btns{display:flex;gap:.875rem;justify-content:center;flex-wrap:wrap}
+.btn{display:inline-block;font:inherit;font-size:1.0625rem;line-height:1.2;padding:.75rem 1.5rem;border-radius:62rem;border:.0625rem solid var(--blue);background:transparent;color:var(--blue);cursor:pointer;transition:transform 100ms ease-out,background-color 200ms ease}
+.btn.fill{background:var(--blue);color:var(--blue-ink)}
+.btn:active{transform:scale(.97)}
+
+section{padding:5.5rem 0}
+section.tint{background:var(--panel)}
+h2{font-size:clamp(1.875rem,5vw,3.25rem);line-height:1.08;letter-spacing:-.035em;font-weight:700;margin:0 0 1.125rem;max-width:19ch}
+.sub{font-size:clamp(1.125rem,2.2vw,1.375rem);line-height:1.4;color:var(--muted);max-width:34em;margin:0 0 3rem;letter-spacing:-.008em}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(17.5rem,1fr));gap:1.25rem}
+.card{background:var(--panel);border-radius:1.5rem;padding:2rem}
+.tint .card{background:var(--bg)}
+.card h3{margin:0 0 .625rem;font-size:1.3125rem;line-height:1.19;letter-spacing:-.02em;font-weight:600}
+.card p{margin:0;color:var(--muted)}
+
+/* demo */
+.demo{background:var(--panel);border-radius:2rem;padding:clamp(1.25rem,4vw,2.5rem)}
+.stage{display:grid;grid-template-columns:1.1fr .9fr;gap:2rem}
+@media(max-width:50rem){.stage{grid-template-columns:1fr}}
+.states{display:flex;flex-wrap:wrap;gap:.5rem;margin:0 0 1.25rem}
+.pill{font-size:.9375rem;font-weight:500;padding:.5rem 1rem;border-radius:62rem;background:var(--raised);color:var(--muted);transition:background-color 350ms var(--ease),color 350ms var(--ease),transform 350ms var(--ease)}
+.pill.on{background:var(--ink);color:var(--bg);transform:scale(1.06)}
+.facts{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin:0 0 1.5rem}
+.fact{background:var(--raised);border-radius:1rem;padding:.875rem 1rem}
+.fact small{display:block;color:var(--muted);font-size:.75rem;letter-spacing:.02em}
+.fact strong{font-size:1.0625rem;font-weight:600;letter-spacing:-.01em}
+.actions{display:flex;flex-wrap:wrap;gap:.5rem}
+.act{font:inherit;font-size:.9375rem;padding:.625rem 1.125rem;border-radius:62rem;border:0;background:var(--blue);color:var(--blue-ink);cursor:pointer;transition:transform 100ms ease-out,opacity 200ms ease}
+.act.quiet{background:var(--raised);color:var(--ink)}
+.act:active:not(:disabled){transform:scale(.96)}
+.act:disabled{opacity:.3;cursor:not-allowed}
+.note{margin:1rem 0 0;font-size:.875rem;color:var(--muted);min-height:2.6em}
+.log{background:var(--code-bg);color:var(--code-ink);border-radius:1.25rem;padding:1.25rem;font:.8125rem/1.65 ui-monospace,"SF Mono",Menlo,Consolas,monospace;min-height:17rem;max-height:20rem;overflow:auto}
+.log .h{color:var(--code-dim);margin-bottom:.5rem}
+.log .e{padding:.25rem 0;border-top:.0625rem solid rgba(255,255,255,.08);animation:in 300ms ease-out}
+.log .e:first-of-type{border-top:0}
+.log .k{color:var(--code-key)} .log .s{color:var(--code-str)} .log .d{color:var(--code-dim)}
+@keyframes in{from{opacity:0}to{opacity:1}}
+
+.split{display:grid;grid-template-columns:1fr 1fr;gap:3rem;align-items:center}
+@media(max-width:51.25rem){.split{grid-template-columns:1fr;gap:2rem}}
+.steps{counter-reset:s;list-style:none;margin:0;padding:0;display:grid;gap:1.375rem}
+.steps li{counter-increment:s;padding-left:3rem;position:relative;color:var(--muted)}
+.steps li b{color:var(--ink);font-weight:600}
+.steps li::before{content:counter(s);position:absolute;left:0;top:-.0625rem;width:2rem;height:2rem;border-radius:50%;background:var(--blue);color:var(--blue-ink);font-size:.9375rem;font-weight:600;line-height:2rem;text-align:center}
+pre{margin:0;background:var(--code-bg);color:var(--code-ink);border-radius:1.5rem;padding:1.75rem;overflow-x:auto;font:.84375rem/1.7 ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+pre .d{color:var(--code-dim)} pre .k{color:var(--code-key)} pre .s{color:var(--code-str)}
+code{font:.9em ui-monospace,"SF Mono",Menlo,monospace;background:color-mix(in srgb,var(--muted) 16%,transparent);padding:.125rem .375rem;border-radius:.375rem}
+
+.rows{border-top:.0625rem solid var(--line)}
+.row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:2rem;padding:1.5rem 0;border-bottom:.0625rem solid var(--line)}
+.row b{font-weight:600}
+.row span{color:var(--muted)}
+@media(max-width:43.75rem){.row{grid-template-columns:1fr;gap:.375rem}}
+
+ul.plain{margin:0;padding:0;list-style:none;display:grid;gap:.875rem;color:var(--muted)}
+ul.plain li{padding-left:1.375rem;position:relative}
+ul.plain li::before{content:"";position:absolute;left:0;top:.6em;width:.4375rem;height:.4375rem;border-radius:50%;background:var(--blue)}
+
+footer{padding:2.25rem 0 3.5rem;color:var(--muted);font-size:.8125rem;letter-spacing:.01em;border-top:.0625rem solid var(--line)}
+footer p{margin:.25rem 0}
+
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .pill,.pill.on{transition:background-color 200ms ease,color 200ms ease;transform:none}
+  .log .e{animation:none}
+  .btn:active,.act:active:not(:disabled){transform:none}
+}
+</style>
+</head>
+<body>
+<div class="bar">
+  <div class="wrap">
+    <b>Payment Service</b>
+    <nav><a href="#try">Try it</a><a href="#why">Why</a><a href="#safety">Safety</a><a href="#status">Status</a><a href="/docs/">Docs</a><a href="/api-reference/">API</a><a href="/docs/sdk/">SDK</a></nav>
+  </div>
+</div>
+
+<main>
+  <header class="hero">
+    <div class="wrap">
+      <p class="tag">Early access</p>
+      <h1>Subscription billing. No cut of your revenue.</h1>
+      <p class="lede">Stripe-quality behaviour on the card provider that is cheapest for you. Connect it once. We run the lifecycle, the retries and the events, for a flat monthly fee.</p>
+      <div class="btns">
+        <a class="btn fill" href="#try">Try a subscription</a>
+        <a class="btn" href="#status">What is ready today</a>
+      </div>
+    </div>
+  </header>
+
+  <section id="try" class="tint">
+    <div class="wrap">
+      <h2>Break a subscription. Watch it recover.</h2>
+      <p class="sub">This runs the real transition table from the spec. Fail a renewal, retry, cancel. Anything the table does not allow is refused.</p>
+      <div class="demo">
+        <div class="stage">
+          <div>
+            <div class="states" id="states" role="status" aria-live="polite">
+              <span class="pill" data-s="incomplete">incomplete</span>
+              <span class="pill" data-s="active">active</span>
+              <span class="pill" data-s="past_due">past_due</span>
+              <span class="pill" data-s="canceled">canceled</span>
+            </div>
+            <div class="facts">
+              <div class="fact"><small>Entitled</small><strong id="f-ent">no</strong></div>
+              <div class="fact"><small>Cancel at period end</small><strong id="f-flag">no</strong></div>
+              <div class="fact"><small>Retries used</small><strong id="f-try">0 of 3</strong></div>
+            </div>
+            <div class="actions" id="actions">
+              <button class="act" data-a="pay">Customer pays</button>
+              <button class="act" data-a="renew_ok">Renewal succeeds</button>
+              <button class="act" data-a="renew_fail">Renewal fails</button>
+              <button class="act" data-a="retry_ok">Retry succeeds</button>
+              <button class="act" data-a="retry_fail">Retry fails</button>
+              <button class="act quiet" data-a="cancel">Cancel</button>
+              <button class="act quiet" data-a="reset">Start over</button>
+            </div>
+            <p class="note" id="note"></p>
+          </div>
+          <div class="log" id="log" aria-live="polite"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="why">
+    <div class="wrap">
+      <h2>Cheap providers, without the integration pain.</h2>
+      <p class="sub">Local acquirers often win on fees, installments and domestic cards, then lose on developer experience. The service absorbs each quirk, so your application never sees it.</p>
+      <div class="grid">
+        <div class="card"><h3>Unsigned webhooks</h3><p>We confirm each notification with the provider, then send you HMAC-signed events you can verify.</p></div>
+        <div class="card"><h3>No idempotency</h3><p>Every mutation takes an idempotency key. A retried request runs once and replays the stored answer.</p></div>
+        <div class="card"><h3>Timeouts with unknown outcome</h3><p>An unclear charge becomes a pending record that is reconciled with the provider. It is never charged twice.</p></div>
+        <div class="card"><h3>Inconsistent declines</h3><p>One decline-reason shape, whatever the provider sent back.</p></div>
+        <div class="card"><h3>Unreliable notifications</h3><p>Events go through an outbox with leases, scheduled retries and a dead letter state. At least once, in order.</p></div>
+        <div class="card"><h3>No entitlement model</h3><p>Every event carries a full snapshot and an <code>entitled</code> flag we compute. Your app never derives it.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="how" class="tint">
+    <div class="wrap">
+      <h2>One lifecycle for API calls, cron and provider webhooks.</h2>
+      <p class="sub">Four states and a table of allowed transitions, so a subscription never lands somewhere unexpected.</p>
+      <div class="split">
+        <ol class="steps">
+          <li><b>Create.</b> Your server creates a subscription and gets a hosted checkout URL back.</li>
+          <li><b>Pay.</b> The customer pays on the provider's page. The card is saved and the subscription becomes <code>active</code>.</li>
+          <li><b>Renew.</b> Charges run on the customer's anniversary, never early. Amounts come from your plan, never from a payload.</li>
+          <li><b>Recover.</b> A failed renewal enters dunning on a schedule you set. A successful retry pays for the period that failed, so the anniversary never shifts.</li>
+          <li><b>Hear about it.</b> Each change reaches your webhook as a signed event.</li>
+        </ol>
+        <pre><span class="d">// create a subscription</span>
+<span class="k">POST</span> /v1/subscriptions
+<span class="k">Idempotency-Key:</span> <span class="s">7b0c…e41</span>
+
+<span class="d">// signed event to your webhook</span>
+{
+  <span class="k">"type"</span>: <span class="s">"subscription.past_due"</span>,
+  <span class="k">"sequence"</span>: <span class="s">4</span>,
+  <span class="k">"subscription"</span>: {
+    <span class="k">"status"</span>: <span class="s">"past_due"</span>,
+    <span class="k">"entitled"</span>: <span class="s">true</span>,
+    <span class="k">"cancelAtPeriodEnd"</span>: <span class="s">false</span>
+  }
+}</pre>
+      </div>
+    </div>
+  </section>
+
+  <section id="safety">
+    <div class="wrap">
+      <h2>Built so money moves once.</h2>
+      <p class="sub">Billing mistakes are the expensive kind. The guards are layered, and each one is covered by a test written before the code.</p>
+      <div class="rows">
+        <div class="row"><b>Two workers charge the same renewal</b><span>The subscription row is locked, then status and the unpaid period are re-checked before the provider is called.</span></div>
+        <div class="row"><b>A provider replays a charge attempt</b><span>Every charge carries a dedup key built from the subscription, the period and the attempt number.</span></div>
+        <div class="row"><b>A bug slips past the lock</b><span>A database index allows at most one successful charge per subscription and period.</span></div>
+        <div class="row"><b>Your client retries a request</b><span>Two-phase idempotency keys. The same key returns the same stored response, byte for byte.</span></div>
+        <div class="row"><b>Saving a card charges it</b><span>Card capture only saves a token. It never charges.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="you" class="tint">
+    <div class="wrap">
+      <h2>You stay in control.</h2>
+      <p class="sub">Your provider account, your policy, your customers.</p>
+      <div class="split">
+        <ul class="plain">
+          <li>Your own provider account. We never hold your money.</li>
+          <li>Per-tenant policy: checkout expiry, access during dunning, whether cancellations can be resumed, and the dunning schedule.</li>
+          <li>One provider connection shared by every application of the same business.</li>
+        </ul>
+        <ul class="plain">
+          <li>A flat monthly fee per organization.</li>
+          <li>What a customer loses after cancellation is decided in your application. We report the fact.</li>
+          <li>A typed TypeScript SDK built from the published contract is in preview. <a href="/docs/sdk/">Read the SDK docs.</a></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="status">
+    <div class="wrap">
+      <h2>Where things stand.</h2>
+      <p class="sub">The core is built and tested. Some pieces are still on the way, and we would rather say so.</p>
+      <div class="grid">
+        <div class="card"><h3>Built</h3><p>Subscription state machine, creation and checkout, renewals, dunning, cancel and resume, card updates, idempotency, signed event delivery, reconciliation of pending charges, checkout expiry, organizations and provider connections, and provider credentials sealed by a managed key.</p></div>
+        <div class="card"><h3>In progress</h3><p>Production deployment, more card provider adapters, and automatic tax invoices through your invoicing account.</p></div>
+        <div class="card"><h3>Not in v1</h3><p>Plan changes and proration, trials, multiple currencies (ILS first), refunds, and app store billing. Each one is a deliberate cut.</p></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>Payment Service. Early access, details subject to change.</p>
+    <p>Bring your own card provider account. Several Israeli providers are on the way for launch.</p>
+    <p><a href="/docs/">Docs</a> · <a href="/api-reference/">API reference</a> · <a href="/docs/sdk/">SDK</a></p>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var MAX_RETRIES = 3;
+  var START = {status:"incomplete", flag:false, tries:0, seq:0};
+  var sub = Object.assign({}, START);
+
+  var NOTES = {
+    incomplete:"Created. Waiting for the customer to pay on the hosted checkout.",
+    active:"Paid through the current period. Renewals run on the anniversary.",
+    past_due:"Renewal failed. Dunning retries at +1 day, +3 days and +7 days. Access stays on while the grace policy is on.",
+    canceled:"Terminal. Every further change is refused."
+  };
+  var REFUSED = {
+    pay:"Only an incomplete subscription can be paid at checkout.",
+    renew_ok:"A renewal needs an active subscription.",
+    renew_fail:"A renewal needs an active subscription.",
+    retry_ok:"Retries only exist while past due.",
+    retry_fail:"Retries only exist while past due.",
+    cancel:"A canceled subscription is immutable. Resubscribing creates a new one."
+  };
+
+  var els = {
+    pills:document.querySelectorAll(".pill"),
+    ent:document.getElementById("f-ent"),
+    flag:document.getElementById("f-flag"),
+    tries:document.getElementById("f-try"),
+    note:document.getElementById("note"),
+    log:document.getElementById("log"),
+    buttons:document.querySelectorAll("[data-a]")
+  };
+
+  function entitled(){ return sub.status==="active" || sub.status==="past_due"; }
+
+  function esc(t){ return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;"); }
+
+  function emit(type, extra){
+    sub.seq += 1;
+    var line = '<span class="k">' + type + '</span> <span class="d">#' + sub.seq + '</span> '
+      + '<span class="d">status=</span><span class="s">' + sub.status + '</span> '
+      + '<span class="d">entitled=</span><span class="s">' + entitled() + '</span>'
+      + (extra ? ' <span class="d">' + esc(extra) + '</span>' : '');
+    var row = document.createElement("div");
+    row.className = "e";
+    row.innerHTML = line;
+    els.log.insertBefore(row, els.log.children[1] || null);
+  }
+
+  function enabled(){
+    var s = sub.status;
+    return {
+      pay: s==="incomplete",
+      renew_ok: s==="active",
+      renew_fail: s==="active" && !sub.flag,
+      retry_ok: s==="past_due",
+      retry_fail: s==="past_due",
+      cancel: s==="incomplete" || s==="past_due" || (s==="active" && !sub.flag),
+      reset: true
+    };
+  }
+
+  function render(){
+    els.pills.forEach(function(p){ p.classList.toggle("on", p.dataset.s===sub.status); });
+    els.ent.textContent = entitled() ? "yes" : "no";
+    els.flag.textContent = sub.flag ? "yes" : "no";
+    els.tries.textContent = sub.tries + " of " + MAX_RETRIES;
+    els.note.textContent = NOTES[sub.status] + (sub.flag && sub.status==="active" ? " It will not renew." : "");
+    var on = enabled();
+    els.buttons.forEach(function(b){ b.disabled = !on[b.dataset.a]; });
+  }
+
+  var HANDLERS = {
+    pay:function(){ sub.status="active"; emit("subscription.activated","charge #1 recorded"); },
+    renew_ok:function(){
+      if(sub.flag){ sub.status="canceled"; sub.flag=false; emit("subscription.canceled","no charge, flag was set"); }
+      else { emit("charge.succeeded","period advanced"); }
+    },
+    renew_fail:function(){ sub.status="past_due"; sub.tries=0; emit("charge.failed","attempt 0"); emit("subscription.past_due"); },
+    retry_ok:function(){ sub.status="active"; sub.tries=0; emit("charge.succeeded","pays the failed period"); },
+    retry_fail:function(){
+      sub.tries += 1;
+      if(sub.tries>=MAX_RETRIES){ sub.status="canceled"; emit("charge.failed","final retry"); emit("subscription.canceled","reason: payment_failure"); }
+      else { emit("charge.failed","retry " + sub.tries + " of " + MAX_RETRIES); }
+    },
+    cancel:function(){
+      if(sub.status==="active"){ sub.flag=true; emit("subscription.updated","cancelAtPeriodEnd=true"); }
+      else { sub.status="canceled"; emit("subscription.canceled","immediate"); }
+    }
+  };
+
+  function reset(){
+    sub = Object.assign({}, START);
+    els.log.innerHTML = '<div class="h">events sent to your webhook</div>';
+    render();
+  }
+
+  document.getElementById("actions").addEventListener("pointerdown", function(e){
+    var b = e.target.closest("[data-a]");
+    if(!b || b.disabled) return;
+    var a = b.dataset.a;
+    if(a==="reset"){ reset(); return; }
+    HANDLERS[a]();
+    render();
+  });
+  document.getElementById("actions").addEventListener("keydown", function(e){
+    if(e.key!=="Enter" && e.key!==" ") return;
+    var b = e.target.closest("[data-a]");
+    if(!b || b.disabled) return;
+    e.preventDefault();
+    var a = b.dataset.a;
+    if(a==="reset"){ reset(); return; }
+    HANDLERS[a]();
+    render();
+  });
+
+  reset();
+})();
+</script>
+</body>
+</html>

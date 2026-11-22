@@ -1,0 +1,50 @@
+---
+title: Limits and roadmap
+description: What Payment Service does not do in this version, the limits on field values, and what is coming next.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+We would rather tell you what is missing than have you find out in production. Each cut below is deliberate.
+
+## Not in this version
+
+| Feature | Status | Today |
+| --- | --- | --- |
+| Plan changes and proration | Not planned for v1 | A subscription stays on its plan for life. |
+| Free trials | Not planned for v1 | Every subscription starts with a payment. |
+| Refunds and credit notes | Not planned for v1 | Refund in your provider's dashboard. |
+| Several currencies in one application | Not planned for v1 | Plans support ILS and USD. Use one currency per application. |
+| App store subscriptions | Later | Card payments only. |
+| Updating a customer's billing details | Later | Set them at creation. |
+| Looking up a customer by `externalRef` | Later | Store the `customerId`. |
+| Self-serve sandbox | Later | Ask us for a test setup. |
+| Self-serve dashboard and onboarding | Later | Onboarding is done with us. |
+| API key and webhook secret rotation with overlap | Later | Rotation is done with us. |
+| Skipping retries on hard declines | Later | Every decline gets the full retry schedule. |
+
+## In progress
+
+| Feature | Detail |
+| --- | --- |
+| Tax invoices | Engine built. The first invoicing service connection is next. [Tax invoices](/docs/guides/tax-invoices/) |
+| More card providers | Several local providers are being connected for launch. |
+
+## Field limits
+
+| Field | Limit |
+| --- | --- |
+| `externalRef` | 1 to 64 characters, unique per application |
+| Customer `name`, `taxId` | 1 to 64 characters |
+| Customer `email` | A valid email, up to 254 characters |
+| Plan `name` | 1 to 64 characters |
+| `amountMinor` | A positive whole number |
+| `returnUrl` | An `http` or `https` URL |
+| `Idempotency-Key` | A UUID |
+| Idempotency key retention | 24 hours |
+| Webhook timestamp tolerance | 5 minutes |
+| Webhook delivery attempts | 8, over about 27.5 hours |
+
+<Aside type="note">
+  Missing something you need? Tell us. The roadmap is shaped by what early customers ask for.
+</Aside>

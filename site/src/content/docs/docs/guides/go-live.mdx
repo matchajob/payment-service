@@ -1,0 +1,58 @@
+---
+title: Go-live checklist
+description: Everything to check before real customers pay, from webhook handling to billing policy.
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Work through this list before you take your first real payment. Each item links to the page that explains it.
+
+## Test end to end
+
+- [ ] Ask us for a test setup. During early access there is no self-serve sandbox. We set up a test application connected to a test terminal on your card provider.
+- [ ] Run a full checkout with a test card and receive `subscription.activated`.
+- [ ] Decline a first payment and confirm you receive `charge.failed` and the subscription ends.
+- [ ] Cancel, then resume, then cancel again, and confirm your UI follows each response.
+- [ ] Start a card update and complete it.
+
+## Webhooks
+
+- [ ] Your endpoint is HTTPS and reachable from the internet. [Overview](/docs/webhooks/overview/)
+- [ ] It verifies the signature on the raw body and rejects stale timestamps. [Verify signatures](/docs/webhooks/verify-signatures/)
+- [ ] It records each `eventId` and skips repeats.
+- [ ] It stores a subscription only when the event's `sequence` is higher than the stored one.
+- [ ] It answers `2xx` within a few seconds and does slow work afterwards.
+- [ ] It answers `2xx` to event types you choose to ignore.
+- [ ] You alert on a rising rate of webhook `400`s.
+
+## API calls
+
+- [ ] The API key lives in your secret store and is used only on your server.
+- [ ] Every `POST` sends an `Idempotency-Key`, and keys for important writes are stored with your records so retries reuse them. [Idempotency](/docs/concepts/idempotency/)
+- [ ] You store each `customerId` next to your user record.
+- [ ] You handle `409` responses by reading `problem.detail`. [Errors](/docs/concepts/errors/)
+
+## Access and UI
+
+- [ ] Paid features are gated on `entitled`, not on `status`. [Grant access](/docs/guides/grant-access/)
+- [ ] The return page never treats the redirect as proof of payment. [Accept a subscription](/docs/guides/accept-a-subscription/)
+- [ ] Customers can cancel, see when their plan ends, and resume if your policy allows it.
+- [ ] `charge.failed` triggers an email with a card update link.
+- [ ] You decide and implement what a canceled customer keeps.
+
+## Policy and data
+
+- [ ] You reviewed your billing policy with us: checkout window, resume, grace access, retry schedule and time zone. [Billing policy](/docs/concepts/billing-policy/)
+- [ ] Your plans, amounts and currencies are correct. Plans cannot be edited after creation.
+- [ ] You collect billing details if you will need tax invoices for business customers. [Tax invoices](/docs/guides/tax-invoices/)
+
+<Aside type="tip">
+  Keep the test application after launch. It is the safest place to try changes to your integration.
+</Aside>
+
+## Next steps
+
+<CardGrid>
+  <LinkCard title="Money and data safety" href="/docs/concepts/safety/" />
+  <LinkCard title="Limits and roadmap" href="/docs/resources/limits/" />
+</CardGrid>

@@ -1,0 +1,90 @@
+---
+title: TypeScript SDK
+description: A typed client for the Payment Service API with built-in retries, idempotency keys and signed event verification.
+---
+
+import { Aside, LinkCard, CardGrid, Badge } from '@astrojs/starlight/components';
+
+<Badge text="Preview · 0.1.0" variant="caution" />
+
+The SDK is a small, hand-written TypeScript client for the whole API. Every request and response type comes from the same schemas the server validates with, so the client cannot drift from the service.
+
+## What you get
+
+| Feature | Detail |
+| --- | --- |
+| Typed calls | One method per endpoint. Inputs are validated before anything is sent. |
+| Unwrapped results | Methods return the object itself, without the `data` envelope. |
+| Idempotency by default | Every write sends an `Idempotency-Key`. You can pass your own. |
+| Safe retries | Network errors, timeouts, 502, 503 and 504 are retried with the same key. |
+| Typed errors | Failed calls throw a `PaymentServiceError` carrying the problem document. |
+| Event verification | `verifyAndParseEvent` checks the signature and timestamp and returns a typed event. |
+| Small footprint | ESM only. One dependency: `zod`. Uses the platform `fetch` and Web Crypto. |
+
+## Requirements
+
+- Node.js 20 or later, or any runtime with global `fetch`, `AbortSignal.timeout` and `crypto.subtle` (Bun, Deno, edge runtimes).
+- An ESM project. The package has no CommonJS build.
+- Server side only. The client holds your API key.
+
+## Install
+
+During early access the SDK is not on a public registry. We send you the package file at onboarding. Install it from the file:
+
+```sh
+pnpm add ./payment-service-sdk-0.1.0.tgz
+# or
+npm install ./payment-service-sdk-0.1.0.tgz
+```
+
+## Entry points
+
+The package exposes one entry point per job, so you only load what you use.
+
+| Import | Exports |
+| --- | --- |
+| `@payment-service/sdk` | `createClient`, type `PaymentServiceClient` |
+| `@payment-service/sdk/payment-service-error` | `PaymentServiceError` |
+| `@payment-service/sdk/verify-and-parse-event` | `verifyAndParseEvent` |
+| `@payment-service/sdk/event-verification-error` | `EventVerificationError` |
+
+## A first call
+
+```ts title="server/payments.ts"
+import { createClient } from '@payment-service/sdk';
+
+export const payments = createClient({
+  baseUrl: process.env.PAYMENTS_BASE_URL!,
+  apiKey: process.env.PAYMENTS_API_KEY!,
+});
+
+const plans = await payments.plans.list();
+```
+
+## Methods at a glance
+
+| Method | HTTP | Returns |
+| --- | --- | --- |
+| `plans.list()` | `GET /v1/plans` | `Plan[]` |
+| `customers.create(input, options?)` | `POST /v1/customers` | `Customer` |
+| `customers.get(customerId)` | `GET /v1/customers/{customerId}` | `Customer` |
+| `subscriptions.create(input, options?)` | `POST /v1/subscriptions` | `{ subscriptionId, status, checkoutUrl }` |
+| `subscriptions.get(subscriptionId)` | `GET /v1/subscriptions/{id}` | `Subscription` |
+| `subscriptions.cancel(subscriptionId, options?)` | `POST …/cancel` | `Subscription` |
+| `subscriptions.resume(subscriptionId, options?)` | `POST …/resume` | `Subscription` |
+| `subscriptions.updatePaymentMethod(subscriptionId, input, options?)` | `POST …/update-payment-method` | `{ subscriptionId, checkoutUrl }` |
+
+A test in our suite lists every route the server serves and fails if one has no SDK method, so this table is complete.
+
+<Aside type="note" title="Forward compatible">
+  The client ignores response fields it does not know yet. A field we add never breaks an installed SDK. A missing field, or a field of the wrong type, throws, so a bad answer never reaches your code with the wrong type.
+</Aside>
+
+## Next steps
+
+<CardGrid>
+  <LinkCard title="Configuration" description="Base URL, timeouts, retries and a custom fetch." href="/docs/sdk/configuration/" />
+  <LinkCard title="Subscriptions" description="Create, read, cancel, resume and update cards." href="/docs/sdk/subscriptions/" />
+  <LinkCard title="Errors and retries" description="What throws, when, and what is retried." href="/docs/sdk/errors-and-retries/" />
+  <LinkCard title="Verify events" description="Check signatures in one call." href="/docs/sdk/verify-events/" />
+</CardGrid>

@@ -1,0 +1,69 @@
+---
+title: Idempotency
+description: How the Idempotency-Key header makes every write safe to retry, and the exact rules for repeats, conflicts and expiry.
+---
+
+import { Aside, Tabs, TabItem, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Networks fail in the worst place: after the server did the work but before you got the answer. Without protection, a retry would create a second subscription. With an idempotency key, the retry returns the first answer and nothing happens twice.
+
+## The rule
+
+Every `POST` must carry an `Idempotency-Key` header holding a UUID. Reads (`GET`) do not use one.
+
+```http
+POST /v1/subscriptions
+Authorization: Bearer YOUR_API_KEY
+Idempotency-Key: 7c3a9e2b-1d4f-4a6b-8e0c-5f2d1b3a4c6e
+Content-Type: application/json
+```
+
+A missing key, or one that is not a UUID, answers `400`.
+
+## What happens to a repeat
+
+| Situation | Answer |
+| --- | --- |
+| A new key | The request runs. The answer is stored with the key. |
+| The same key and the same body, first request finished | The stored answer, byte for byte, with the same status. Nothing runs again. Errors are stored and replayed too. |
+| The same key with a different body | `422`. One key means one intent. |
+| The same key while the first request is still running | `409` with `Retry-After: 1`. Wait and retry with the same key. |
+| A key whose first request crashed mid-way | After 90 seconds the key is treated as abandoned and the next retry runs the request. Nothing from the crashed attempt was saved, so this is safe. |
+| A key older than 24 hours | Forgotten. It counts as new. |
+
+Keys are scoped to your application. Two applications can use the same UUID without affecting each other.
+
+## Choosing keys
+
+<Tabs syncKey="lang">
+  <TabItem label="Good">
+    ```ts
+    // Create the key once, when the intent is born, and save it with your record.
+    const order = await orders.insert({ userId, planId, idempotencyKey: crypto.randomUUID() });
+
+    // Every attempt, including a retry from a job queue after a crash, uses the saved key.
+    await payments.subscriptions.create(input, { idempotencyKey: order.idempotencyKey });
+    ```
+  </TabItem>
+  <TabItem label="Bad">
+    ```ts
+    // A new key on every attempt defeats the purpose: a retry is a new request.
+    await payments.subscriptions.create(input, { idempotencyKey: crypto.randomUUID() });
+    ```
+  </TabItem>
+</Tabs>
+
+<Aside type="note" title="The SDK sends a key for you">
+  If you omit `idempotencyKey`, the SDK generates one per call and reuses it for its own retries. That protects you from network blips inside one call. To protect against your process crashing and running the call again, pass a key you stored.
+</Aside>
+
+## A key is one intent
+
+Use a new key for a new intent. Canceling, then resuming, then canceling again are three intents and need three keys. Reusing the first cancel's key on the third call returns the first cancel's stored answer.
+
+## Next steps
+
+<CardGrid>
+  <LinkCard title="Errors" href="/docs/concepts/errors/" />
+  <LinkCard title="SDK retries" href="/docs/sdk/errors-and-retries/" />
+</CardGrid>

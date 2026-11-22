@@ -1,0 +1,72 @@
+---
+title: Handle failed payments
+description: What happens when a renewal is declined, how retries and grace access work, and how to help the customer recover.
+---
+
+import { Aside, Steps, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Cards expire, hit limits and get blocked. A declined renewal does not end a subscription right away. It enters a recovery period, called dunning, during which we retry the card and you nudge the customer to fix it.
+
+## The timeline
+
+With the default policy, a renewal declined on January 14 plays out like this:
+
+| When | What we do | Events you receive | `status` | `entitled` |
+| --- | --- | --- | --- | --- |
+| Jan 14 | Renewal declined | `charge.failed`, `subscription.past_due` | `past_due` | `true` |
+| Jan 15 | Retry 1 | `charge.failed` if declined | `past_due` | `true` |
+| Jan 17 | Retry 2 | `charge.failed` if declined | `past_due` | `true` |
+| Jan 21 | Retry 3, the last | `charge.failed`, then `subscription.canceled` | `canceled` | `false` |
+
+Retry times are counted from the failed renewal: 1, 3 and 7 days after it. Your schedule and your grace policy are set per application. See [Billing policy](/docs/concepts/billing-policy/).
+
+If any retry succeeds, you receive `charge.succeeded`, the subscription is `active` again, and the customer keeps their anniversary.
+
+## The paid period after recovery
+
+A successful retry pays for the period that failed. The new period starts at the original renewal date, not at the date of the retry:
+
+| | Date |
+| --- | --- |
+| Period ended, renewal declined | Jan 14 |
+| Retry 2 succeeds | Jan 17 |
+| New `currentPeriodEnd` | Feb 14 |
+
+The days of grace are covered by the payment, and the customer is still billed on the 14th.
+
+## Help the customer recover
+
+<Steps>
+
+1. **Email them on every `charge.failed`.** You get one per failed attempt, so you can send a first notice and reminders. Include a link to your billing page.
+
+2. **Show an in-app banner while `past_due`.** Use your stored subscription. Tell them access continues for now if `entitled` is `true`.
+
+3. **Offer an Update card button.** It calls [update payment method](/docs/guides/update-a-card/). When the customer saves a new card on a `past_due` subscription, we charge it right away for the failed period.
+
+4. **Handle the end.** If you receive `subscription.canceled` with `cancelReason: "payment_failure"`, remove access and offer a way back. A returning customer gets a new subscription.
+
+</Steps>
+
+<Aside type="tip" title="A card update restarts the clock">
+  If the customer updates their card and that immediate charge is also declined, the retry schedule starts over from that moment. A customer who is trying to pay gets the full schedule again instead of being canceled the next day.
+</Aside>
+
+## What counts as a failure
+
+In this version every decline is treated the same: the full schedule runs whatever the reason. We keep the provider's decline reason on each charge for support. A timeout is not a failure. A charge whose outcome is unclear is kept pending and settled by asking the provider, and only a confirmed decline moves the subscription to `past_due`.
+
+## Common questions
+
+**Can I retry a charge myself?** No. Retries follow the schedule. To charge immediately, have the customer update their card.
+
+**Can I cancel during dunning?** Yes. Canceling a `past_due` subscription ends it at once, stops the retries, and sends `subscription.canceled` with `customer_request`.
+
+**Does the customer lose access during dunning?** Only if you turn grace off. With `graceEntitlement: false`, `entitled` becomes `false` as soon as the subscription is `past_due`, and comes back when a retry succeeds.
+
+## Next steps
+
+<CardGrid>
+  <LinkCard title="Update a card" href="/docs/guides/update-a-card/" />
+  <LinkCard title="Billing periods" description="Anniversaries, month ends and time zones." href="/docs/concepts/billing-periods/" />
+</CardGrid>

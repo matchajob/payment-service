@@ -1,0 +1,110 @@
+---
+title: Grant access with entitled
+description: Keep a local copy of every subscription from events and gate your features on one computed field.
+---
+
+import { Aside, Steps, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Your app should answer "can this user use the paid features?" from its own database, in one field, without calling us. That field is `entitled`.
+
+## Why entitled and not status
+
+`status` describes the billing lifecycle. Access depends on more than that: whether the customer ever paid, and your policy for customers whose renewal failed. We compute it for you:
+
+| status | Paid at least once | Your `graceEntitlement` | `entitled` |
+| --- | --- | --- | --- |
+| `incomplete` | no | any | `false` |
+| `active` | yes | any | `true` |
+| `active` with `cancelAtPeriodEnd` | yes | any | `true` until the period ends |
+| `past_due` | yes | `true` (default) | `true` |
+| `past_due` | yes | `false` | `false` |
+| `canceled` | any | any | `false` |
+
+If you derive access from `status` yourself, a policy change on our side, such as turning grace off, will not reach your app. Reading `entitled` keeps the two in step.
+
+## Build it
+
+<Steps>
+
+1. **Add a table for subscriptions.**
+
+    ```sql title="migrations/001_payments_subscriptions.sql"
+    create table payments_subscriptions (
+      subscription_id uuid primary key,
+      customer_external_ref text not null,
+      status text not null,
+      entitled boolean not null,
+      current_period_end timestamptz,
+      cancel_at_period_end boolean not null,
+      cancel_reason text,
+      sequence integer not null
+    );
+
+    create table payments_processed_events (
+      event_id uuid primary key
+    );
+    ```
+
+2. **Apply each event in a transaction.** Skip repeats by `eventId`, skip older events by `sequence`.
+
+    ```ts title="server/billing/apply-event.ts"
+    export const applyEvent = (event: PaymentsEvent) =>
+      db.transaction(async (tx) => {
+        const fresh = await tx.query(
+          'insert into payments_processed_events (event_id) values ($1) on conflict do nothing returning event_id',
+          [event.eventId],
+        );
+        if (fresh.rowCount === 0) return;
+
+        const s = event.subscription;
+        await tx.query(
+          `insert into payments_subscriptions
+             (subscription_id, customer_external_ref, status, entitled, current_period_end, cancel_at_period_end, cancel_reason, sequence)
+           values ($1, $2, $3, $4, $5, $6, $7, $8)
+           on conflict (subscription_id) do update set
+             status = excluded.status, entitled = excluded.entitled,
+             current_period_end = excluded.current_period_end,
+             cancel_at_period_end = excluded.cancel_at_period_end,
+             cancel_reason = excluded.cancel_reason, sequence = excluded.sequence
+           where payments_subscriptions.sequence < excluded.sequence`,
+          [s.subscriptionId, s.customerExternalRef, s.status, s.entitled, s.currentPeriodEnd, s.cancelAtPeriodEnd, s.cancelReason, event.sequence],
+        );
+      });
+    ```
+
+3. **Gate features on one query.**
+
+    ```ts title="server/billing/has-access.ts"
+    export const hasPaidAccess = async (userId: string) => {
+      const { rows } = await db.query(
+        'select 1 from payments_subscriptions where customer_external_ref = $1 and entitled limit 1',
+        [userId],
+      );
+      return rows.length > 0;
+    };
+    ```
+
+4. **Store command responses too.** Canceling or resuming an `active` subscription sends no event: the subscription is still active, only `cancelAtPeriodEnd` changed. Store the subscription the command returns so your copy shows the change. Keep your stored `sequence` as it is; the next event carries a higher one and replaces the row.
+
+</Steps>
+
+<Aside type="note" title="Why entitled can stay true after cancel">
+  Canceling an active subscription keeps access until the paid period ends. `entitled` stays `true` and `cancelAtPeriodEnd` is `true`. Show "Your plan ends on …" using `currentPeriodEnd`.
+</Aside>
+
+## Showing the right message
+
+| Stored subscription | Message |
+| --- | --- |
+| `active`, no flag | "Renews on `currentPeriodEnd`" |
+| `active`, `cancelAtPeriodEnd` | "Ends on `currentPeriodEnd`" with a **Resume** button |
+| `past_due`, `entitled` | "We couldn't charge your card" with an **Update card** button |
+| `past_due`, not `entitled` | Paid features locked, **Update card** button |
+| `canceled` | "Your subscription ended" with a **Subscribe** button |
+
+## Next steps
+
+<CardGrid>
+  <LinkCard title="Handle failed payments" href="/docs/guides/failed-payments/" />
+  <LinkCard title="Billing policy" description="Turn grace access on or off." href="/docs/concepts/billing-policy/" />
+</CardGrid>

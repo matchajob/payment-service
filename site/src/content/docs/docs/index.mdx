@@ -1,0 +1,55 @@
+---
+title: Payment Service documentation
+description: Subscription billing on your own card provider account. Create subscriptions with one API call and receive signed events for every change.
+---
+
+import { Card, CardGrid, LinkCard, Aside } from '@astrojs/starlight/components';
+
+Payment Service runs subscription billing on top of your own card provider account. Your server creates customers and subscriptions through a small REST API. We host nothing your customers type a card into: they pay on your provider's page. From then on we run the whole lifecycle for you: renewals on the anniversary, retries after a declined card, cancel and resume, card updates. Every change reaches you as a signed event that carries the full subscription.
+
+<Aside type="note" title="Early access">
+  The API and the SDK are stable in shape but may still change before general availability. Onboarding is done with us: we set up your organization, application and provider connection together, then hand you an API key and a webhook secret.
+</Aside>
+
+## Start here
+
+<CardGrid>
+  <LinkCard title="Quickstart" description="Create a customer, start a subscription and receive your first event in about 15 minutes." href="/docs/quickstart/" />
+  <LinkCard title="How it works" description="The three parties, what each one does, and how money and data move between them." href="/docs/how-it-works/" />
+  <LinkCard title="API reference" description="Every endpoint, parameter, response field and error, with request samples." href="/api-reference/" />
+  <LinkCard title="TypeScript SDK" description="Typed calls, built-in retries and one-line webhook verification." href="/docs/sdk/" />
+</CardGrid>
+
+## Build your integration
+
+<CardGrid>
+  <Card title="Accept a subscription" icon="rocket">
+    Send a customer to checkout and activate their subscription when they pay. [Read the guide](/docs/guides/accept-a-subscription/).
+  </Card>
+  <Card title="Grant access" icon="approve-check">
+    Keep a local copy of each subscription from events and gate features on `entitled`. [Read the guide](/docs/guides/grant-access/).
+  </Card>
+  <Card title="Recover failed payments" icon="warning">
+    Understand retries, grace access and how a card update rescues a subscription. [Read the guide](/docs/guides/failed-payments/).
+  </Card>
+  <Card title="Receive webhooks" icon="random">
+    Verify signatures, deduplicate deliveries and apply events in the right order. [Read the guide](/docs/webhooks/overview/).
+  </Card>
+</CardGrid>
+
+## What the service does for you
+
+| You build | We run |
+| --- | --- |
+| A button that creates a subscription and redirects to `checkoutUrl` | Hosted checkout on your provider, saving the card as a token |
+| A webhook endpoint that stores the subscription it receives | Renewals on the customer's anniversary, in your time zone |
+| Feature gates that read `entitled` | Retries on your schedule after a decline, then cancellation |
+| Cancel, resume and "update card" buttons | The lifecycle rules, double-charge protection and signed, retried event delivery |
+
+## Core ideas in one minute
+
+- **Your account, your money.** Charges settle straight into your own card provider account. We never hold funds and never see a card number.
+- **Four states.** A subscription is `incomplete`, `active`, `past_due` or `canceled`, and moves only along a fixed table of transitions. [Lifecycle](/docs/concepts/lifecycle/).
+- **Access is computed for you.** Every subscription carries `entitled`. Grant access from it, not from `status`. [Grant access](/docs/guides/grant-access/).
+- **Events are the data.** Each event carries the whole subscription and a sequence number, so you never call back to find out what changed. [Webhooks](/docs/webhooks/overview/).
+- **Every write is idempotent.** Each `POST` takes an `Idempotency-Key`, so a retried request never runs twice. [Idempotency](/docs/concepts/idempotency/).

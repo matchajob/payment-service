@@ -1,0 +1,47 @@
+---
+title: Organizations and applications
+description: How your business, its products and its card provider account map onto Payment Service.
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+## The model
+
+| Level | Is | Has |
+| --- | --- | --- |
+| **Organization** | Your business, the legal entity | One or more provider connections, an optional invoicing connection, your monthly fee |
+| **Provider connection** | Your card provider account | Encrypted credentials, the provider it talks to |
+| **Application** | One product of your business | An API key, a webhook URL and secret, a billing policy, a time zone, plans, customers and subscriptions |
+
+```text
+Organization (your business)
+├── Provider connection (your card provider account)
+├── Invoicing connection (optional, your invoicing account)
+├── Application A ── API key, webhook, policy, plans, customers, subscriptions
+└── Application B ── API key, webhook, policy, plans, customers, subscriptions
+```
+
+## One provider account, many products
+
+A business with several products opens one merchant account with its card provider, with one terminal and one monthly fee, and connects every product to it. Each application stays fully separate: its own key, its own customers, its own events.
+
+<Aside type="caution" title="Same business only">
+  Sharing a provider account is allowed only between applications of the same legal entity. Letting unrelated businesses share an account is payment aggregation, which card scheme rules forbid. The data model enforces this: an application can only use a connection of its own organization.
+</Aside>
+
+## Isolation
+
+- An API key sees only its own application's records. Another application's id answers `404`, exactly like an id that does not exist.
+- Customers, plans and subscriptions belong to one application and cannot be moved.
+- Each subscription is pinned to the provider connection it was created on, because that connection holds its saved card.
+
+## Bring your own account
+
+You open the card provider account yourself and pay its fees directly. Charges settle into your account. We hold your credentials only to charge on your behalf. That keeps money flowing directly from your customers to you, and keeps us a software vendor rather than a payment facilitator.
+
+## Next steps
+
+<CardGrid>
+  <LinkCard title="Money and data safety" href="/docs/concepts/safety/" />
+  <LinkCard title="Billing policy" href="/docs/concepts/billing-policy/" />
+</CardGrid>

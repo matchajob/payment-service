@@ -1,0 +1,66 @@
+---
+title: Money and data safety
+description: How Payment Service keeps card data out of your systems and ours, prevents double charges, and handles unclear outcomes.
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Billing mistakes are the expensive kind. This page lists the protections and what each one guards against.
+
+## Card data never touches us
+
+| Rule | Effect |
+| --- | --- |
+| Cards are entered only on your provider's hosted page | Neither your servers nor ours receive a card number or security code |
+| We store and charge a provider token | A token is useless outside your provider account |
+| Saving a card never charges it | Card capture and charging are separate steps |
+
+This keeps your card data compliance scope as small as it can be.
+
+## Money never passes through us
+
+Charges settle into your own card provider account. We are not a party to the money flow, never hold balances, and never pay out.
+
+## Double charges are blocked at four layers
+
+| Layer | Guards against |
+| --- | --- |
+| The subscription row is locked during a charge, and status and the unpaid period are checked again under the lock before the provider is called | Two workers charging the same renewal |
+| Every charge carries a key built from the subscription, the period and the attempt number, and the provider rejects a repeat of the same key | A retried provider call charging twice |
+| The database allows at most one successful charge per subscription and period | A bug slipping past the lock |
+| Every API write takes an idempotency key | Your client retrying a request |
+
+## Unclear outcomes are settled, not retried
+
+When a provider call times out we do not know whether money moved. Retrying blindly could charge twice. Instead the charge is kept as **pending** and settled by asking the provider what happened, using the charge's key. Only a confirmed outcome changes the subscription.
+
+## Provider notifications are confirmed
+
+Some card providers send checkout notifications without a signature. We treat every notification as a hint: we confirm it with the provider before acting, and match it to a checkout we created. A forged notification changes nothing.
+
+## Your events are signed
+
+Every event we send carries an HMAC-SHA256 signature over the timestamp and body, keyed with your webhook secret. See [Verify signatures](/docs/webhooks/verify-signatures/).
+
+## Credentials are sealed
+
+| Protection | Detail |
+| --- | --- |
+| Encryption | Provider and invoicing credentials are encrypted with a managed key before they are stored. |
+| Binding | Each encrypted credential is bound to its own connection, so it cannot be moved to another one. |
+| Exposure | Credentials never appear in logs, in API responses or in error messages. |
+
+## Tested before it was written
+
+Every guard on this page is covered by automated tests written before the code, including tests that run concurrent charges against a real database.
+
+<Aside type="note">
+  Report a security issue to us directly during onboarding or by email. Please do not open public issues for vulnerabilities.
+</Aside>
+
+## Next steps
+
+<CardGrid>
+  <LinkCard title="How it works" href="/docs/how-it-works/" />
+  <LinkCard title="Organizations and applications" href="/docs/concepts/organizations/" />
+</CardGrid>

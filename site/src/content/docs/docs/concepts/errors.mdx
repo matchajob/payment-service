@@ -1,0 +1,64 @@
+---
+title: Errors
+description: The problem document format, every status code the API returns, and every machine-readable reason in the detail field.
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Errors are [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem documents, served with `Content-Type: application/problem+json`.
+
+```json title="409 Conflict"
+{
+  "type": "about:blank",
+  "title": "Conflict",
+  "status": 409,
+  "detail": "resume_not_allowed"
+}
+```
+
+| Field | Description |
+| --- | --- |
+| `type` | A URI for the problem type. `about:blank` for the standard HTTP problems. |
+| `title` | The HTTP status phrase. |
+| `status` | The HTTP status code. |
+| `detail` | What went wrong. For lifecycle conflicts it is a machine-readable reason; for validation errors it lists the fields. |
+| `instance` | A URI for this occurrence, when there is one. |
+
+## Status codes
+
+| Status | Meaning | Retry? |
+| --- | --- | --- |
+| `200` / `201` | Success. `201` when something was created. | No |
+| `400` | The body failed validation, or `Idempotency-Key` is missing or not a UUID. | No. Fix the request. |
+| `401` | The API key is missing or unknown. | No. Fix the key. |
+| `404` | No such record in your application, or a malformed id. | No |
+| `409` | See the reasons below. | Depends on the reason |
+| `422` | The `Idempotency-Key` was used before with a different body. | No. Use a new key. |
+| `500` | Something failed on our side. | Yes, with the same key |
+| `502` `503` `504` | We or a network hop are briefly unavailable. | Yes, with the same key and backoff |
+
+## 409 reasons
+
+| `detail` | Returned by | Meaning | What to do |
+| --- | --- | --- | --- |
+| `not_accepted_in_state` | cancel, resume, update payment method | The action does not apply in the current state. | Read the subscription and update your UI. |
+| `resume_not_allowed` | resume | Your policy turns resume off. | Hide the resume button. |
+| `charge_in_flight` | cancel | A charge for this subscription is running. Comes with `Retry-After: 60`. | Retry after a minute with the same key. |
+| `store_managed` | cancel, resume, update payment method | Reserved for app store subscriptions, not available yet. | |
+| `customer … already exists` | create customer | A customer with this `externalRef` exists. | Use the `customerId` you stored. |
+| `A request with this Idempotency-Key is in progress` | any `POST` | The first request with this key has not finished. Comes with `Retry-After: 1`. | Retry with the same key. |
+
+## 404 details
+
+`404` never reveals whether a record exists in another application. Creating a subscription answers `404` with `customer {id} not found` or `plan {id} not found`, so you know which id to check.
+
+<Aside type="tip" title="Errors are replayed">
+  A stored error is part of the idempotent answer. Retrying a request that got a `409` with the same key returns the same `409`, even if the state has changed since. Use a new key when you deliberately try again later.
+</Aside>
+
+## Next steps
+
+<CardGrid>
+  <LinkCard title="Idempotency" href="/docs/concepts/idempotency/" />
+  <LinkCard title="SDK errors" href="/docs/sdk/errors-and-retries/" />
+</CardGrid>

@@ -15,7 +15,7 @@ const infraPortabilityMessage =
 
 export default defineConfig([
   {
-    ignores: ['dist/**', 'node_modules/**', '**/*.config.{js,cjs,mjs,ts}'],
+    ignores: ['dist/**', 'node_modules/**', 'site/**', '**/*.config.{js,cjs,mjs,ts}'],
   },
   {
     files: ['**/*.ts'],

@@ -1,0 +1,172 @@
+---
+title: Quickstart
+description: Create a customer, start a subscription, send the customer to checkout and receive your first signed event.
+---
+
+import { Aside, Steps, Tabs, TabItem, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+This guide takes you from an API key to an active subscription. You will create a customer, create a subscription, send the customer to the hosted checkout, and receive `subscription.activated` on your webhook.
+
+## Before you begin
+
+You need three things from onboarding:
+
+| Item | What it is | Where it lives |
+| --- | --- | --- |
+| API base URL | The address of your Payment Service API | Your server config |
+| API key | Authenticates your server. One per application. | Your secret store, server side only |
+| Webhook secret | Signs the events we send you | Your secret store, server side only |
+
+You also need at least one plan. Plans are created with you at onboarding and listed by [`GET /v1/plans`](/api-reference/#tag/plans/GET/v1/plans).
+
+<Aside type="caution" title="Server side only">
+  The API key can create and cancel subscriptions. Never ship it to a browser or a mobile app. Your client asks your server, and your server calls us.
+</Aside>
+
+## Steps
+
+<Steps>
+
+1. **Install the SDK (optional).** The examples show the TypeScript SDK and plain HTTP. The SDK adds typed inputs, retries and webhook verification. During early access we send you the package file.
+
+    ```sh
+    pnpm add ./payment-service-sdk-0.1.0.tgz
+    ```
+
+    ```ts title="server/payments.ts"
+    import { createClient } from '@payment-service/sdk';
+
+    export const payments = createClient({
+      baseUrl: process.env.PAYMENTS_BASE_URL!,
+      apiKey: process.env.PAYMENTS_API_KEY!,
+    });
+    ```
+
+2. **List your plans** and pick the `planId` to sell.
+
+    <Tabs syncKey="lang">
+      <TabItem label="Node.js (SDK)">
+        ```ts
+        const plans = await payments.plans.list();
+        // [{ planId: '8d0c…', name: 'Pro monthly', amountMinor: 4900, currency: 'ILS', interval: 'month' }]
+        ```
+      </TabItem>
+      <TabItem label="curl">
+        ```sh
+        curl https://payments.example.com/v1/plans \
+          -H "Authorization: Bearer $PAYMENTS_API_KEY"
+        ```
+      </TabItem>
+    </Tabs>
+
+3. **Create a customer** for your user. `externalRef` is your own id for them.
+
+    <Tabs syncKey="lang">
+      <TabItem label="Node.js (SDK)">
+        ```ts
+        const customer = await payments.customers.create({
+          externalRef: 'user_42',
+          name: 'Dana Cohen',
+          email: 'dana@example.com',
+        });
+        ```
+      </TabItem>
+      <TabItem label="curl">
+        ```sh
+        curl https://payments.example.com/v1/customers \
+          -H "Authorization: Bearer $PAYMENTS_API_KEY" \
+          -H "Idempotency-Key: $(uuidgen)" \
+          -H "Content-Type: application/json" \
+          -d '{ "externalRef": "user_42", "name": "Dana Cohen", "email": "dana@example.com" }'
+        ```
+        ```json title="201 Created"
+        {
+          "data": {
+            "customerId": "3f2b6a7e-1c4d-4e1a-9b0f-2a6f0c1d9e11",
+            "externalRef": "user_42",
+            "name": "Dana Cohen",
+            "email": "dana@example.com",
+            "taxId": null
+          }
+        }
+        ```
+      </TabItem>
+    </Tabs>
+
+4. **Create a subscription** and get the checkout link. `returnUrl` is the page in your app the customer comes back to.
+
+    <Tabs syncKey="lang">
+      <TabItem label="Node.js (SDK)">
+        ```ts
+        const { subscriptionId, checkoutUrl } = await payments.subscriptions.create({
+          customerId: customer.customerId,
+          planId: plans[0].planId,
+          returnUrl: 'https://app.example.com/billing/return',
+        });
+        ```
+      </TabItem>
+      <TabItem label="curl">
+        ```sh
+        curl https://payments.example.com/v1/subscriptions \
+          -H "Authorization: Bearer $PAYMENTS_API_KEY" \
+          -H "Idempotency-Key: $(uuidgen)" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "customerId": "3f2b6a7e-1c4d-4e1a-9b0f-2a6f0c1d9e11",
+            "planId": "8d0c5e3a-7b21-4f6e-a1d2-5c9e0b7f4a33",
+            "returnUrl": "https://app.example.com/billing/return"
+          }'
+        ```
+        ```json title="201 Created"
+        {
+          "data": {
+            "subscriptionId": "b7e1c2d4-5a6f-4b3c-8d9e-0f1a2b3c4d5e",
+            "status": "incomplete",
+            "checkoutUrl": "https://pay.provider.example/checkout/…"
+          }
+        }
+        ```
+      </TabItem>
+    </Tabs>
+
+5. **Redirect the customer to `checkoutUrl`.** They enter their card on your provider's page. We never see it.
+
+6. **Receive `subscription.activated`.** When the first charge succeeds we send a signed event to your webhook URL. Verify it and store the subscription it carries.
+
+    ```ts title="app/api/payments-webhook/route.ts"
+    import { verifyAndParseEvent } from '@payment-service/sdk/verify-and-parse-event';
+    import { EventVerificationError } from '@payment-service/sdk/event-verification-error';
+
+    export const POST = async (request: Request) => {
+      const rawBody = await request.text();
+      try {
+        const event = await verifyAndParseEvent(rawBody, request.headers, process.env.PAYMENTS_WEBHOOK_SECRET!, new Date());
+        await saveSubscription(event.subscription, event.sequence); // your code
+        return new Response(null, { status: 204 });
+      } catch (error) {
+        if (error instanceof EventVerificationError) return new Response(null, { status: 400 });
+        throw error;
+      }
+    };
+    ```
+
+7. **Grant access from `entitled`.** `event.subscription.entitled` is now `true`. Gate your paid features on that field.
+
+</Steps>
+
+<Aside type="tip" title="The return page is not proof of payment">
+  The provider sends the customer to your `returnUrl` whether they paid or not. Show a "confirming your payment" state there and switch when your webhook receives `subscription.activated`, or poll your own database. Do not activate anything from the redirect.
+</Aside>
+
+## What happens next
+
+The subscription renews on the anniversary of the first payment. You receive `charge.succeeded` each time it renews, or `charge.failed` and `subscription.past_due` if the card is declined. You never have to schedule anything.
+
+## Next steps
+
+<CardGrid>
+  <LinkCard title="Accept a subscription" description="The full checkout flow, with edge cases." href="/docs/guides/accept-a-subscription/" />
+  <LinkCard title="Grant access with entitled" description="Keep a local copy of each subscription and gate features." href="/docs/guides/grant-access/" />
+  <LinkCard title="Webhooks" description="Signatures, retries and ordering." href="/docs/webhooks/overview/" />
+  <LinkCard title="Go-live checklist" description="Everything to check before real customers pay." href="/docs/guides/go-live/" />
+</CardGrid>

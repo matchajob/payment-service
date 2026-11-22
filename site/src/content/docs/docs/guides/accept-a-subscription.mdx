@@ -1,0 +1,143 @@
+---
+title: Accept a subscription
+description: Build the full checkout flow, from a Subscribe button to an active subscription, including the return page and every edge case.
+---
+
+import { Aside, Steps, Tabs, TabItem, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+In this guide you build the path from a **Subscribe** button in your app to an active, paid subscription. You will create the subscription on your server, send the customer to your provider's hosted page, handle their return, and activate access when the payment is confirmed.
+
+**You need:** an API key, a webhook endpoint that [verifies signatures](/docs/webhooks/verify-signatures/), and at least one plan.
+
+## The flow
+
+| # | Who | What happens |
+| --- | --- | --- |
+| 1 | Customer | Clicks **Subscribe** in your app. |
+| 2 | Your server | Creates a customer if needed, then a subscription. Gets `checkoutUrl`. |
+| 3 | Customer | Is redirected to your provider's hosted page and pays. |
+| 4 | Payment Service | Confirms the checkout with the provider, saves the card token, charges period one. |
+| 5 | Payment Service | Sends `subscription.activated` to your webhook. |
+| 6 | Provider | Sends the customer back to your `returnUrl`. |
+| 7 | Your app | Shows the result from your own database. |
+
+Steps 5 and 6 can happen in either order. Your return page must handle both.
+
+## Build it
+
+<Steps>
+
+1. **Create the customer once.** Create a customer the first time a user reaches billing and store the `customerId` on your user record. A second create with the same `externalRef` answers `409`.
+
+    <Tabs syncKey="lang">
+      <TabItem label="Node.js (SDK)">
+        ```ts title="server/billing/ensure-customer.ts"
+        export const ensureCustomer = async (user: User) => {
+          if (user.paymentsCustomerId) return user.paymentsCustomerId;
+          const customer = await payments.customers.create(
+            { externalRef: user.id, name: user.fullName, email: user.email },
+            { idempotencyKey: user.customerIdempotencyKey },
+          );
+          await users.update(user.id, { paymentsCustomerId: customer.customerId });
+          return customer.customerId;
+        };
+        ```
+      </TabItem>
+      <TabItem label="curl">
+        ```sh
+        curl https://payments.example.com/v1/customers \
+          -H "Authorization: Bearer $PAYMENTS_API_KEY" \
+          -H "Idempotency-Key: 2b1f6c1e-8a43-4f0e-9d2e-6c5b4a3f2e1d" \
+          -H "Content-Type: application/json" \
+          -d '{ "externalRef": "user_42", "name": "Dana Cohen", "email": "dana@example.com" }'
+        ```
+      </TabItem>
+    </Tabs>
+
+    <Aside type="tip">
+      Store the idempotency key with the user before calling. If your server crashes after we answered but before you saved the `customerId`, the retry with the same key returns the same customer.
+    </Aside>
+
+2. **Create the subscription and redirect.** Do this in the request handler behind your **Subscribe** button.
+
+    <Tabs syncKey="lang">
+      <TabItem label="Node.js (SDK)">
+        ```ts title="server/billing/subscribe.ts"
+        export const subscribe = async (user: User, planId: string) => {
+          const customerId = await ensureCustomer(user);
+          const { subscriptionId, checkoutUrl } = await payments.subscriptions.create({
+            customerId,
+            planId,
+            returnUrl: 'https://app.example.com/billing/return',
+          });
+          await pendingCheckouts.insert({ userId: user.id, subscriptionId });
+          return Response.redirect(checkoutUrl, 303);
+        };
+        ```
+      </TabItem>
+      <TabItem label="curl">
+        ```sh
+        curl https://payments.example.com/v1/subscriptions \
+          -H "Authorization: Bearer $PAYMENTS_API_KEY" \
+          -H "Idempotency-Key: 7c3a9e2b-1d4f-4a6b-8e0c-5f2d1b3a4c6e" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "customerId": "3f2b6a7e-1c4d-4e1a-9b0f-2a6f0c1d9e11",
+            "planId": "8d0c5e3a-7b21-4f6e-a1d2-5c9e0b7f4a33",
+            "returnUrl": "https://app.example.com/billing/return"
+          }'
+        ```
+        ```json title="201 Created"
+        {
+          "data": {
+            "subscriptionId": "b7e1c2d4-5a6f-4b3c-8d9e-0f1a2b3c4d5e",
+            "status": "incomplete",
+            "checkoutUrl": "https://pay.provider.example/checkout/…"
+          }
+        }
+        ```
+      </TabItem>
+    </Tabs>
+
+3. **Activate from the webhook.** When `subscription.activated` arrives, store the subscription. That is the moment the customer paid.
+
+    ```ts title="server/billing/on-event.ts"
+    if (event.type === 'subscription.activated') {
+      await applyEvent(event); // dedup by eventId, upsert by sequence
+      await sendWelcomeEmail(event.subscription.customerExternalRef);
+    }
+    ```
+
+4. **Build the return page from your own data.** The provider sends the customer back whether they paid, gave up or failed. Read your stored subscription:
+
+    | Your stored subscription | Show |
+    | --- | --- |
+    | `entitled: true` | "You're subscribed." |
+    | Still `incomplete` | "Confirming your payment…" and refresh every few seconds for up to a minute |
+    | `canceled` with `payment_failure` | "Your card was declined." and a button to try again |
+    | Nothing yet | Same as `incomplete`: the webhook may arrive a moment after the customer |
+
+    If you have waited and still have nothing, fetch the subscription with `GET /v1/subscriptions/{id}` once.
+
+</Steps>
+
+<Aside type="caution" title="Never activate from the redirect">
+  Anyone can open your `returnUrl`. Only a verified `subscription.activated` event, or a subscription you fetched from the API with `entitled: true`, proves payment.
+</Aside>
+
+## Edge cases
+
+| Situation | What happens | What you do |
+| --- | --- | --- |
+| Customer closes the payment page | The subscription stays `incomplete`. After your checkout window (12 hours by default) it is canceled with `checkout_expired`. No event is sent. | Let them click **Subscribe** again. Create a new subscription. |
+| First payment declined | The subscription is canceled with `payment_failure`. You receive `charge.failed`. | Show the decline and let them try again with a new subscription. |
+| Customer pays two checkouts | The second one to complete is canceled with `already_subscribed` and you receive `subscription.canceled` for it. The first stays active. | Nothing. Key your records by `subscriptionId`. |
+| Customer pays at the last minute | Before canceling an expired checkout we ask the provider whether it was paid. A late payment is activated, not thrown away. | Nothing. |
+| Your request times out | You do not know if the subscription was created. | Retry with the same `Idempotency-Key`. You get the same `subscriptionId` and `checkoutUrl`. |
+
+## Next steps
+
+<CardGrid>
+  <LinkCard title="Grant access with entitled" description="Keep your copy current and gate features." href="/docs/guides/grant-access/" />
+  <LinkCard title="Create a subscription in the API reference" href="/api-reference/#tag/subscriptions/POST/v1/subscriptions" />
+</CardGrid>

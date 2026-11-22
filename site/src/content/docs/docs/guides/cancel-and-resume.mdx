@@ -1,0 +1,101 @@
+---
+title: Cancel and resume
+description: Let customers cancel at the end of their paid period, take the cancellation back, or end a subscription immediately.
+---
+
+import { Aside, Tabs, TabItem, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Customers who cancel have usually paid for the current period. Payment Service keeps their access until that period ends and lets them change their mind until then.
+
+## What cancel does
+
+The same call behaves according to where the subscription is:
+
+| Status | Effect | Access | Event |
+| --- | --- | --- | --- |
+| `active` | `cancelAtPeriodEnd` becomes `true`. No more renewals. | Until `currentPeriodEnd` | None now. `subscription.canceled` (`customer_request`) when the period ends. |
+| `active`, already flagged | Nothing changes. | Until `currentPeriodEnd` | None |
+| `incomplete` | Ends at once. | Never had any | None |
+| `past_due` | Ends at once. Retries stop. | Ends now | `subscription.canceled` (`customer_request`) |
+| `canceled` | Refused: `409 not_accepted_in_state` | None | None |
+
+## Cancel
+
+<Tabs syncKey="lang">
+  <TabItem label="Node.js (SDK)">
+    ```ts
+    const subscription = await payments.subscriptions.cancel(subscriptionId);
+    // subscription.cancelAtPeriodEnd === true, subscription.entitled === true
+    ```
+  </TabItem>
+  <TabItem label="curl">
+    ```sh
+    curl -X POST https://payments.example.com/v1/subscriptions/b7e1c2d4-5a6f-4b3c-8d9e-0f1a2b3c4d5e/cancel \
+      -H "Authorization: Bearer $PAYMENTS_API_KEY" \
+      -H "Idempotency-Key: 4e5f6a7b-8c9d-4e0f-a1b2-c3d4e5f6a7b8"
+    ```
+    ```json title="200 OK"
+    {
+      "data": {
+        "subscriptionId": "b7e1c2d4-5a6f-4b3c-8d9e-0f1a2b3c4d5e",
+        "customerId": "3f2b6a7e-1c4d-4e1a-9b0f-2a6f0c1d9e11",
+        "customerExternalRef": "user_42",
+        "planId": "8d0c5e3a-7b21-4f6e-a1d2-5c9e0b7f4a33",
+        "status": "active",
+        "entitled": true,
+        "currentPeriodEnd": "2026-12-14T09:31:07.000Z",
+        "cancelAtPeriodEnd": true,
+        "cancelReason": null,
+        "canceledAt": null
+      }
+    }
+    ```
+  </TabItem>
+</Tabs>
+
+Store the returned subscription. Because no event is sent at this point, the response is how your copy learns about the flag. Show "Your plan ends on `currentPeriodEnd`".
+
+<Aside type="caution" title="charge_in_flight">
+  If a renewal or retry is being charged at that moment, cancel answers `409` with detail `charge_in_flight` and `Retry-After: 60`. Retry after a minute with the same `Idempotency-Key`. This stops a cancel from racing a charge.
+</Aside>
+
+## Resume
+
+Until the period ends, the customer can take the cancellation back. The subscription renews as if nothing happened.
+
+<Tabs syncKey="lang">
+  <TabItem label="Node.js (SDK)">
+    ```ts
+    const subscription = await payments.subscriptions.resume(subscriptionId);
+    // subscription.cancelAtPeriodEnd === false
+    ```
+  </TabItem>
+  <TabItem label="curl">
+    ```sh
+    curl -X POST https://payments.example.com/v1/subscriptions/b7e1c2d4-5a6f-4b3c-8d9e-0f1a2b3c4d5e/resume \
+      -H "Authorization: Bearer $PAYMENTS_API_KEY" \
+      -H "Idempotency-Key: 9a8b7c6d-5e4f-4a3b-9c2d-1e0f2a3b4c5d"
+    ```
+  </TabItem>
+</Tabs>
+
+| Situation | Answer |
+| --- | --- |
+| `active` and flagged | `200`, flag cleared |
+| Your policy has `resumeAllowed: false` | `409 resume_not_allowed` |
+| Not flagged, `past_due`, `incomplete` or `canceled` | `409 not_accepted_in_state` |
+
+## After the period ends
+
+When `currentPeriodEnd` passes on a flagged subscription, we do not charge. The subscription becomes `canceled` with `cancelReason: "customer_request"` and you receive `subscription.canceled`. From then on it cannot be resumed.
+
+## Bringing a customer back
+
+A canceled subscription stays canceled forever. That keeps history clean and makes replayed provider notifications harmless. To win a customer back, create a **new** subscription for the same customer, on whatever plan you offer today.
+
+## Next steps
+
+<CardGrid>
+  <LinkCard title="Subscription lifecycle" href="/docs/concepts/lifecycle/" />
+  <LinkCard title="Billing policy" description="Turn resume on or off." href="/docs/concepts/billing-policy/" />
+</CardGrid>

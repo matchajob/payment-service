@@ -1,0 +1,77 @@
+---
+title: Tax invoices
+description: How Payment Service will issue one tax invoice for every successful charge through your own invoicing account.
+---
+
+import { Aside, Steps, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+<Aside type="caution" title="Coming soon">
+  The invoicing engine is built and tested. The first invoicing service connection is the next step, so invoices are not issued yet. This page describes how it will work, so you can collect the right customer details today.
+</Aside>
+
+Israeli law requires a tax invoice for every payment. Some card providers issue them, many do not. Payment Service issues the invoice for you through **your own** invoicing account, the same way it charges through your own card provider account. The invoice is from your business to your customer. We never appear on it.
+
+## How it works
+
+| | |
+| --- | --- |
+| **Connect once** | At onboarding you connect your invoicing account to your organization. Credentials are encrypted the same way as your provider credentials. |
+| **One invoice per payment** | Every succeeded charge gets exactly one invoice: the first payment, each renewal, each successful retry and each card-update charge. |
+| **Never twice** | A failed issue is retried. Before each retry we ask the invoicing service whether the invoice already exists, so a lost answer never creates a second invoice. |
+| **No surprises for history** | Charges taken before you connected are not invoiced. |
+| **No connection, no invoices** | An application without an invoicing connection gets no invoices. |
+
+## What goes on the invoice
+
+| Invoice field | Comes from |
+| --- | --- |
+| Amount and currency | The charge |
+| Payment date | The charge |
+| Payment reference | The provider's charge reference |
+| Line description | The plan `name` |
+| Customer name | The customer's `name` |
+| Customer email | The customer's `email` |
+| Customer tax id | The customer's `taxId` |
+
+A customer without billing details gets an invoice to a walk-in customer.
+
+## Collect billing details now
+
+<Steps>
+
+1. **Ask at checkout** for the name the invoice should carry, the email it goes to, and, for business customers, the company number.
+
+2. **Pass them when you create the customer.**
+
+    ```ts
+    await payments.customers.create({
+      externalRef: user.id,
+      name: 'Acme Software Ltd',
+      email: 'billing@acme.example',
+      taxId: '515555555',
+    });
+    ```
+
+3. **Get them right the first time.** Billing details can only be set when the customer is created. There is no update endpoint yet.
+
+</Steps>
+
+<Aside type="tip" title="Business customers">
+  Give a `taxId` for every business customer. Invoices above the legal threshold for business customers need it to get an allocation number from the Tax Authority.
+</Aside>
+
+## Retries
+
+If the invoicing service fails, we retry after 1 minute, 10 minutes, 1 hour, 6 hours and 24 hours. After the sixth attempt the invoice is marked failed and our alerting fires so we can follow up with you. Charges are never held back by invoicing: a customer's subscription renews whether or not the invoice was issued yet.
+
+## Not covered
+
+- Refunds and credit notes. There are no refunds in this version.
+- Changing billing details after creation.
+
+## Next steps
+
+<CardGrid>
+  <LinkCard title="Plans and customers (SDK)" href="/docs/sdk/plans-and-customers/" />
+  <LinkCard title="Limits and roadmap" href="/docs/resources/limits/" />
+</CardGrid>

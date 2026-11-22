@@ -1,0 +1,69 @@
+---
+title: Delivery and retries
+description: When events are sent, how failed deliveries are retried, what happens after the last attempt, and the guarantees you can build on.
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+## Guarantees
+
+| Guarantee | What it means for you |
+| --- | --- |
+| **No change without its event** | The event is written in the same database transaction as the change it describes. If the change happened, the event exists. |
+| **At least once** | Every event is delivered until you acknowledge it or retries run out. The same `eventId` can arrive more than once. |
+| **Ordered by sequence, not by arrival** | Each subscription's events carry an increasing `sequence`. Deliveries can arrive out of order; apply the highest. |
+| **Signed** | Every delivery carries `Payments-Timestamp` and `Payments-Signature`. |
+
+## Retry schedule
+
+A delivery fails when your endpoint answers anything other than `2xx`, does not answer in time, or cannot be reached. Each event gets up to **8 attempts**:
+
+| Attempt | Sent after the previous attempt |
+| --- | --- |
+| 1 | Right away |
+| 2 | 5 seconds |
+| 3 | 5 minutes |
+| 4 | 30 minutes |
+| 5 | 2 hours |
+| 6 | 5 hours |
+| 7 | 10 hours |
+| 8 | 10 hours |
+
+That covers about **27.5 hours** from the first attempt, long enough to ride out a deploy gone wrong or a night-time outage.
+
+## After the last attempt
+
+An event that fails all 8 attempts is **dead-lettered**: retries stop, the event and the last error are kept, and our alerting fires. Once your endpoint is fixed, we redeliver dead-lettered events. Because every event carries a full snapshot and a sequence, redelivery after a long gap still leaves your copy correct.
+
+<Aside type="caution" title="Do not fail on purpose">
+  Answer `2xx` for an event you choose to ignore. A non-2xx answer is a failure and the event will be retried for a day.
+</Aside>
+
+## Timeouts
+
+Answer quickly. Verify the signature, save or queue the event, and return. Do slow work, such as emails or provisioning, after you answer. A delivery that does not answer in time is treated as failed and retried, even if your handler finishes later. That is one more reason to deduplicate by `eventId`.
+
+## Ordering in practice
+
+Two events for the same subscription can arrive in either order, for example when the first delivery failed and was retried after the second one succeeded.
+
+| Arrives | sequence | Stored sequence | Action |
+| --- | --- | --- | --- |
+| `charge.failed` | 4 | 3 | Store. Now 4. |
+| `charge.succeeded` | 6 | 4 | Store. Now 6. |
+| `subscription.past_due` (retried) | 5 | 6 | Ignore. Older than what you have. |
+
+Your copy ends at sequence 6, which is the true current state.
+
+## Monitoring your endpoint
+
+- Alert on a rising rate of `400` from your webhook route. It usually means a wrong secret or a body parser change.
+- Log `eventId`, `type` and `sequence` for every delivery you accept.
+- If you have been down for longer than the retry window, tell us. We redeliver what was dead-lettered.
+
+## Next steps
+
+<CardGrid>
+  <LinkCard title="Event types" href="/docs/webhooks/event-types/" />
+  <LinkCard title="Grant access with entitled" href="/docs/guides/grant-access/" />
+</CardGrid>

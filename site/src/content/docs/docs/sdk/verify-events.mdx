@@ -1,0 +1,117 @@
+---
+title: Verify events
+description: Check the signature and timestamp of a webhook delivery and get a typed event with verifyAndParseEvent.
+---
+
+import { Aside, Tabs, TabItem, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+`verifyAndParseEvent` does the whole receiving check in one call: headers, timestamp, signature, then shape. It returns a typed `OutboundEvent` or throws an `EventVerificationError`.
+
+```ts
+import { verifyAndParseEvent } from '@payment-service/sdk/verify-and-parse-event';
+import { EventVerificationError } from '@payment-service/sdk/event-verification-error';
+
+const event = await verifyAndParseEvent(rawBody, headers, webhookSecret, new Date());
+```
+
+## Parameters
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `rawBody` | `string` | The request body exactly as received. A body parsed and serialized again will not verify. |
+| `headers` | `Headers` or `Record<string, string \| undefined>` | The request headers. Names are matched without regard to case. |
+| `secret` | `string` | Your webhook secret. |
+| `now` | `Date` | The current time. Passed in so tests can control it. |
+
+## Checks, in order
+
+| Check | Fails with |
+| --- | --- |
+| `Payments-Timestamp` and `Payments-Signature` are present, and the timestamp is whole unix seconds | `invalid_headers` |
+| The timestamp is within 5 minutes of `now`, either way | `stale_timestamp` |
+| The signature is the hex HMAC-SHA256 of `timestamp.rawBody` with your secret, checked with Web Crypto's constant-time verify | `bad_signature` |
+| The body is JSON matching the published event contract | `malformed_event` |
+
+The signature is checked before the body is parsed, so an unsigned body is never parsed. An unknown event type fails the shape check.
+
+## In your framework
+
+<Tabs syncKey="framework">
+  <TabItem label="Next.js">
+    ```ts title="app/api/payments-webhook/route.ts"
+    export const POST = async (request: Request) => {
+      const rawBody = await request.text();
+      try {
+        const event = await verifyAndParseEvent(rawBody, request.headers, process.env.PAYMENTS_WEBHOOK_SECRET!, new Date());
+        await queue.add('payments-event', event);
+        return new Response(null, { status: 204 });
+      } catch (error) {
+        if (error instanceof EventVerificationError) return new Response(error.reason, { status: 400 });
+        throw error;
+      }
+    };
+    ```
+  </TabItem>
+  <TabItem label="Express">
+    ```ts title="server/webhook.ts"
+    app.post('/payments-webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+      try {
+        const rawBody = req.body.toString('utf8');
+        const headers = Object.fromEntries(Object.entries(req.headers).map(([k, v]) => [k, Array.isArray(v) ? v[0] : v]));
+        const event = await verifyAndParseEvent(rawBody, headers, process.env.PAYMENTS_WEBHOOK_SECRET!, new Date());
+        await queue.add('payments-event', event);
+        res.sendStatus(204);
+      } catch (error) {
+        if (error instanceof EventVerificationError) return res.status(400).send(error.reason);
+        throw error;
+      }
+    });
+    ```
+  </TabItem>
+  <TabItem label="Hono">
+    ```ts title="src/webhook.ts"
+    app.post('/payments-webhook', async (c) => {
+      const rawBody = await c.req.text();
+      try {
+        const event = await verifyAndParseEvent(rawBody, c.req.raw.headers, c.env.PAYMENTS_WEBHOOK_SECRET, new Date());
+        await queue.add('payments-event', event);
+        return c.body(null, 204);
+      } catch (error) {
+        if (error instanceof EventVerificationError) return c.text(error.reason, 400);
+        throw error;
+      }
+    });
+    ```
+  </TabItem>
+</Tabs>
+
+<Aside type="caution" title="Use the raw body">
+  Register the webhook route before any global JSON body parser, or use a raw parser for that route. Re-serialized JSON changes bytes and breaks the signature.
+</Aside>
+
+## Handling the typed event
+
+`event.type` is a closed union. End your switch with a `never` check and the compiler tells you when a new event type exists.
+
+```ts
+switch (event.type) {
+  case 'subscription.activated':
+  case 'subscription.past_due':
+  case 'subscription.canceled':
+  case 'charge.succeeded':
+  case 'charge.failed':
+    await applySnapshot(event.subscription, event.sequence, event.eventId);
+    break;
+  default: {
+    const unhandled: never = event.type;
+    throw new Error(`unhandled event ${unhandled}`);
+  }
+}
+```
+
+## Next steps
+
+<CardGrid>
+  <LinkCard title="Webhooks overview" href="/docs/webhooks/overview/" />
+  <LinkCard title="Event types" href="/docs/webhooks/event-types/" />
+</CardGrid>

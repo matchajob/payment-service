@@ -1,0 +1,19 @@
+:root {
+  --sl-font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  --sl-font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --sl-color-accent-low: #0a2a4d;
+  --sl-color-accent: #2997ff;
+  --sl-color-accent-high: #b8dcff;
+}
+:root[data-theme='light'] {
+  --sl-color-accent-low: #d6e9ff;
+  --sl-color-accent: #0071e3;
+  --sl-color-accent-high: #00336b;
+}
+.sl-markdown-content table {
+  display: table;
+  width: 100%;
+}
+.sl-markdown-content table code {
+  white-space: nowrap;
+}

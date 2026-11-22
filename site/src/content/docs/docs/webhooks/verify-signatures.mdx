@@ -1,0 +1,134 @@
+---
+title: Verify signatures
+description: Confirm that a webhook delivery came from Payment Service and was not replayed, with the SDK or with plain HMAC code in Node.js and Python.
+---
+
+import { Aside, Tabs, TabItem, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Anyone can send a `POST` to your webhook URL. The signature proves a delivery came from us, and the timestamp stops an old delivery from being replayed.
+
+## The scheme
+
+| Header | Contains |
+| --- | --- |
+| `Payments-Timestamp` | Unix time in whole seconds when the delivery was signed. |
+| `Payments-Signature` | Lowercase hex HMAC-SHA256 of the signed payload, keyed with your webhook secret. |
+
+The **signed payload** is the timestamp, a dot, and the raw request body:
+
+```text
+{Payments-Timestamp}.{raw body}
+```
+
+To verify:
+
+1. Read both headers. Reject the delivery if either is missing or the timestamp is not a whole number.
+2. Reject it if the timestamp is more than **300 seconds** from your clock, in either direction.
+3. Compute the HMAC-SHA256 of the signed payload with your webhook secret.
+4. Compare it to `Payments-Signature` with a constant-time comparison.
+5. Only then parse the body as JSON.
+
+## Code
+
+<Tabs syncKey="lang">
+  <TabItem label="Node.js (SDK)">
+    ```ts
+    import { verifyAndParseEvent } from '@payment-service/sdk/verify-and-parse-event';
+    import { EventVerificationError } from '@payment-service/sdk/event-verification-error';
+
+    try {
+      const event = await verifyAndParseEvent(rawBody, request.headers, secret, new Date());
+    } catch (error) {
+      if (error instanceof EventVerificationError) {
+        // error.reason: invalid_headers | stale_timestamp | bad_signature | malformed_event
+        return new Response(null, { status: 400 });
+      }
+      throw error;
+    }
+    ```
+  </TabItem>
+  <TabItem label="Node.js (no SDK)">
+    ```ts title="verify-payments-signature.ts"
+    import { createHmac, timingSafeEqual } from 'node:crypto';
+
+    const TOLERANCE_SECONDS = 300;
+
+    export const isValidDelivery = (rawBody: string, timestamp: string | null, signature: string | null, secret: string) => {
+      if (timestamp === null || signature === null || !/^\d+$/.test(timestamp)) return false;
+      if (Math.abs(Math.floor(Date.now() / 1000) - Number(timestamp)) > TOLERANCE_SECONDS) return false;
+
+      const expected = createHmac('sha256', secret).update(`${timestamp}.${rawBody}`).digest();
+      const received = Buffer.from(signature, 'hex');
+      return received.length === expected.length && timingSafeEqual(received, expected);
+    };
+    ```
+  </TabItem>
+  <TabItem label="Python">
+    ```python title="verify_payments_signature.py"
+    import hashlib
+    import hmac
+    import time
+
+    TOLERANCE_SECONDS = 300
+
+    def is_valid_delivery(raw_body: bytes, timestamp: str | None, signature: str | None, secret: str) -> bool:
+        if not timestamp or not signature or not timestamp.isdigit():
+            return False
+        if abs(int(time.time()) - int(timestamp)) > TOLERANCE_SECONDS:
+            return False
+        signed = timestamp.encode() + b"." + raw_body
+        expected = hmac.new(secret.encode(), signed, hashlib.sha256).hexdigest()
+        return hmac.compare_digest(expected, signature.lower())
+    ```
+  </TabItem>
+</Tabs>
+
+## Getting the raw body
+
+The signature covers the exact bytes we sent. Parsing the JSON and serializing it again changes whitespace and key order, and the signature no longer matches.
+
+| Framework | Raw body |
+| --- | --- |
+| Next.js route handler | `await request.text()` |
+| Express | `express.raw({ type: 'application/json' })` on the webhook route, then `req.body.toString('utf8')` |
+| Hono | `await c.req.text()` |
+| Fastify | `addContentTypeParser('application/json', { parseAs: 'string' }, …)` for the route |
+| Django | `request.body` |
+| Flask | `request.get_data()` |
+
+<Aside type="caution" title="Common mistakes">
+  - A global JSON parser runs before your webhook route and hands you a parsed object.
+  - Comparing signatures with `===`, which leaks timing information.
+  - Skipping the timestamp check, which lets an attacker replay an old valid delivery.
+  - Logging the webhook secret, or committing it to source control.
+</Aside>
+
+## Testing your verifier
+
+Sign a payload yourself with your secret and post it to your local endpoint:
+
+```sh
+SECRET='your-webhook-secret'
+BODY='{"eventId":"6a1f2b3c-4d5e-4f60-8a9b-0c1d2e3f4a5b","type":"charge.failed","sequence":1,"occurredAt":"2026-12-14T08:00:12.000Z","subscription":{"subscriptionId":"b7e1c2d4-5a6f-4b3c-8d9e-0f1a2b3c4d5e","customerId":"3f2b6a7e-1c4d-4e1a-9b0f-2a6f0c1d9e11","customerExternalRef":"user_42","planId":"8d0c5e3a-7b21-4f6e-a1d2-5c9e0b7f4a33","status":"past_due","entitled":true,"currentPeriodEnd":"2026-12-14T08:00:00.000Z","cancelAtPeriodEnd":false,"cancelReason":null,"canceledAt":null}}'
+TS=$(date +%s)
+SIG=$(printf '%s.%s' "$TS" "$BODY" | openssl dgst -sha256 -hmac "$SECRET" -hex | sed 's/^.* //')
+
+curl -i http://localhost:3000/payments-webhook \
+  -H "Content-Type: application/json" \
+  -H "Payments-Timestamp: $TS" \
+  -H "Payments-Signature: $SIG" \
+  --data-raw "$BODY"
+```
+
+Then change one character of the body and check that your endpoint answers `400`.
+
+## Rotating the secret
+
+Rotation is done with us during early access, and there is no overlap window yet. Agree on a time, deploy the new secret when we switch it, and deliveries that fail in between are retried on the normal schedule.
+
+## Next steps
+
+<CardGrid>
+  <LinkCard title="Event types" href="/docs/webhooks/event-types/" />
+  <LinkCard title="SDK: verify events" href="/docs/sdk/verify-events/" />
+</CardGrid>
