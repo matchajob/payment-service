@@ -20,6 +20,10 @@ const SDK_METHOD_FOR_ROUTE = {
   'POST /v1/subscriptions/:subscriptionId/cancel': (c: Client) => c.subscriptions.cancel,
   'POST /v1/subscriptions/:subscriptionId/resume': (c: Client) => c.subscriptions.resume,
   'POST /v1/subscriptions/:subscriptionId/update-payment-method': (c: Client) => c.subscriptions.updatePaymentMethod,
+  'GET /v1/subscriptions': (c: Client) => c.subscriptions.list,
+  'GET /v1/charges': (c: Client) => c.charges.list,
+  'GET /v1/events': (c: Client) => c.events.list,
+  'POST /v1/events/:eventId/redrive': (c: Client) => c.events.redrive,
 };
 
 describe('SDK covers every tenant-facing route (ADR 0015)', () => {

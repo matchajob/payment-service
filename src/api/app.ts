@@ -15,6 +15,8 @@ import { cronAuth } from '@/api/cron-auth';
 import type { CronTokenVerifier } from '@/api/cron-token-verifier';
 import { cronRoutes } from '@/api/routes/cron';
 import { subscriptionsRoutes } from '@/api/routes/subscriptions';
+import { chargesRoutes } from '@/api/routes/charges';
+import { eventsRoutes } from '@/api/routes/events';
 import { webhooksRoutes } from '@/api/routes/webhooks';
 import type { InvoicerFor } from '@/lib/invoicing-connections/invoicer-for';
 import type { ProviderFor } from '@/lib/provider-connections/provider-for';
@@ -48,6 +50,8 @@ export const createApp = ({ logger, db, clock, verifyCronToken, providerFor, inv
   app.route('/v1/customers', customersRoutes());
   app.route(CRON_PREFIX, cronRoutes({ clock, providerFor, invoicerFor, logger }));
   app.route('/v1/subscriptions', subscriptionsRoutes(providerFor, clock));
+  app.route('/v1/charges', chargesRoutes());
+  app.route('/v1/events', eventsRoutes(clock));
 
   app.get('/health', (c) => c.json({ ok: true }));
   app.notFound((c) => problemResponse(c, HTTP_STATUS.NOT_FOUND, c.req.path));

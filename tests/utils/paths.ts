@@ -1,5 +1,7 @@
+export const CHARGES_PATH = '/v1/charges';
 export const CUSTOMERS_PATH = '/v1/customers';
 export const DUN_PATH = '/internal/cron/dun';
+export const EVENTS_PATH = '/v1/events';
 export const DRAIN_OUTBOX_PATH = '/internal/cron/drain-outbox';
 export const HOUSEKEEPING_PATH = '/internal/cron/housekeeping';
 export const ISSUE_INVOICES_PATH = '/internal/cron/issue-invoices';

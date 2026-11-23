@@ -33,6 +33,14 @@
     {
       "name": "Subscriptions",
       "description": "A subscription bills one customer for one plan on the anniversary of the first payment. Its status moves through a fixed lifecycle: `incomplete`, `active`, `past_due`, `canceled`. Every read and command returns the same Subscription object that events carry. Grant access from `entitled`."
+    },
+    {
+      "name": "Charges",
+      "description": "A charge is one attempt to take money for a subscription: the checkout payment, a renewal or a retry. Charges are read-only: the service creates them on schedule."
+    },
+    {
+      "name": "Events",
+      "description": "Every event sent to your webhook URL, with the state of its delivery. An event whose retries ran out is `dead`. Fix your endpoint, then redrive it."
     }
   ],
   "paths": {
@@ -305,6 +313,102 @@
       }
     },
     "/v1/subscriptions": {
+      "get": {
+        "operationId": "listSubscriptions",
+        "tags": [
+          "Subscriptions"
+        ],
+        "summary": "List subscriptions",
+        "description": "Returns your subscriptions, newest first, as the same Subscription object every read and event carries. Filter by `status`. Page with `limit` and `startingAfter`.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "How many items to return, newest first. Between 1 and 100, 25 by default.",
+            "schema": {
+              "default": 25,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "startingAfter",
+            "in": "query",
+            "required": false,
+            "description": "The id of the last item of the previous page. Omit it for the first page.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "incomplete: waiting for the first payment. active: paid through currentPeriodEnd. past_due: a renewal failed and retries are running. canceled: ended for good.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "incomplete",
+                "active",
+                "past_due",
+                "canceled"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of your subscriptions.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Subscription"
+                      },
+                      "description": "Your subscriptions, newest first."
+                    },
+                    "hasMore": {
+                      "type": "boolean",
+                      "description": "Whether more items follow. Pass the last item's id as `startingAfter` to fetch them."
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "hasMore"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A query parameter failed validation, or `startingAfter` is not an id from this list. The detail names which.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or unknown.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "operationId": "createSubscription",
         "tags": [
@@ -850,6 +954,300 @@
           },
           "409": {
             "description": "The lifecycle refuses this change in the current state. The detail is the reason: `not_accepted_in_state`, `resume_not_allowed` (your policy turns resume off) or `store_managed`. A request with the same Idempotency-Key still running also answers 409.",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds to wait before retrying with the same key.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The Idempotency-Key was already used with a different request body.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/charges": {
+      "get": {
+        "operationId": "listCharges",
+        "tags": [
+          "Charges"
+        ],
+        "summary": "List charges",
+        "description": "Returns your charges, newest first. Filter by `status`: `failed` with the provider's `failureReason` is what your support team needs. Page with `limit` and `startingAfter`.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "How many items to return, newest first. Between 1 and 100, 25 by default.",
+            "schema": {
+              "default": 25,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "startingAfter",
+            "in": "query",
+            "required": false,
+            "description": "The id of the last item of the previous page. Omit it for the first page.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "pending: sent to the provider, outcome not known yet. succeeded: the money was taken. failed: the provider declined or the attempt errored.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "succeeded",
+                "failed"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of your charges.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Charge"
+                      },
+                      "description": "Your charges, newest first."
+                    },
+                    "hasMore": {
+                      "type": "boolean",
+                      "description": "Whether more items follow. Pass the last item's id as `startingAfter` to fetch them."
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "hasMore"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A query parameter failed validation, or `startingAfter` is not an id from this list. The detail names which.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or unknown.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/events": {
+      "get": {
+        "operationId": "listEvents",
+        "tags": [
+          "Events"
+        ],
+        "summary": "List events",
+        "description": "Returns the events sent to your webhook URL, newest first, with their delivery state. Filter by `deliveryStatus`: `dead` lists the events your endpoint never accepted. Page with `limit` and `startingAfter`.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "How many items to return, newest first. Between 1 and 100, 25 by default.",
+            "schema": {
+              "default": 25,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "startingAfter",
+            "in": "query",
+            "required": false,
+            "description": "The id of the last item of the previous page. Omit it for the first page.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "deliveryStatus",
+            "in": "query",
+            "required": false,
+            "description": "pending: queued or being retried. delivered: your endpoint answered 2xx. dead: retries ran out. Redrive it once your endpoint is fixed.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "delivered",
+                "dead"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of your events.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/EventDelivery"
+                      },
+                      "description": "Your events, newest first."
+                    },
+                    "hasMore": {
+                      "type": "boolean",
+                      "description": "Whether more items follow. Pass the last item's id as `startingAfter` to fetch them."
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "hasMore"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A query parameter failed validation, or `startingAfter` is not an id from this list. The detail names which.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or unknown.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/events/{eventId}/redrive": {
+      "post": {
+        "operationId": "redriveEvent",
+        "tags": [
+          "Events"
+        ],
+        "summary": "Redrive a dead event",
+        "description": "Queues a `dead` event for delivery again, now, with a fresh attempt count. It keeps its eventId and sequence, so your handler deduplicates it as usual.",
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "description": "The dead event to deliver again.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "A UUID you generate once per intended change and reuse on every retry of it. The same key with the same body returns the stored answer without running the change again. Keys are kept for 24 hours.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The event, queued again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/EventDelivery"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or unknown.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such record in your application. A record of another application answers the same way.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The event is not dead: it is still being retried or was delivered. A request with the same Idempotency-Key still running also answers 409.",
             "headers": {
               "retry-after": {
                 "description": "Seconds to wait before retrying with the same key.",
@@ -1429,6 +1827,173 @@
           }
         ],
         "description": "A signed message sent to your webhook URL. It carries the full subscription after the change."
+      },
+      "Charge": {
+        "type": "object",
+        "properties": {
+          "chargeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unique identifier for the charge."
+          },
+          "subscriptionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The subscription this charge bills."
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "first",
+              "renewal",
+              "retry",
+              "immediate_retry"
+            ],
+            "description": "first: the checkout payment. renewal: the charge for a new period. retry: a scheduled retry after a failed renewal. immediate_retry: a retry right after the customer updated their card."
+          },
+          "amountMinor": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "The amount in minor units: agorot for ILS, cents for USD."
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "ILS",
+              "USD"
+            ],
+            "description": "Three-letter ISO currency code."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "succeeded",
+              "failed"
+            ],
+            "description": "pending: sent to the provider, outcome not known yet. succeeded: the money was taken. failed: the provider declined or the attempt errored."
+          },
+          "failureReason": {
+            "description": "The provider's reason for a failed charge, as the provider worded it. Null otherwise.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "attemptedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the charge was sent to the provider, in ISO 8601 UTC."
+          }
+        },
+        "required": [
+          "chargeId",
+          "subscriptionId",
+          "kind",
+          "amountMinor",
+          "currency",
+          "status",
+          "failureReason",
+          "attemptedAt"
+        ],
+        "title": "The Charge object",
+        "description": "One attempt to take money for a subscription. A retry is a new charge.",
+        "examples": [
+          {
+            "chargeId": "3c9d8e7f-1a2b-4c3d-9e8f-7a6b5c4d3e2f",
+            "subscriptionId": "b7e1c2d4-5a6f-4b3c-8d9e-0f1a2b3c4d5e",
+            "kind": "renewal",
+            "amountMinor": 4900,
+            "currency": "ILS",
+            "status": "failed",
+            "failureReason": "card declined",
+            "attemptedAt": "2026-11-14T09:31:12.000Z"
+          }
+        ]
+      },
+      "EventDelivery": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unique identifier for the event. A retried delivery carries the same eventId."
+          },
+          "subscriptionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The subscription the event is about."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "subscription.activated",
+              "subscription.past_due",
+              "subscription.canceled",
+              "charge.succeeded",
+              "charge.failed"
+            ],
+            "description": "What happened."
+          },
+          "sequence": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "Increases with every event of the same subscription. Apply an event only if its sequence is higher than the one you stored.",
+            "examples": [
+              4
+            ]
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the change happened, in ISO 8601 UTC."
+          },
+          "deliveryStatus": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "delivered",
+              "dead"
+            ],
+            "description": "pending: queued or being retried. delivered: your endpoint answered 2xx. dead: retries ran out. Redrive it once your endpoint is fixed."
+          },
+          "attempts": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "How many deliveries were tried since the event was queued or redriven."
+          },
+          "lastError": {
+            "description": "Why the last delivery failed. Null after a success or a redrive.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "eventId",
+          "subscriptionId",
+          "type",
+          "sequence",
+          "occurredAt",
+          "deliveryStatus",
+          "attempts",
+          "lastError"
+        ],
+        "title": "The EventDelivery object",
+        "description": "An event you were sent, with the state of its delivery to your webhook URL.",
+        "examples": [
+          {
+            "eventId": "6a1f2b3c-4d5e-4f60-8a9b-0c1d2e3f4a5b",
+            "subscriptionId": "b7e1c2d4-5a6f-4b3c-8d9e-0f1a2b3c4d5e",
+            "type": "charge.failed",
+            "sequence": 2,
+            "occurredAt": "2026-11-14T09:31:12.000Z",
+            "deliveryStatus": "dead",
+            "attempts": 8,
+            "lastError": "tenant endpoint answered 500"
+          }
+        ]
       },
       "Problem": {
         "type": "object",

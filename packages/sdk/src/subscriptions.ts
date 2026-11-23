@@ -3,6 +3,9 @@ import {
   type CreateSubscriptionRequest,
 } from '@/contract/create-subscription-request';
 import { createSubscriptionResponseSchema } from '@/contract/create-subscription-response';
+import type { z } from 'zod';
+import type { subscriptionListQuerySchema } from '@/contract/subscription-list-query';
+import { subscriptionListResponseSchema } from '@/contract/subscription-list-response';
 import { subscriptionResponseSchema } from '@/contract/subscription-response';
 import {
   updatePaymentMethodRequestSchema,
@@ -12,8 +15,11 @@ import { updatePaymentMethodResponseSchema } from '@/contract/update-payment-met
 import { API_PATH, pathWithId } from '@sdk/api-path';
 import type { CallOptions } from '@sdk/client-options';
 import { HTTP_METHOD } from '@sdk/http-method';
+import { withQueryString } from '@sdk/query-string';
 import type { Requester } from '@sdk/request';
 import { SUBSCRIPTION_ACTION } from '@sdk/subscription-action';
+
+export type SubscriptionListQuery = Partial<z.output<typeof subscriptionListQuerySchema>>;
 
 export const subscriptionsResource = (request: Requester) => {
   const command = async (subscriptionId: string, action: string, options: CallOptions) =>
@@ -27,6 +33,12 @@ export const subscriptionsResource = (request: Requester) => {
     ).data;
 
   return {
+    list: (query: SubscriptionListQuery = {}) =>
+      request({
+        method: HTTP_METHOD.GET,
+        path: withQueryString(API_PATH.SUBSCRIPTIONS, query),
+        response: subscriptionListResponseSchema,
+      }),
     create: async (input: CreateSubscriptionRequest, options: CallOptions = {}) =>
       (
         await request({

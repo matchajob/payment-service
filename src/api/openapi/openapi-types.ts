@@ -2,7 +2,7 @@ export type JsonSchema = { [key: string]: unknown };
 
 export type OpenApiParameter = {
   name: string;
-  in: 'header' | 'path';
+  in: 'header' | 'path' | 'query';
   required: boolean;
   description: string;
   schema: JsonSchema;

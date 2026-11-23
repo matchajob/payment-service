@@ -38,6 +38,12 @@ export const BAD_REQUEST_RESPONSE = {
   ),
 };
 
+export const LIST_BAD_REQUEST_RESPONSE = {
+  [HTTP_STATUS.BAD_REQUEST]: problemResponse(
+    'A query parameter failed validation, or `startingAfter` is not an id from this list. The detail names which.',
+  ),
+};
+
 export const NOT_FOUND_RESPONSE = {
   [HTTP_STATUS.NOT_FOUND]: problemResponse(
     'No such record in your application. A record of another application answers the same way.',

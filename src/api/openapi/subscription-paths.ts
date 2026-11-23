@@ -5,13 +5,17 @@ import type { OpenApiPaths } from '@/api/openapi/openapi-types';
 import {
   BAD_REQUEST_RESPONSE,
   IDEMPOTENCY_RESPONSES,
+  LIST_BAD_REQUEST_RESPONSE,
   NOT_FOUND_RESPONSE,
   problemResponse,
   RETRY_WITH_SAME_KEY,
   UNAUTHORIZED_RESPONSE,
 } from '@/api/openapi/problem-responses';
 import { IDEMPOTENCY_KEY_PARAMETER, idPathParameter } from '@/api/openapi/request-parameters';
+import { queryParameters } from '@/api/openapi/query-parameters';
 import { toOpenApiSchema } from '@/api/openapi/to-openapi-schema';
+import { subscriptionListQuerySchema } from '@/contract/subscription-list-query';
+import { subscriptionListResponseSchema } from '@/contract/subscription-list-response';
 import { createSubscriptionRequestSchema } from '@/contract/create-subscription-request';
 import { createSubscriptionResponseSchema } from '@/contract/create-subscription-response';
 import { subscriptionResponseSchema } from '@/contract/subscription-response';
@@ -40,6 +44,22 @@ const commandResponses = {
 
 export const subscriptionPaths: OpenApiPaths = {
   '/v1/subscriptions': {
+    get: {
+      operationId: 'listSubscriptions',
+      tags: [API_TAG.SUBSCRIPTIONS],
+      summary: 'List subscriptions',
+      description:
+        'Returns your subscriptions, newest first, as the same Subscription object every read and event carries. Filter by `status`. Page with `limit` and `startingAfter`.',
+      parameters: queryParameters(subscriptionListQuerySchema),
+      responses: {
+        [HTTP_STATUS.OK]: jsonResponse(
+          'A page of your subscriptions.',
+          toOpenApiSchema(subscriptionListResponseSchema, 'output'),
+        ),
+        ...LIST_BAD_REQUEST_RESPONSE,
+        ...UNAUTHORIZED_RESPONSE,
+      },
+    },
     post: {
       operationId: 'createSubscription',
       tags: [API_TAG.SUBSCRIPTIONS],

@@ -17,6 +17,12 @@ import { cancelSubscription } from '@/lib/subscriptions/cancel-subscription';
 import { COMMAND_RESULT } from '@/lib/subscriptions/command-result';
 import { findSubscription } from '@/lib/subscriptions/find-subscription';
 import { resumeSubscription } from '@/lib/subscriptions/resume-subscription';
+import { subscriptionListQuerySchema } from '@/contract/subscription-list-query';
+import type { SubscriptionListResponse } from '@/contract/subscription-list-response';
+import { unknownCursorResponse } from '@/api/unknown-cursor-response';
+import { listSubscriptions } from '@/lib/subscriptions/list-subscriptions';
+import { LIST_OUTCOME } from '@/lib/pagination/list-result';
+import { toSnapshot } from '@/lib/subscriptions/to-snapshot';
 import { updatePaymentMethodRequestSchema } from '@/contract/update-payment-method-request';
 import type { UpdatePaymentMethodResponse } from '@/contract/update-payment-method-response';
 import { START_CARD_UPDATE } from '@/lib/payment-method-updates/start-card-update-outcome';
@@ -25,6 +31,7 @@ import { startPaymentMethodUpdate } from '@/lib/payment-method-updates/start-pay
 const MISSING_CUSTOMER = 'subscription references a missing customer';
 const subscriptionIdParam = zSubscriptionRead.shape.subscriptionId;
 const ID = 'subscriptionId';
+const listQuery = subscriptionListQuerySchema.extend({ startingAfter: subscriptionIdParam.optional() });
 
 const createBody = z.object({
   customerId: zSubscriptionRead.shape.customerId,
@@ -34,6 +41,18 @@ const createBody = z.object({
 
 export const subscriptionsRoutes = (providerFor: ProviderFor, clock: Clock) =>
   new Hono<AppEnv>()
+    .get('/', async (c) => {
+      const query = listQuery.safeParse(c.req.query());
+      if (!query.success) return problemResponse(c, HTTP_STATUS.BAD_REQUEST, query.error.message);
+      const tenant = c.get('tenant');
+      const result = await listSubscriptions(c.get('db'), tenant.tenantId, query.data);
+      if (result.outcome === LIST_OUTCOME.UNKNOWN_CURSOR) return unknownCursorResponse(c);
+      const body: SubscriptionListResponse = {
+        hasMore: result.hasMore,
+        data: result.items.map(({ subscription, customer, paid }) => toSnapshot(subscription, customer, tenant, paid)),
+      };
+      return c.json(body);
+    })
     .post('/', async (c) => {
       const body = createBody.safeParse(await readJsonBody(c));
       if (!body.success) return problemResponse(c, HTTP_STATUS.BAD_REQUEST, body.error.message);
